@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import { capture as captureAttribution } from './lib/attribution'
 import PricingPage from './components/PricingPage'
 import AccountPage from './components/AccountPage'
 import LoginModal from './components/LoginModal'
@@ -100,10 +99,6 @@ function Root() {
   }
   return <App />;
 }
-
-// Before React mounts: AuthContext rewrites the URL on auth redirects, which
-// would destroy the referrer and any UTM params we still need to read.
-captureAttribution();
 
 // Start whatever the visitor previously agreed to. Nothing at all on a first
 // visit: index.html only publishes the analytics initialiser, it never runs it.

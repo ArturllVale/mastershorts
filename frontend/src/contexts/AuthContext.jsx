@@ -8,7 +8,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { getApiUrl } from '../config';
 import { apiFetch, apiJson, getToken, setToken, clearToken } from '../lib/api';
 import { track, identify, reset as resetAnalytics } from '../lib/analytics';
-import { report as reportAttribution } from '../lib/attribution';
+// Removido: Módulo de atribuição não encontrado
 
 const AuthContext = createContext(null);
 // eslint-disable-next-line react-refresh/only-export-components
@@ -76,7 +76,7 @@ export function AuthProvider({ children }) {
         track('Signup', { props: { method: kind === 'verify' ? 'magic_link' : 'google' } });
         // Server-side twin of the Signup event: the one place we learn which
         // channel produced an account. Awaited but never allowed to throw.
-        await reportAttribution(apiJson);
+        // Removido: await reportAttribution(apiJson);
       }
       // Everyone lands in the app. First-time (unpaid) sign-in gets the Clip
       // Generator tutorial, not a pricing dump — they need one successful job
