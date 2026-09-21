@@ -34,6 +34,18 @@ else:
     managed_keys = None
     _alerts = None
 
+# Module-level caches for per-clip state machine data, written by enqueue_output
+# as stdout markers arrive from the child process.  Using plain dicts here avoids
+# any DB round-trips per marker — the DB proxy would issue one UPDATE per
+# sub-key write, and a missing column (schema lag) would kill the entire
+# enqueue_output loop.  The data is persisted to the job dict once, at
+# finalization, after the subprocess exits.
+# Structure: { job_id: { clip_index: state_str } }
+_clip_state_cache: dict = {}
+# Structure: { job_id: { clip_index: { exc_type, message, traceback } } }
+_clip_error_cache: dict = {}
+
+
 def _relocate_root_job_artifacts(job_id: str, job_output_dir: str) -> bool:
     """
     Backward-compat rescue:
@@ -883,43 +895,54 @@ def enqueue_output(out, job_id):
                 # Internal marker: a clip finished its whole chain and this is
                 # the file to serve for it. Consumed here like PROXY_BYTES so it
                 # never reaches the user's log.
+                #
+                # IMPORTANT: clip_states / clip_errors are written to the
+                # MODULE-LEVEL caches (_clip_state_cache, _clip_error_cache)
+                # rather than through the DB proxy (jobs[job_id][...]).  The DB
+                # proxy issues one UPDATE per sub-key, and a missing column in
+                # the SQLite file would raise OperationalError, which would
+                # propagate past the inner `except ValueError` and kill the
+                # entire enqueue_output loop — making ready_files writes fail
+                # for subsequent clips.  Module-level dicts are schema-free and
+                # never raise.  The data is merged into the job dict once, at
+                # finalization, after the subprocess exits.
                 if decoded_line.startswith("CLIP_QUEUED "):
                     try:
-                        _, idx_str = decoded_line.split(" ", 1)
-                        idx = int(idx_str.strip())
-                        if job_id in jobs:
-                            jobs[job_id].setdefault('clip_states', {})[idx] = 'queued'
-                    except (ValueError, KeyError):
+                        idx = int(decoded_line.split()[1])
+                        _clip_state_cache.setdefault(job_id, {})[idx] = 'queued'
+                    except Exception:
                         pass
                     continue
                 if decoded_line.startswith("CLIP_RENDERING "):
                     try:
-                        _, idx_str = decoded_line.split(" ", 1)
-                        idx = int(idx_str.strip())
-                        if job_id in jobs:
-                            jobs[job_id].setdefault('clip_states', {})[idx] = 'rendering'
-                    except (ValueError, KeyError):
+                        idx = int(decoded_line.split()[1])
+                        _clip_state_cache.setdefault(job_id, {})[idx] = 'rendering'
+                    except Exception:
                         pass
                     continue
                 if decoded_line.startswith("CLIP_READY "):
+                    # ready_files: keep in its own try so a clip_states error
+                    # can NEVER prevent ready_files from being recorded.
                     try:
                         _, index, filename = decoded_line.split(" ", 2)
                         if job_id in jobs:
                             jobs[job_id].setdefault('ready_files', {})[int(index)] = filename
-                            jobs[job_id].setdefault('clip_states', {})[int(index)] = 'ready'
                     except ValueError:
+                        pass
+                    # clip_states: separate try, uses module-level cache only.
+                    try:
+                        idx = int(decoded_line.split()[1])
+                        _clip_state_cache.setdefault(job_id, {})[idx] = 'ready'
+                    except Exception:
                         pass
                     continue
                 if decoded_line.startswith("CLIP_FAILED "):
                     try:
-                        _, rest = decoded_line.split(" ", 1)
-                        idx_str, json_str = rest.split(" ", 1)
-                        idx = int(idx_str)
-                        import json as _json_inner
-                        err = _json_inner.loads(json_str)
-                        if job_id in jobs:
-                            jobs[job_id].setdefault('clip_states', {})[idx] = 'failed'
-                            jobs[job_id].setdefault('clip_errors', {})[idx] = err
+                        parts = decoded_line.split(" ", 2)
+                        idx = int(parts[1])
+                        err = json.loads(parts[2])
+                        _clip_state_cache.setdefault(job_id, {})[idx] = 'failed'
+                        _clip_error_cache.setdefault(job_id, {})[idx] = err
                     except Exception:
                         pass
                     continue
