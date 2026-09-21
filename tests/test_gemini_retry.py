@@ -61,7 +61,7 @@ def test_recovers_from_two_consecutive_blips():
     assert parsed["windows"]
 
 
-def test_gives_up_after_three_attempts():
+def test_gives_up_after_six_attempts():
     models = _FakeModels(blips=99)
     with pytest.raises(Exception) as exc:
         main._run_gemini_stage(_client(models), "m", "prompt", object)

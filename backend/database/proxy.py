@@ -1,19 +1,31 @@
 import asyncio
 import json
-from .prisma_client import get_prisma
-from typing import Dict, Any, List
+import threading
 import concurrent.futures
+from typing import Dict, Any, List
+from prisma import Prisma
 
+# We manage our own isolated Prisma client instance strictly for the background event loop
+# to ensure thread safety and avoid bleeding connections across different async runtimes
+_bg_prisma = None
 _bg_loop = None
 
 def _get_bg_loop():
     global _bg_loop
     if _bg_loop is None:
         _bg_loop = asyncio.new_event_loop()
-        import threading
         t = threading.Thread(target=_bg_loop.run_forever, daemon=True)
         t.start()
     return _bg_loop
+
+async def _get_bg_prisma():
+    global _bg_prisma
+    if _bg_prisma is None:
+        _bg_prisma = Prisma(auto_register=False)
+        await _bg_prisma.connect()
+    elif not _bg_prisma.is_connected():
+        await _bg_prisma.connect()
+    return _bg_prisma
 
 def run_async(coro):
     """Run an async coroutine synchronously using a dedicated background event loop.
@@ -24,17 +36,14 @@ def run_async(coro):
 
 # Internal helper functions for Prisma
 async def _get_job(job_id: str) -> Dict[str, Any]:
-    prisma = await get_prisma()
+    prisma = await _get_bg_prisma()
     job = await prisma.job.find_unique(where={"id": job_id}, include={"logs": True})
     if job:
-        # Convert to dict
         data = job.model_dump()
-        # Parse JSON strings
         for json_field in ["cmd", "env", "ready_files", "result", "partial", "attestation"]:
             if data.get(json_field):
                 try:
                     data[json_field] = json.loads(data[json_field])
-                    # JSON dict keys are strings, but original SQLAlchemy implementation expects ints for ready_files keys
                     if json_field == "ready_files" and isinstance(data[json_field], dict):
                          data[json_field] = {int(k) if str(k).isdigit() else k: v for k, v in data[json_field].items()}
                 except Exception:
@@ -43,21 +52,14 @@ async def _get_job(job_id: str) -> Dict[str, Any]:
                 data[json_field] = {}
             elif json_field in ["cmd"]:
                 data[json_field] = []
-
-        # Parse logs
         data["logs"] = [log["message"] for log in data.get("logs", [])]
-
-        # Datetime to string
         if data.get("created_at"):
             data["created_at"] = data["created_at"].isoformat()
-
         return data
     return {}
 
 async def _create_or_update_job(job_id: str, data: Dict[str, Any]):
-    prisma = await get_prisma()
-
-    # Pre-process data
+    prisma = await _get_bg_prisma()
     update_data = {}
     for k, v in data.items():
         if k in ["cmd", "env", "ready_files", "result", "partial", "attestation"]:
@@ -65,30 +67,25 @@ async def _create_or_update_job(job_id: str, data: Dict[str, Any]):
         elif k != "logs" and k != "id" and k != "created_at":
             update_data[k] = v
 
-    # Check if exists
     job = await prisma.job.find_unique(where={"id": job_id})
     if not job:
-        # Create
         create_data = dict(update_data)
         create_data["id"] = job_id
         await prisma.job.create(data=create_data)
     else:
-        # Update
         if update_data:
             await prisma.job.update(where={"id": job_id}, data=update_data)
 
 async def _update_job_field(job_id: str, field: str, value: Any):
-    prisma = await get_prisma()
-
+    prisma = await _get_bg_prisma()
     if field in ["cmd", "env", "ready_files", "result", "partial", "attestation"]:
         val = json.dumps(value)
     else:
         val = value
-
     await prisma.job.update(where={"id": job_id}, data={field: val})
 
 async def _update_job_dict_field(job_id: str, field: str, subkey: Any, subvalue: Any):
-    prisma = await get_prisma()
+    prisma = await _get_bg_prisma()
     job = await prisma.job.find_unique(where={"id": job_id})
     if job:
         current = getattr(job, field)
@@ -96,25 +93,23 @@ async def _update_job_dict_field(job_id: str, field: str, subkey: Any, subvalue:
             current_dict = json.loads(current) if current else {}
         except Exception:
             current_dict = {}
-
         current_dict[str(subkey)] = subvalue
         await prisma.job.update(where={"id": job_id}, data={field: json.dumps(current_dict)})
 
 async def _append_job_log(job_id: str, log: str):
-    prisma = await get_prisma()
+    prisma = await _get_bg_prisma()
     await prisma.joblog.create(data={"job_id": job_id, "message": log})
 
 async def _delete_job(job_id: str):
-    prisma = await get_prisma()
+    prisma = await _get_bg_prisma()
     await prisma.job.delete(where={"id": job_id})
 
 async def _get_all_jobs() -> List[Dict[str, Any]]:
-    prisma = await get_prisma()
+    prisma = await _get_bg_prisma()
     jobs = await prisma.job.find_many(include={"logs": True})
     result = []
     for job in jobs:
         data = job.model_dump()
-        # Parse JSON strings
         for json_field in ["cmd", "env", "ready_files", "result", "partial", "attestation"]:
             if data.get(json_field):
                 try:
@@ -127,17 +122,14 @@ async def _get_all_jobs() -> List[Dict[str, Any]]:
                 data[json_field] = {}
             elif json_field in ["cmd"]:
                 data[json_field] = []
-
-        # Parse logs
         data["logs"] = [log["message"] for log in data.get("logs", [])]
-
         if data.get("created_at"):
             data["created_at"] = data["created_at"].isoformat()
         result.append(data)
     return result
 
 async def _job_exists(job_id: str) -> bool:
-    prisma = await get_prisma()
+    prisma = await _get_bg_prisma()
     job = await prisma.job.find_unique(where={"id": job_id})
     return job is not None
 
@@ -149,7 +141,6 @@ class DBJobsProxy:
     def __getitem__(self, key):
         if not run_async(_job_exists(key)):
             raise KeyError(key)
-        # return a proxy dictionary that captures modifications
         return JobDictProxy(key, run_async(_get_job(key)))
         
     def __setitem__(self, key, value):
