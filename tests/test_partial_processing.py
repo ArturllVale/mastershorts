@@ -99,7 +99,7 @@ def dirs(tmp_path, monkeypatch):
 
     async def _probe(url):
         return {"max_height": 1080, "duration": 45 * 60}
-    monkeypatch.setattr(app_module, "_probe_youtube_quality", _probe)
+    monkeypatch.setattr("routes.process._probe_youtube_quality", _probe)
     return out_root, up_root
 
 

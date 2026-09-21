@@ -40,7 +40,7 @@ def dirs(tmp_path, monkeypatch):
     captured = {}
     async def fake_enqueue(*a, **k):
         captured["args"] = a; captured["kwargs"] = k
-    monkeypatch.setattr(app_module, "_media_duration_seconds", lambda p: 120.0)
+    monkeypatch.setattr("routes.process._media_duration_seconds", lambda p: 120.0)
     return out_root, up_root, captured
 
 
