@@ -2,26 +2,25 @@ import asyncio
 import json
 from .prisma_client import get_prisma
 from typing import Dict, Any, List
+import concurrent.futures
+
+_bg_loop = None
+
+def _get_bg_loop():
+    global _bg_loop
+    if _bg_loop is None:
+        _bg_loop = asyncio.new_event_loop()
+        import threading
+        t = threading.Thread(target=_bg_loop.run_forever, daemon=True)
+        t.start()
+    return _bg_loop
 
 def run_async(coro):
-    """Run an async coroutine synchronously using the current or new event loop."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop and loop.is_running():
-        # If we're already in an event loop (e.g. FastAPI request), we can't block with run_until_complete easily.
-        # But for magic methods, we need to return synchronously.
-        # We will use a background thread or a nested event loop if needed, but standard library asyncio
-        # doesn't allow run_until_complete on a running loop.
-        # As a hack for sync methods in an async context (since Prisma is strictly async),
-        # we can use nest_asyncio if available or run in a new thread.
-        import nest_asyncio
-        nest_asyncio.apply()
-        return loop.run_until_complete(coro)
-    else:
-        return asyncio.run(coro)
+    """Run an async coroutine synchronously using a dedicated background event loop.
+    This prevents 'Event loop is closed' errors when running async code inside
+    synchronous contexts without corrupting any globally running event loops."""
+    future = asyncio.run_coroutine_threadsafe(coro, _get_bg_loop())
+    return future.result()
 
 # Internal helper functions for Prisma
 async def _get_job(job_id: str) -> Dict[str, Any]:
@@ -35,8 +34,15 @@ async def _get_job(job_id: str) -> Dict[str, Any]:
             if data.get(json_field):
                 try:
                     data[json_field] = json.loads(data[json_field])
+                    # JSON dict keys are strings, but original SQLAlchemy implementation expects ints for ready_files keys
+                    if json_field == "ready_files" and isinstance(data[json_field], dict):
+                         data[json_field] = {int(k) if str(k).isdigit() else k: v for k, v in data[json_field].items()}
                 except Exception:
                     data[json_field] = {} if json_field in ["env", "ready_files"] else []
+            elif json_field in ["env", "ready_files"]:
+                data[json_field] = {}
+            elif json_field in ["cmd"]:
+                data[json_field] = []
 
         # Parse logs
         data["logs"] = [log["message"] for log in data.get("logs", [])]
@@ -113,8 +119,14 @@ async def _get_all_jobs() -> List[Dict[str, Any]]:
             if data.get(json_field):
                 try:
                     data[json_field] = json.loads(data[json_field])
+                    if json_field == "ready_files" and isinstance(data[json_field], dict):
+                         data[json_field] = {int(k) if str(k).isdigit() else k: v for k, v in data[json_field].items()}
                 except Exception:
                     data[json_field] = {} if json_field in ["env", "ready_files"] else []
+            elif json_field in ["env", "ready_files"]:
+                data[json_field] = {}
+            elif json_field in ["cmd"]:
+                data[json_field] = []
 
         # Parse logs
         data["logs"] = [log["message"] for log in data.get("logs", [])]
