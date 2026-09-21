@@ -37,15 +37,77 @@ def _get_bg_loop():
         t.start()
     return _bg_loop
 
+async def _ensure_tables(prisma):
+    try:
+        await prisma.job.count()
+    except Exception:
+        ddl = [
+            """CREATE TABLE IF NOT EXISTS "Job" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "status" TEXT NOT NULL DEFAULT 'queued',
+                "cmd" TEXT,
+                "env" TEXT,
+                "output_dir" TEXT,
+                "attestation" TEXT,
+                "user_id" TEXT,
+                "reservation_id" TEXT,
+                "watermark" BOOLEAN NOT NULL DEFAULT false,
+                "partial" TEXT,
+                "webhook_url" TEXT,
+                "webhook_secret" TEXT,
+                "base_url" TEXT,
+                "proxy_bytes" INTEGER,
+                "proxy_route" TEXT,
+                "ready_files" TEXT,
+                "result" TEXT,
+                "error" TEXT,
+                "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );""",
+            """CREATE TABLE IF NOT EXISTS "JobLog" (
+                "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                "job_id" TEXT NOT NULL,
+                "message" TEXT NOT NULL,
+                "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT "JobLog_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "Job" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+            );""",
+            """CREATE TABLE IF NOT EXISTS "Clip" (
+                "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                "job_id" TEXT NOT NULL,
+                "title" TEXT,
+                CONSTRAINT "Clip_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "Job" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+            );""",
+            """CREATE TABLE IF NOT EXISTS "ClipAsset" (
+                "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                "clip_id" INTEGER NOT NULL,
+                "file_path" TEXT NOT NULL,
+                CONSTRAINT "ClipAsset_clip_id_fkey" FOREIGN KEY ("clip_id") REFERENCES "Clip" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+            );""",
+            """CREATE TABLE IF NOT EXISTS "WebhookDelivery" (
+                "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                "job_id" TEXT NOT NULL,
+                "status_code" INTEGER NOT NULL,
+                "response_body" TEXT,
+                CONSTRAINT "WebhookDelivery_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "Job" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+            );"""
+        ]
+        for stmt in ddl:
+            try:
+                await prisma.execute_raw(stmt)
+            except Exception:
+                pass
+
 async def _get_bg_prisma():
     global _bg_prisma
     if not os.environ.get("DATABASE_URL"):
-        os.environ["DATABASE_URL"] = "file:./dev.db"
+        db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dev.db")).replace("\\", "/")
+        os.environ["DATABASE_URL"] = f"file:{db_path}"
     if _bg_prisma is None:
         _bg_prisma = Prisma(auto_register=False)
         await _bg_prisma.connect()
+        await _ensure_tables(_bg_prisma)
     elif not _bg_prisma.is_connected():
         await _bg_prisma.connect()
+        await _ensure_tables(_bg_prisma)
     return _bg_prisma
 
 def run_async(coro):

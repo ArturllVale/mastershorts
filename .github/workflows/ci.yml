@@ -24,13 +24,15 @@ jobs:
           pip install pytest pillow httpx pydantic sqlalchemy numpy
           opencv-python-headless python-dotenv google-genai fastapi boto3
           PyJWT email-validator python-multipart aiofiles prisma nest_asyncio
-      - name: Generate Prisma Client
+      - name: Generate Prisma Client & Push Schema
         env:
-          DATABASE_URL: "file:./dev.db"
-        run: prisma generate --schema=backend/prisma/schema.prisma
+          DATABASE_URL: "file:./backend/dev.db"
+        run: |
+          prisma generate --schema=backend/prisma/schema.prisma
+          prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss
       - name: Run tests
         env:
-          DATABASE_URL: "file:./dev.db"
+          DATABASE_URL: "file:./backend/dev.db"
         run: pytest tests/ -v
 
   frontend-build:

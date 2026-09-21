@@ -15,6 +15,9 @@ if BACKEND_DIR not in sys.path:
 # variable, so this must be set here — before any test module imports app — or
 # the suite's behavior would depend on the developer's personal .env.
 os.environ["BILLING_ENABLED"] = "0"
+if "DATABASE_URL" not in os.environ:
+    dev_db = os.path.abspath(os.path.join(BACKEND_DIR, "dev.db")).replace("\\", "/")
+    os.environ["DATABASE_URL"] = f"file:{dev_db}"
 
 import pytest
 
