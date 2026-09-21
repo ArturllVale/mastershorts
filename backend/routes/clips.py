@@ -1141,6 +1141,9 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
         border_width=req.border_width, highlight_color=req.highlight_color,
         bg_color=req.bg_color, bg_opacity=req.bg_opacity,
         effect=req.effect, base_opacity=req.base_opacity, uppercase=req.uppercase,
+        max_chars=getattr(req, 'max_chars', 16),
+        max_duration=getattr(req, 'max_duration', 1.4),
+        margin_v=getattr(req, 'margin_v', 43),
     )
 
     # Output video
@@ -1199,7 +1202,8 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
                            alignment=req.position, fontsize=req.font_size,
                            font_name=req.font_name, font_color=req.font_color,
                            border_color=req.border_color, border_width=req.border_width,
-                           bg_color=req.bg_color, bg_opacity=req.bg_opacity)
+                           bg_color=req.bg_color, bg_opacity=req.bg_opacity,
+                           margin_v=getattr(req, 'margin_v', 43))
         
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, run_burn)

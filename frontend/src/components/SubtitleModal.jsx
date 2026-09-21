@@ -20,39 +20,56 @@ const swatchClass = (selected) =>
         ? 'ring-2 ring-[color:var(--color-accent)] ring-offset-2 ring-offset-[color:var(--color-paper-2)]'
         : 'ring-1 ring-[color:var(--color-rule-2)] hover:ring-[color:var(--color-accent)]'}`;
 
-export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll, onRemove, isProcessing, videoUrl, jobId, clipIndex, existingHook, bulkCount = 0, bulkProgress }) {
-    const [position, setPosition] = useState('bottom');
-    const [fontSize, setFontSize] = useState(24);
-    const [fontName, setFontName] = useState('Verdana');
-    const [fontColor, setFontColor] = useState('#FFFFFF');
-    const [highlightColor, setHighlightColor] = useState('#FFDD00');
-    const [borderColor, setBorderColor] = useState('#000000');
-    const [borderWidth, setBorderWidth] = useState(2);
-    const [bgColor, setBgColor] = useState('#000000');
-    const [bgOpacity, setBgOpacity] = useState(0.0);
-    const [animation, setAnimation] = useState('pop');
+export default function SubtitleModal({
+    isOpen,
+    onClose,
+    onGenerate,
+    onApplyAll,
+    onRemove,
+    isProcessing,
+    videoUrl,
+    jobId,
+    clipIndex,
+    existingHook,
+    existingSubtitles,
+    bulkCount = 0,
+    bulkProgress
+}) {
+    const initStyle = existingSubtitles?.style || {};
+    const [position, setPosition] = useState(existingSubtitles?.position || 'bottom');
+    const [marginV, setMarginV] = useState(initStyle.marginV ?? 43);
+    const [fontSize, setFontSize] = useState(initStyle.fontSize ? Math.round(initStyle.fontSize / 1.8) : 44);
+    const [fontName, setFontName] = useState(initStyle.fontFamily || 'Anton');
+    const [fontColor, setFontColor] = useState(initStyle.fontColor || '#FFFFFF');
+    const [highlightColor, setHighlightColor] = useState(initStyle.highlightColor || '#FFE500');
+    const [borderColor, setBorderColor] = useState(initStyle.borderColor || '#000000');
+    const [borderWidth, setBorderWidth] = useState(initStyle.borderWidth != null ? Math.round(initStyle.borderWidth / 1.5) : 4);
+    const [bgColor, setBgColor] = useState(initStyle.bgColor || '#000000');
+    const [bgOpacity, setBgOpacity] = useState(initStyle.bgOpacity ?? 0.0);
+    const [animation, setAnimation] = useState(initStyle.animation || 'pop');
     const [showTextEditor, setShowTextEditor] = useState(false);
 
     // Karaoke (server-side ASS burn) state
-    const [style, setStyle] = useState('classic'); // classic | karaoke
-    const [effect, setEffect] = useState('none'); // none | glow | pop | box
-    const [baseOpacity, setBaseOpacity] = useState(1.0);
-    const [uppercase, setUppercase] = useState(false);
-    const [activePreset, setActivePreset] = useState(null);
+    const [style, setStyle] = useState('karaoke'); // classic | karaoke
+    const [effect, setEffect] = useState('pop'); // none | glow | pop | box
+    const [baseOpacity, setBaseOpacity] = useState(initStyle.baseOpacity ?? 1.0);
+    const [uppercase, setUppercase] = useState(initStyle.uppercase ?? true);
+    const [activePreset, setActivePreset] = useState('auto');
 
     const applyPreset = (p) => {
         setActivePreset(p.id);
-        setStyle(p.style);
-        setEffect(p.effect);
-        setHighlightColor(p.highlightColor);
-        setBaseOpacity(p.baseOpacity);
-        setUppercase(p.uppercase);
-        setFontName(p.fontName);
-        setBorderWidth(p.borderWidth);
+        if (p.style) setStyle(p.style);
+        if (p.effect) setEffect(p.effect);
+        if (p.highlightColor) setHighlightColor(p.highlightColor);
+        if (p.baseOpacity != null) setBaseOpacity(p.baseOpacity);
+        if (p.uppercase != null) setUppercase(p.uppercase);
+        if (p.fontName) setFontName(p.fontName);
+        if (p.borderWidth != null) setBorderWidth(p.borderWidth);
         if (p.fontSize) setFontSize(p.fontSize);
-        setFontColor('#FFFFFF');
-        setBgOpacity(0);
-        // Keep the Remotion preview roughly in sync with the burned look
+        if (p.marginV != null) setMarginV(p.marginV);
+        setFontColor(p.fontColor || '#FFFFFF');
+        setBgOpacity(p.bgOpacity || 0);
+        // Keep the Remotion preview in sync with the burned look
         setAnimation(p.style === 'karaoke' ? (p.effect === 'pop' ? 'pop' : p.effect === 'glow' ? 'word-highlight' : 'karaoke') : 'none');
     };
 
@@ -115,7 +132,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
         position,
         style: {
             fontFamily: fontName,
-            fontSize: fontSize * 2.2, // Scale up for 1080p (modal fontSize is for small preview)
+            fontSize: fontSize * 1.8, // Scale up for 1080p preview
             fontColor,
             highlightColor,
             borderColor,
@@ -123,6 +140,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
             bgColor,
             bgOpacity,
             animation,
+            marginV,
             // Karaoke look reflected live in the playable preview.
             baseOpacity: style === 'karaoke' ? baseOpacity : 1,
             uppercase: style === 'karaoke' ? uppercase : false,
@@ -143,12 +161,13 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
         fontFamily: fontName,
         color: fontColor,
         fontSize: `${fontSize}px`,
-        fontWeight: 'bold',
+        fontWeight: /anton/i.test(fontName) ? 400 : 800,
         maxWidth: '85%',
         padding: '6px 12px',
         borderRadius: '4px',
         textAlign: 'center',
         lineHeight: '1.3',
+        textTransform: uppercase ? 'uppercase' : 'none',
         ...(bgOpacity > 0
             ? {
                 backgroundColor: `${bgColor}${Math.round(bgOpacity * 255).toString(16).padStart(2, '0')}`,
@@ -157,6 +176,14 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
             : { textShadow: outlineShadow }
         ),
     };
+
+    const marginPercent = ((marginV ?? 43) / 288) * 100;
+    const fallbackPositionStyle =
+        position === 'top'
+            ? { top: `${marginPercent}%`, bottom: 'auto' }
+            : position === 'middle' || position === 'center'
+            ? { top: '50%', transform: 'translateY(-50%)' }
+            : { bottom: `${marginPercent}%`, top: 'auto' };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} size="xl" eyebrow="EDITOR · LEGENDAS" title="Legendas">
@@ -178,11 +205,10 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                     ) : (
                         <>
                             <video src={videoUrl} className="w-full h-full object-contain opacity-50" muted playsInline />
-                            <div className={`absolute w-full px-8 text-center transition-all duration-300 pointer-events-none flex flex-col items-center justify-center
-                                ${position === 'top' ? 'top-20' : ''}
-                                ${position === 'middle' ? 'top-0 bottom-0' : ''}
-                                ${position === 'bottom' ? 'bottom-20' : ''}
-                            `}>
+                            <div
+                                className="absolute w-full px-8 text-center transition-all duration-200 pointer-events-none flex flex-col items-center justify-center"
+                                style={fallbackPositionStyle}
+                            >
                                 <span style={fallbackPreviewStyle}>
                                     É assim que suas legendas<br/>aparecerão no vídeo
                                 </span>
@@ -209,7 +235,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                         title={p.label}
                                     >
                                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.highlightColor }} />
-                                        {p.label}
+                                        <span className="truncate">{p.label}</span>
                                     </button>
                                 ))}
                             </div>
@@ -242,22 +268,74 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
 
                         {/* Position Selector */}
                         <div>
-                            <p className="eyebrow mb-2">Posição</p>
+                            <div className="flex justify-between items-center mb-2">
+                                <p className="eyebrow">Posição</p>
+                                <span className="readout">
+                                    {position === 'bottom' ? 'Rodapé' : position === 'top' ? 'Topo' : 'Centro'}
+                                </span>
+                            </div>
                             <SegmentedControl
                                 options={POSITION_OPTIONS}
                                 value={position}
-                                onChange={setPosition}
+                                onChange={(val) => {
+                                    setPosition(val);
+                                    if (val === 'middle' || val === 'center') {
+                                        setMarginV(144);
+                                    } else if (marginV > 120 || marginV < 15) {
+                                        setMarginV(43);
+                                    }
+                                }}
                                 size="sm"
                             />
                         </div>
 
-                        {/* Animation Style (new) */}
+                        {/* Fine vertical position adjustment */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <p className="eyebrow">Ajuste de Altura (Vertical)</p>
+                                <span className="readout">{Math.round((marginV / 288) * 100)}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="15"
+                                max="140"
+                                step="1"
+                                value={marginV}
+                                onChange={(e) => setMarginV(parseInt(e.target.value, 10))}
+                                className="w-full accent-[var(--color-accent)]"
+                            />
+                            <div className="flex justify-between items-center mt-0.5">
+                                <span className="readout">Mais baixo</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setMarginV(43)}
+                                    className="readout underline hover:text-ink cursor-pointer"
+                                    title="Restaurar margem padrão automática (43px / ~15%)"
+                                >
+                                    Padrão (43)
+                                </button>
+                                <span className="readout">Mais alto</span>
+                            </div>
+                        </div>
+
+                        {/* Animation Style */}
                         <div>
                             <p className="eyebrow mb-2">Animação</p>
                             <SegmentedControl
                                 options={ANIMATION_OPTIONS}
                                 value={animation}
-                                onChange={setAnimation}
+                                onChange={(val) => {
+                                    setAnimation(val);
+                                    if (val === 'none') {
+                                        setEffect('none');
+                                    } else if (val === 'word-highlight') {
+                                        setEffect('glow');
+                                    } else if (val === 'karaoke') {
+                                        setEffect('box');
+                                    } else {
+                                        setEffect('pop');
+                                    }
+                                }}
                                 columns={2}
                                 size="sm"
                             />
@@ -279,7 +357,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                         value={editableText}
                                         onChange={(e) => handleTextEdit(e.target.value)}
                                         rows={5}
-                                        className="input-field resize-none leading-relaxed animate-fade"
+                                        className="input-field resize-none leading-relaxed animate-fade text-xs"
                                         placeholder="Editar texto das legendas..."
                                     />
                                 )}
@@ -308,8 +386,8 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                             </div>
                             <input
                                 type="range"
-                                min="12"
-                                max="56"
+                                min="20"
+                                max="64"
                                 step="1"
                                 value={fontSize}
                                 onChange={(e) => setFontSize(parseInt(e.target.value, 10))}
@@ -317,7 +395,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                             />
                             <div className="flex justify-between">
                                 <span className="readout">Pequeno</span>
-                                <span className="readout">Padrão (24px)</span>
+                                <span className="readout">Padrão (44px)</span>
                                 <span className="readout">Grande</span>
                             </div>
                         </div>
@@ -326,15 +404,18 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                         <div>
                             <p className="eyebrow mb-2">Cor do texto</p>
                             <div className="flex flex-wrap items-center gap-2.5">
-                                {COLOR_PRESETS.map((c) => (
-                                    <button
-                                        key={c.color}
-                                        onClick={() => setFontColor(c.color)}
-                                        className={swatchClass(fontColor === c.color)}
-                                        style={{ backgroundColor: c.color }}
-                                        title={c.label}
-                                    />
-                                ))}
+                                {COLOR_PRESETS.map((c) => {
+                                    const col = c.color || c.value;
+                                    return (
+                                        <button
+                                            key={col}
+                                            onClick={() => setFontColor(col)}
+                                            className={swatchClass(fontColor === col)}
+                                            style={{ backgroundColor: col }}
+                                            title={c.label}
+                                        />
+                                    );
+                                })}
                                 <label className="w-6 h-6 rounded-full border border-dashed border-rule2 cursor-pointer flex items-center justify-center hover:border-brass transition-colors overflow-hidden relative" title="Cor personalizada">
                                     <span className="text-xs text-muted leading-none">+</span>
                                     <input type="color" value={fontColor} onChange={(e) => setFontColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
@@ -342,19 +423,26 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                             </div>
                         </div>
 
-                        {/* Highlight Color (new) */}
+                        {/* Highlight Color */}
                         <div>
-                            <p className="eyebrow mb-2">Destaque</p>
+                            <p className="eyebrow mb-2">Destaque da palavra</p>
                             <div className="flex flex-wrap items-center gap-2.5">
-                                {HIGHLIGHT_PRESETS.map((c) => (
-                                    <button
-                                        key={c.color}
-                                        onClick={() => setHighlightColor(c.color)}
-                                        className={swatchClass(highlightColor === c.color)}
-                                        style={{ backgroundColor: c.color }}
-                                        title={c.label}
-                                    />
-                                ))}
+                                {HIGHLIGHT_PRESETS.map((c) => {
+                                    const col = c.color || c.value;
+                                    return (
+                                        <button
+                                            key={col}
+                                            onClick={() => setHighlightColor(col)}
+                                            className={swatchClass(highlightColor === col)}
+                                            style={{ backgroundColor: col }}
+                                            title={c.label}
+                                        />
+                                    );
+                                })}
+                                <label className="w-6 h-6 rounded-full border border-dashed border-rule2 cursor-pointer flex items-center justify-center hover:border-brass transition-colors overflow-hidden relative" title="Cor personalizada">
+                                    <span className="text-xs text-muted leading-none">+</span>
+                                    <input type="color" value={highlightColor} onChange={(e) => setHighlightColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                </label>
                             </div>
                         </div>
 
@@ -370,13 +458,14 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                     <input
                                         type="range"
                                         min="0"
-                                        max="5"
+                                        max="6"
                                         value={borderWidth}
-                                        onChange={(e) => setBorderWidth(parseInt(e.target.value))}
+                                        onChange={(e) => setBorderWidth(parseInt(e.target.value, 10))}
                                         className="w-full accent-[var(--color-accent)]"
                                     />
                                     <div className="flex justify-between">
                                         <span className="readout">Nenhuma</span>
+                                        <span className="readout">Padrão (4)</span>
                                         <span className="readout">Espessa</span>
                                     </div>
                                 </div>
@@ -427,9 +516,24 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                             const textEdited = originalCaptions.length > 0
                                 && editableText.trim() !== originalCaptions.map((c) => c.text).join(' ').trim();
                             const styleOptions = {
-                                position, fontSize, fontName, fontColor, borderColor, borderWidth, bgColor, bgOpacity,
+                                position,
+                                margin_v: marginV,
+                                marginV,
+                                fontSize,
+                                fontName,
+                                fontColor,
+                                borderColor,
+                                borderWidth,
+                                bgColor,
+                                bgOpacity,
                                 // Karaoke burn (server-side ASS render)
-                                style, effect, baseOpacity, uppercase, highlightColor,
+                                style,
+                                effect,
+                                baseOpacity,
+                                uppercase,
+                                highlightColor,
+                                max_chars: 16,
+                                max_duration: 1.4,
                                 // Remotion data
                                 remotion: useRemotionPreview ? subtitleConfig : null,
                                 captions: textEdited ? captions : null,

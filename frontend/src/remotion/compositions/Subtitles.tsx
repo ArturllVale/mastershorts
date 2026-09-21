@@ -72,7 +72,15 @@ const SubtitleBlock: React.FC<SubtitleBlockProps> = ({
   const currentTimeMs = blockStartMs + (frame / fps) * 1000;
   const activeIndex = getActiveWordIndex(block.words, currentTimeMs);
 
-  const positionStyle = POSITION_MAP[position] ?? POSITION_MAP.bottom;
+  const marginPercent = ((style.marginV ?? 43) / 288) * 100;
+  let positionStyle: React.CSSProperties;
+  if (position === "top") {
+    positionStyle = { top: `${marginPercent}%`, bottom: "auto" };
+  } else if (position === "middle" || position === "center") {
+    positionStyle = { top: "50%", transform: "translateY(-50%)" };
+  } else {
+    positionStyle = { bottom: `${marginPercent}%`, top: "auto" };
+  }
   const fontStack = getFontStack(style.fontFamily);
 
   // Background box style
@@ -222,7 +230,7 @@ const WordSpan: React.FC<WordSpanProps> = ({
       style={{
         fontFamily: fontStack,
         fontSize: style.fontSize,
-        fontWeight: 700,
+        fontWeight: /anton/i.test(style.fontFamily || "") ? 400 : 800,
         color: animation === "karaoke" && isActive ? undefined : color,
         textShadow:
           animation !== "karaoke"

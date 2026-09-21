@@ -354,7 +354,7 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
     if final_fontsize < 10:
         final_fontsize = 10
 
-    align_map = {'top': 8, 'middle': 5, 'bottom': 2}
+    align_map = {'top': 8, 'middle': 5, 'center': 5, 'bottom': 2}
     ass_alignment = align_map.get(str(alignment).lower(), 2)
 
     # On a SPLIT scene the two speakers are stacked and the seam between the
@@ -509,9 +509,9 @@ def _sanitize_font_name(name):
 
 
 def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
-                   font_name="Verdana", font_color="#FFFFFF",
-                   border_color="#000000", border_width=2,
-                   bg_color="#000000", bg_opacity=0.0):
+                   font_name="Anton", font_color="#FFFFFF",
+                   border_color="#000000", border_width=4,
+                   bg_color="#000000", bg_opacity=0.0, margin_v=SAFE_MARGIN_V):
     """
     Burns subtitles into the video using FFmpeg.
     Supports two modes:
@@ -522,9 +522,9 @@ def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
     ass_alignment = 2
     align_lower = str(alignment).lower()
     if align_lower == 'top':
-        ass_alignment = 6
-    elif align_lower == 'middle':
-        ass_alignment = 10
+        ass_alignment = 8
+    elif align_lower in ('middle', 'center'):
+        ass_alignment = 5
     elif align_lower == 'bottom':
         ass_alignment = 2
 
@@ -567,13 +567,17 @@ def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
         f"BorderStyle={border_style},"
         f"Outline={outline_width},"
         f"Shadow=0,"
-        f"MarginV={SAFE_MARGIN_V},"
+        f"MarginV={int(_clamp_number(margin_v, 0, 200, SAFE_MARGIN_V))},"
         f"Bold=1"
     )
 
-    # Let libass see the fonts bundled with the app (e.g. Anton for Impact)
+    # Let libass see the fonts bundled with the app (e.g. Anton, Montserrat, Inter)
     # even when the system fontconfig has no cache for them.
-    fonts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+    repo_root_fonts = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "fonts"))
+    if os.path.isdir(repo_root_fonts) and any(f.lower().endswith(('.ttf', '.otf')) for f in os.listdir(repo_root_fonts)):
+        fonts_dir = repo_root_fonts
+    else:
+        fonts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
     safe_fonts_dir = _escape_ffmpeg_filter_value(fonts_dir)
 
     # The first option is named explicitly (filename=) rather than positional:

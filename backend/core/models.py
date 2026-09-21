@@ -23,19 +23,22 @@ class CaptionWordIn(BaseModel):
 class SubtitleRequest(BaseModel):
     job_id: str
     clip_index: int
-    position: str = "bottom" # top, middle, bottom
-    font_size: int = 16
-    font_name: str = "Verdana"
+    position: str = "bottom" # top, middle, center, bottom
+    font_size: int = 44
+    font_name: str = "Anton"
     font_color: str = "#FFFFFF"
     border_color: str = "#000000"
-    border_width: int = 2
+    border_width: int = 4
     bg_color: str = "#000000"
     bg_opacity: float = 0.0
-    style: str = "classic"  # classic (uniform color) or karaoke (word highlight)
-    highlight_color: str = "#FFD700"
-    effect: str = "none"  # none | glow | pop | box (karaoke only)
+    style: str = "karaoke"  # classic (uniform color) or karaoke (word highlight)
+    highlight_color: str = "#FFE500"
+    effect: str = "pop"  # none | glow | pop | box (karaoke only)
     base_opacity: float = 1.0  # opacity of non-active words (dimmed modern look)
-    uppercase: bool = False
+    uppercase: bool = True
+    margin_v: int = 43
+    max_chars: int = 16
+    max_duration: float = 1.4
     input_filename: Optional[str] = None
     # User-edited caption words. When present, the burn uses them VERBATIM
     # instead of regenerating from the stored transcript — without this, text
