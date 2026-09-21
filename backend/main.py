@@ -2181,7 +2181,13 @@ if __name__ == '__main__':
             # 5. Process clips in parallel: each worker cuts + renders one
             # clip. Renders are mostly ffmpeg subprocesses (parallelize well);
             # detector inference is serialized internally via DETECT_LOCK.
+            import traceback as _traceback
+            import json as _json
+
             def _process_one_clip(i, clip):
+                # Signal to the parent process that this clip is now being rendered.
+                print(f"CLIP_RENDERING {i}", flush=True)
+
                 start = clip['start']
                 end = clip['end']
                 print(f"\n🎬 Gerando corte {i+1} de {len(shorts)}…", flush=True)
@@ -2241,15 +2247,42 @@ if __name__ == '__main__':
 
             clip_workers = max(int(os.environ.get("CLIP_WORKERS", "3")), 1)
             shorts = clips_data['shorts']
+            # Mark all clips as queued before submitting to the executor so the
+            # parent process sees an explicit initial state for every clip.
+            for _qi in range(len(shorts)):
+                print(f"CLIP_QUEUED {_qi}", flush=True)
             with ThreadPoolExecutor(max_workers=min(clip_workers, len(shorts))) as pool:
                 futures = {pool.submit(_process_one_clip, i, clip): i
                            for i, clip in enumerate(shorts)}
+                _clip_outcomes: dict[int, str] = {}  # index -> "ready" | "failed"
                 for future in as_completed(futures):
                     i = futures[future]
                     try:
                         future.result()
+                        # CLIP_READY already printed inside _process_one_clip on
+                        # success; record the outcome here for JOB_CLIPS_DONE.
+                        _clip_outcomes[i] = "ready"
                     except Exception as e:
+                        _clip_outcomes[i] = "failed"
+                        # Emit structured failure marker so the parent (job_queue.py)
+                        # can record exc_type, message and truncated traceback per clip
+                        # without swallowing the exception silently.
+                        _tb_text = _traceback.format_exc()[:2000]
+                        _err_payload = _json.dumps({
+                            "exc_type": type(e).__name__,
+                            "message": str(e)[:500],
+                            "traceback": _tb_text,
+                        }, ensure_ascii=False)
+                        print(f"CLIP_FAILED {i} {_err_payload}", flush=True)
                         print(f"   ❌ Clip {i+1} failed: {type(e).__name__}: {e}")
+
+            # Signal to the parent how many clips landed in each terminal state
+            # so it can apply the canonical job-status policy without re-scanning
+            # the filesystem (which is unreliable when clips are still being written).
+            _n_ready = sum(1 for s in _clip_outcomes.values() if s == "ready")
+            _n_failed = sum(1 for s in _clip_outcomes.values() if s == "failed")
+            print(f"JOB_CLIPS_DONE {_n_ready} {_n_failed}", flush=True)
+
 
             # Persist per-clip render results added by the workers (auto_hook)
             # so the editor can see what is already burned into each clip.

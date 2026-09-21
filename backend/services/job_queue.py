@@ -883,14 +883,58 @@ def enqueue_output(out, job_id):
                 # Internal marker: a clip finished its whole chain and this is
                 # the file to serve for it. Consumed here like PROXY_BYTES so it
                 # never reaches the user's log.
+                if decoded_line.startswith("CLIP_QUEUED "):
+                    try:
+                        _, idx_str = decoded_line.split(" ", 1)
+                        idx = int(idx_str.strip())
+                        if job_id in jobs:
+                            jobs[job_id].setdefault('clip_states', {})[idx] = 'queued'
+                    except (ValueError, KeyError):
+                        pass
+                    continue
+                if decoded_line.startswith("CLIP_RENDERING "):
+                    try:
+                        _, idx_str = decoded_line.split(" ", 1)
+                        idx = int(idx_str.strip())
+                        if job_id in jobs:
+                            jobs[job_id].setdefault('clip_states', {})[idx] = 'rendering'
+                    except (ValueError, KeyError):
+                        pass
+                    continue
                 if decoded_line.startswith("CLIP_READY "):
                     try:
                         _, index, filename = decoded_line.split(" ", 2)
                         if job_id in jobs:
                             jobs[job_id].setdefault('ready_files', {})[int(index)] = filename
+                            jobs[job_id].setdefault('clip_states', {})[int(index)] = 'ready'
                     except ValueError:
                         pass
                     continue
+                if decoded_line.startswith("CLIP_FAILED "):
+                    try:
+                        _, rest = decoded_line.split(" ", 1)
+                        idx_str, json_str = rest.split(" ", 1)
+                        idx = int(idx_str)
+                        import json as _json_inner
+                        err = _json_inner.loads(json_str)
+                        if job_id in jobs:
+                            jobs[job_id].setdefault('clip_states', {})[idx] = 'failed'
+                            jobs[job_id].setdefault('clip_errors', {})[idx] = err
+                    except Exception:
+                        pass
+                    continue
+                if decoded_line.startswith("JOB_CLIPS_DONE "):
+                    # Informational: parent already has per-clip states via CLIP_READY/
+                    # CLIP_FAILED. Log it for debugging but don't update state here
+                    # (run_job finalizes the job status after the process exits).
+                    try:
+                        parts = decoded_line.split()
+                        n_ready, n_failed = int(parts[1]), int(parts[2])
+                        print(f"📊 [Job {job_id}] clips done: {n_ready} ready, {n_failed} failed")
+                    except Exception:
+                        pass
+                    continue
+
                 if decoded_line.startswith("PROXY_BYTES="):
                     try:
                         if job_id in jobs:
@@ -995,15 +1039,14 @@ async def run_job(job_id, job_data):
         returncode = process.returncode
         
         if returncode == 0:
-            jobs[job_id]['status'] = 'completed'
             jobs[job_id]['logs'].append("Process finished successfully.")
-            
+
             # Self-host: silent AWS S3 backup. Cloud mode stores to R2 instead
             # (see _archive_managed_job), so skip the redundant/paid AWS upload.
             if not BILLING_ENABLED:
                 loop = asyncio.get_event_loop()
                 loop.run_in_executor(None, upload_job_artifacts, output_dir, job_id)
-            
+
             # Find result JSON
             json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
             if not json_files:
@@ -1011,9 +1054,9 @@ async def run_job(job_id, job_data):
                 if _relocate_root_job_artifacts(job_id, output_dir):
                     json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
             if json_files:
-                target_json = json_files[0] 
+                target_json = json_files[0]
                 data = await read_json_async(target_json)
-                
+
                 # Enhance result with video URLs
                 base_name = os.path.basename(target_json).replace('_metadata.json', '')
                 clips = data.get('shorts', [])
@@ -1021,20 +1064,39 @@ async def run_job(job_id, job_data):
 
                 rendered, missing = _clips_actually_rendered(
                     job_id, output_dir, base_name, clips)
-                if not rendered:
-                    # Nothing to hand over: fail the job so _settle_reservation
-                    # releases the minutes instead of committing them.
-                    jobs[job_id]['status'] = 'failed'
+
+                # ── Canonical job-status policy ──────────────────────────────
+                # Drive the final status from the per-clip states recorded by
+                # enqueue_output (CLIP_READY / CLIP_FAILED markers). Fall back
+                # to the filesystem check when no clip-state markers arrived
+                # (e.g. main.py from an older deploy or a skip-analysis run).
+                from services.clip_state import compute_job_status as _compute_job_status
+                clip_states_map = (jobs.get(job_id) or {}).get('clip_states') or {}
+                if clip_states_map:
+                    clip_statuses = list(clip_states_map.values())
+                    final_status = _compute_job_status(clip_statuses)
+                else:
+                    # Legacy fallback: no markers → derive from filesystem
+                    final_status = 'completed' if rendered else 'failed'
+
+                jobs[job_id]['status'] = final_status
+
+                if final_status == 'failed' and not rendered:
                     jobs[job_id]['logs'].append(
                         "No clips could be rendered from this video.")
                 else:
                     if missing:
                         jobs[job_id]['logs'].append(
                             f"⚠️ {missing} of {len(clips)} clips failed to render.")
+                    if final_status == 'partial':
+                        n_failed = sum(1 for s in clip_states_map.values() if s == 'failed')
+                        jobs[job_id]['logs'].append(
+                            f"⚠️ Job finished partially: {len(rendered)} clips ready, "
+                            f"{n_failed} failed.")
                     jobs[job_id]['result'] = {'clips': rendered, 'cost_analysis': cost_analysis}
             else:
-                 jobs[job_id]['status'] = 'failed'
-                 jobs[job_id]['logs'].append("No metadata file generated.")
+                jobs[job_id]['status'] = 'failed'
+                jobs[job_id]['logs'].append("No metadata file generated.")
         else:
             jobs[job_id]['status'] = 'failed'
             jobs[job_id]['logs'].append(_scrub_secrets(f"Process failed with exit code {returncode}"))
@@ -1121,17 +1183,34 @@ async def _notify_job_webhook(job_id):
     if not url or job.get('webhook_sent'):
         return
     job['webhook_sent'] = True
-    completed = job.get('status') == 'completed'
+    status = job.get('status')
+    # completed and partial both have at least one ready clip to deliver.
+    has_clips = status in ('completed', 'partial')
     payload = {
-        "event": "job.completed" if completed else "job.failed",
+        "event": "job.completed" if has_clips else "job.failed",
         "job_id": job_id,
-        "status": job.get('status'),
-        "clips": (await _webhook_clip_entries(job_id, job)) if completed else [],
+        "job_status": status,    # canonical field — consumers should use this
+        "status": status,        # backward-compat alias
+        "clips": (await _webhook_clip_entries(job_id, job)) if has_clips else [],
     }
-    if not completed:
+    # Include per-clip state details so consumers can act on individual failures.
+    clip_states_map = job.get('clip_states') or {}
+    if clip_states_map:
+        # Normalise to a list ordered by clip index.
+        max_idx = max(int(k) for k in clip_states_map)
+        payload["clip_states"] = [
+            clip_states_map.get(i, "unknown") for i in range(max_idx + 1)
+        ]
+        clip_errors_map = job.get('clip_errors') or {}
+        if clip_errors_map:
+            payload["clip_errors"] = {
+                str(k): v for k, v in clip_errors_map.items()
+            }
+    if not has_clips:
         payload["error"] = _job_error_text(job.get('logs', []))[-500:]
     body = json.dumps(payload).encode()
     asyncio.create_task(_deliver_webhook(url, body, job.get('webhook_secret')))
+
 
 
 async def _settle_reservation(job_id):
@@ -1142,7 +1221,7 @@ async def _settle_reservation(job_id):
     if not reservation_id:
         return
     try:
-        if job.get('status') == 'completed':
+        if job.get('status') in ('completed', 'partial'):
             await cloud.metering.commit_reservation(reservation_id)
         else:
             await cloud.metering.release_reservation(reservation_id)

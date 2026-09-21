@@ -28,8 +28,19 @@ class Job(Base):
     ready_files = Column(JSON, default=dict)
     result = Column(JSON, nullable=True)
     error = Column(String, nullable=True)
-    
+
+    # Per-clip state machine: dict[int, str] mapping clip index to canonical
+    # state (queued | rendering | ready | failed). Written by job_queue.py as
+    # it parses CLIP_QUEUED / CLIP_RENDERING / CLIP_READY / CLIP_FAILED stdout
+    # markers emitted by main.py workers.
+    clip_states = Column(JSON, nullable=True)
+
+    # Per-clip failure details: dict[int, {exc_type, message, traceback}].
+    # Only populated for clips that reached state "failed".
+    clip_errors = Column(JSON, nullable=True)
+
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
     
     def to_dict(self):
         return {
@@ -52,5 +63,7 @@ class Job(Base):
             'ready_files': {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in (self.ready_files or {}).items()},
             'result': self.result,
             'error': self.error,
+            'clip_states': {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in (self.clip_states or {}).items()},
+            'clip_errors': {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in (self.clip_errors or {}).items()},
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }
