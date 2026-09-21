@@ -1,0 +1,122 @@
+# ==========================================
+# Video & Media files
+# ==========================================
+*.mp4
+*.webm
+*.mov
+*.mkv
+*.avi
+
+# ==========================================
+# AI Models & Weights
+# ==========================================
+*.pt
+*.onnx
+*.bin
+yolov8n.pt
+**/yolov8n.pt
+
+# ==========================================
+# Python & Virtual Environments
+# ==========================================
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# Node & Frontend
+# ==========================================
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+frontend/dist/
+.eslintcache
+
+# ==========================================
+# Databases & Local Storage
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+jobs.db
+**/jobs.db
+
+# ==========================================
+# Runtime Dirs, Temp & Outputs
+# ==========================================
+temp_*
+videos/
+output/*
+!output/.gitkeep
+backend/output/*
+!backend/output/.gitkeep
+uploads/*
+!uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ==========================================
+# Secrets & Environment Variables
+# ==========================================
+.env
+.env.local
+.env.*.local
+.env.cloud.example
+CLAUDE.local.md
+
+# ==========================================
+# IDE & Operating System
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ==========================================
+# Generated Metadata & Caches
+# ==========================================
+*_metadata.json
+.cache/
+.config/
+.worktrees
+
+# ==========================================
+# Multi-agent Skills
+# ==========================================
+.agents/
+.agent/
+.claude/
+skills/*
+!skills/openshorts/
+skills-lock.json

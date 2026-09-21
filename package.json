@@ -1,0 +1,17 @@
+{
+  "name": "master-shorts",
+  "version": "1.0.0",
+  "description": "AI-powered vertical video shorts generator platform",
+  "scripts": {
+    "dev:backend": "uvicorn app:app --app-dir backend --port 8000 --reload",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "npm --prefix frontend run build",
+    "install:frontend": "npm --prefix frontend install",
+    "install:backend": "pip install -r backend/requirements.txt",
+    "install:all": "npm install && npm run install:frontend && npm run install:backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
