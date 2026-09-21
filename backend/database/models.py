@@ -49,7 +49,7 @@ class Job(Base):
             'base_url': self.base_url,
             'proxy_bytes': self.proxy_bytes,
             'proxy_route': self.proxy_route,
-            'ready_files': self.ready_files or {},
+            'ready_files': {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in (self.ready_files or {}).items()},
             'result': self.result,
             'error': self.error,
             'created_at': self.created_at.isoformat() if self.created_at else None,

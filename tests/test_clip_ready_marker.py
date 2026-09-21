@@ -10,6 +10,7 @@ main.py now announces each clip once its whole chain is done and names the file
 to serve; app.py consumes the marker the way it already consumes PROXY_BYTES.
 """
 import io
+import os
 
 import pytest
 
@@ -69,7 +70,8 @@ class TestMainAnnouncesTheDeliveredFile:
         Announcing the pre-caption path would put the poller back on a file the
         pipeline is about to supersede, which is the bug this fixes.
         """
-        main_src = open("main.py", encoding="utf-8").read()
+        main_path = "main.py" if os.path.exists("main.py") else os.path.join(os.path.dirname(__file__), "..", "backend", "main.py")
+        main_src = open(main_path, encoding="utf-8").read()
         caption_at = main_src.index("captioned = auto_caption_clip(")
         marker_at = main_src.index('print(f"CLIP_READY {i} "')
         assert caption_at < marker_at

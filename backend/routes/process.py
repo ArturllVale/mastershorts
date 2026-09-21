@@ -693,7 +693,8 @@ def _locate_source(job_id: str):
         meta_files = glob.glob(os.path.join(OUTPUT_DIR, job_id, "*_metadata.json"))
         if meta_files:
             with open(meta_files[0], 'r') as f:
-                name = json.load(f)
+                data = json.load(f)
+            name = data.get('source_video') if isinstance(data, dict) else None
             if name:
                 candidate = os.path.join(OUTPUT_DIR, job_id, os.path.basename(name))
                 if os.path.exists(candidate):

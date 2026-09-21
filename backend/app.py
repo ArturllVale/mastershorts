@@ -34,7 +34,9 @@ from services.job_queue import (
     process_queue, cleanup_jobs, _resume_interrupted_jobs, _recover_jobs_from_disk,
     run_job, _canonical_clip_file, _strip_burned_captions, _strip_burned_hook,
     _reapply_captions, _install_drain_signal_handler, _handover_watch,
-    _write_instance_marker, _resume_scan, _purge_local_jobs_for_user
+    _write_instance_marker, _resume_scan, _purge_local_jobs_for_user,
+    enqueue_output, _job_error_text, _sweep_retained_sources, INSTANCE_ID,
+    _draining, _running_jobs, _clips_actually_rendered
 )
 
 from typing import Any, Dict, Optional, List
@@ -1591,3 +1593,7 @@ from routes.process import router as process_router
 app.include_router(thumbnails_router)
 app.include_router(clips_router)
 app.include_router(process_router)
+from routes.process import (
+    _probe_youtube_quality, _media_duration_seconds, _source_signature,
+    _signed_source_url, _presented_status, layout_env
+)

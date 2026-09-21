@@ -27,6 +27,11 @@ import sys
 
 # Must happen before importing app: import-time prints would land on stdout.
 _PROTOCOL_OUT = sys.stdout
+if hasattr(_PROTOCOL_OUT, "reconfigure"):
+    try:
+        _PROTOCOL_OUT.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 sys.stdout = sys.stderr
 
 from starlette.requests import Request  # noqa: E402
@@ -80,13 +85,20 @@ def _write(response: dict) -> None:
 async def _stdin_lines():
     """Yield stdin lines without blocking the loop (tool calls run for minutes)."""
     loop = asyncio.get_running_loop()
-    reader = asyncio.StreamReader()
-    await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin)
-    while True:
-        line = await reader.readline()
-        if not line:  # EOF: the host closed the pipe
-            return
-        yield line
+    if sys.platform == "win32":
+        while True:
+            line = await loop.run_in_executor(None, sys.stdin.readline)
+            if not line:
+                return
+            yield line
+    else:
+        reader = asyncio.StreamReader()
+        await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin)
+        while True:
+            line = await reader.readline()
+            if not line:  # EOF: the host closed the pipe
+                return
+            yield line
 
 
 async def _serve() -> None:

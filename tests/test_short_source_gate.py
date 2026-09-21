@@ -77,6 +77,8 @@ def test_long_url_source_passes(dirs, monkeypatch):
 def test_gate_disabled_lets_short_sources_through(dirs, monkeypatch):
     _stub_probe(monkeypatch, duration=24)
     monkeypatch.setattr(app_module, "MIN_SOURCE_SECONDS", 0)
+    from routes import process as process_route
+    monkeypatch.setattr(process_route, "MIN_SOURCE_SECONDS", 0)
     resp = _post_process({"url": "https://www.youtube.com/watch?v=short", "acknowledged": True})
     assert resp.status_code == 200
 

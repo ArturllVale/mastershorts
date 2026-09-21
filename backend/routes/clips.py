@@ -14,12 +14,13 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Body, Form, File, UploadFile
 from pydantic import BaseModel
 
-from core.config import OUTPUT_DIR, MIN_SOURCE_SECONDS, BILLING_ENABLED
+from core.config import OUTPUT_DIR, UPLOAD_DIR, MIN_SOURCE_SECONDS, BILLING_ENABLED
 from core.state import jobs, _running_jobs
 from services.job_queue import (
     _canonical_clip_file, _strip_burned_captions, _strip_burned_hook,
     _reapply_captions, _archive_clip_edit_bg
 )
+from routes.process import _locate_source, _signed_source_url
 
 # We need some helper functions from app.py or elsewhere
 from app import (
@@ -43,6 +44,9 @@ from subtitles import generate_srt, generate_ass, burn_subtitles, generate_srt_f
 from hooks import add_hook_to_video
 
 router = APIRouter()
+_FRAMING_STRATEGIES = {"auto": None, "full": "WIDE", "track": "TRACK"}
+_rerender_locks: Dict[str, asyncio.Lock] = {}
+_scenes_locks: Dict[str, asyncio.Lock] = {}
 
 
 @router.post("/api/edit")
@@ -527,6 +531,10 @@ async def _rerender_locked(req: RerenderRequest, request: Request, job):
         mem_clips = (job.get('result') or {}).get('clips') or []
         if req.clip_index < len(mem_clips):
             mem_clips[req.clip_index].update(updates)
+            res = dict(job.get('result') or {})
+            res['clips'] = mem_clips
+            if req.job_id in jobs:
+                jobs[req.job_id]['result'] = res
 
         _archive_clip_edit_bg(req.job_id, req.clip_index, served_name)
         if reservation_id:
@@ -849,6 +857,10 @@ async def _reframe_locked(req: ReframeRequest, request: Request, job, overrides)
         mem_clips = (job.get('result') or {}).get('clips') or []
         if req.clip_index < len(mem_clips):
             mem_clips[req.clip_index].update(updates)
+            res = dict(job.get('result') or {})
+            res['clips'] = mem_clips
+            if req.job_id in jobs:
+                jobs[req.job_id]['result'] = res
 
         _archive_clip_edit_bg(req.job_id, req.clip_index, served_name)
         if reservation_id:
