@@ -1,9 +1,28 @@
 import asyncio
 import json
+import os
 import threading
 import concurrent.futures
 from typing import Dict, Any, List
-from prisma import Prisma
+
+try:
+    from prisma import Prisma
+    HAS_PRISMA = True
+except (ImportError, ModuleNotFoundError, AttributeError):
+    Prisma = None
+    HAS_PRISMA = False
+
+from .operations import (
+    get_job as _sqla_get_job,
+    create_or_update_job as _sqla_create_or_update_job,
+    update_job_status as _sqla_update_job_status,
+    append_job_log as _sqla_append_job_log,
+    update_job_field as _sqla_update_job_field,
+    update_job_dict_field as _sqla_update_job_dict_field,
+    delete_job as _sqla_delete_job,
+    get_all_jobs as _sqla_get_all_jobs,
+    job_exists as _sqla_job_exists,
+)
 
 # We manage our own isolated Prisma client instance strictly for the background event loop
 # to ensure thread safety and avoid bleeding connections across different async runtimes
@@ -20,6 +39,8 @@ def _get_bg_loop():
 
 async def _get_bg_prisma():
     global _bg_prisma
+    if not os.environ.get("DATABASE_URL"):
+        os.environ["DATABASE_URL"] = "file:./dev.db"
     if _bg_prisma is None:
         _bg_prisma = Prisma(auto_register=False)
         await _bg_prisma.connect()
@@ -136,39 +157,57 @@ async def _job_exists(job_id: str) -> bool:
 
 class DBJobsProxy:
     def __contains__(self, key):
-        return run_async(_job_exists(key))
+        if HAS_PRISMA:
+            return run_async(_job_exists(key))
+        return _sqla_job_exists(key)
         
     def __getitem__(self, key):
-        if not run_async(_job_exists(key)):
+        if HAS_PRISMA:
+            if not run_async(_job_exists(key)):
+                raise KeyError(key)
+            return JobDictProxy(key, run_async(_get_job(key)))
+        if not _sqla_job_exists(key):
             raise KeyError(key)
-        return JobDictProxy(key, run_async(_get_job(key)))
+        return JobDictProxy(key, _sqla_get_job(key))
         
     def __setitem__(self, key, value):
-        run_async(_create_or_update_job(key, value))
+        if HAS_PRISMA:
+            run_async(_create_or_update_job(key, value))
+        else:
+            _sqla_create_or_update_job(key, value)
         
     def __delitem__(self, key):
-        run_async(_delete_job(key))
+        if HAS_PRISMA:
+            run_async(_delete_job(key))
+        else:
+            _sqla_delete_job(key)
         
     def get(self, key, default=None):
-        if run_async(_job_exists(key)):
+        if key in self:
             return self[key]
         return default
         
     def pop(self, key, default=None):
-        if run_async(_job_exists(key)):
-            val = run_async(_get_job(key))
-            run_async(_delete_job(key))
+        if key in self:
+            val = self[key]
+            del self[key]
             return val
         return default
 
     def values(self):
-        return run_async(_get_all_jobs())
+        if HAS_PRISMA:
+            return run_async(_get_all_jobs())
+        return _sqla_get_all_jobs()
         
     def keys(self):
-        return [j['id'] for j in run_async(_get_all_jobs())]
+        if HAS_PRISMA:
+            return [j['id'] for j in run_async(_get_all_jobs())]
+        return [j['id'] for j in _sqla_get_all_jobs()]
         
     def items(self):
-        return [(j['id'], j) for j in run_async(_get_all_jobs())]
+        if HAS_PRISMA:
+            return [(j['id'], j) for j in run_async(_get_all_jobs())]
+        return [(j['id'], j) for j in _sqla_get_all_jobs()]
 
 class JobDictProxy(dict):
     def __init__(self, job_id, data):
@@ -177,7 +216,10 @@ class JobDictProxy(dict):
         
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        run_async(_update_job_field(self.job_id, key, value))
+        if HAS_PRISMA:
+            run_async(_update_job_field(self.job_id, key, value))
+        else:
+            _sqla_update_job_field(self.job_id, key, value)
         
     def __getitem__(self, key):
         val = super().__getitem__(key)
@@ -200,7 +242,10 @@ class LogListProxy(list):
         
     def append(self, val):
         super().append(val)
-        run_async(_append_job_log(self.job_id, val))
+        if HAS_PRISMA:
+            run_async(_append_job_log(self.job_id, val))
+        else:
+            _sqla_append_job_log(self.job_id, val)
 
 class SubDictProxy(dict):
     def __init__(self, job_id, field, data):
@@ -210,7 +255,10 @@ class SubDictProxy(dict):
         
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        run_async(_update_job_dict_field(self.job_id, self.field, key, value))
+        if HAS_PRISMA:
+            run_async(_update_job_dict_field(self.job_id, self.field, key, value))
+        else:
+            _sqla_update_job_dict_field(self.job_id, self.field, key, value)
         
     def setdefault(self, key, default=None):
         if key not in self:
