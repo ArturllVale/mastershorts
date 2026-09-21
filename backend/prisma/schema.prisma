@@ -1,0 +1,74 @@
+// Dev schema using SQLite
+// Prisma does not support env() for provider. We use two schemas.
+
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Job {
+  id             String    @id
+  status         String    @default("queued")
+  cmd            String?
+  env            String?
+  output_dir     String?
+  attestation    String?
+  user_id        String?
+  reservation_id String?
+  watermark      Boolean   @default(false)
+  partial        String?
+  webhook_url    String?
+  webhook_secret String?
+  base_url       String?
+  proxy_bytes    Int?
+  proxy_route    String?
+  ready_files    String?
+  result         String?
+  error          String?
+  created_at     DateTime  @default(now())
+
+  logs               JobLog[]
+  clips              Clip[]
+  webhook_deliveries WebhookDelivery[]
+}
+
+model JobLog {
+  id        Int      @id @default(autoincrement())
+  job_id    String
+  message   String
+  created_at DateTime @default(now())
+
+  job       Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+}
+
+model Clip {
+  id        Int      @id @default(autoincrement())
+  job_id    String
+  title     String?
+
+  job       Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  assets    ClipAsset[]
+}
+
+model ClipAsset {
+  id        Int      @id @default(autoincrement())
+  clip_id   Int
+  file_path String
+
+  clip      Clip     @relation(fields: [clip_id], references: [id], onDelete: Cascade)
+}
+
+model WebhookDelivery {
+  id             Int      @id @default(autoincrement())
+  job_id         String
+  status_code    Int
+  response_body  String?
+
+  job            Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+}

@@ -74,6 +74,7 @@ class TestSanitizeFilename:
 
 class TestHookTempName:
     def test_hook_helper_trims_by_bytes(self):
-        out = hooks._truncate_bytes(BENGALI * 5, 80)
+        from core.text_utils import truncate_bytes
+        out = truncate_bytes(BENGALI * 5, 80)
         assert len(out.encode("utf-8")) <= 80
         out.encode("utf-8").decode("utf-8")
