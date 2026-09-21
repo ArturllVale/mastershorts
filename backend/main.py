@@ -1625,7 +1625,8 @@ def _run_gemini_stage(client, model_name, prompt, schema):
             if parsed_obj is not None:
                 parsed = parsed_obj.model_dump() if hasattr(parsed_obj, "model_dump") else parsed_obj
             else:
-                parsed = gemini_worker._parse_json_response_text(
+                from core.json_utils import parse_json_response_text
+                parsed = parse_json_response_text(
                     gemini_worker._get_response_text(response))
             return parsed, gemini_worker._calculate_cost_analysis(response, model_name)
         except gemini_worker.GeminiBlockedError:

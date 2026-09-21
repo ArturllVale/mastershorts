@@ -11,7 +11,8 @@ O projeto é organizado no formato monorepo modular:
 ```
 ├── backend/            # API FastAPI (processamento de vídeo, IA, filas, endpoints)
 │   ├── core/           # Configurações, modelos Pydantic e estado da aplicação
-│   ├── database/       # Conexão SQLAlchemy e modelos de persistência
+│   ├── database/       # Acesso ao banco de dados com Prisma Client (e legado SQLAlchemy)
+│   ├── prisma/         # Schemas Prisma (schema.prisma para SQLite, schema.prod.prisma para Postgres)
 │   ├── routes/         # Rotas modularizadas (clips, thumbnails, processamento)
 │   ├── services/       # Fila de trabalhos assíncrona (job queue) e workers
 │   └── requirements.txt
@@ -60,6 +61,22 @@ npm --prefix frontend install
 
 # Backend
 pip install -r backend/requirements.txt
+```
+
+### Configurando o Banco de Dados (Prisma)
+
+O backend agora utiliza o **Prisma Client Python** para mapeamento ORM.
+Devido a restrições do Prisma que impedem o uso de variáveis de ambiente para definir o `provider` do banco de forma dinâmica, usamos a seguinte abordagem:
+- **Desenvolvimento:** Utilizamos o arquivo `backend/prisma/schema.prisma` com provider `sqlite`. O `.env` deve ter `DATABASE_URL="file:./dev.db"`.
+- **Produção:** Utilizamos o arquivo `backend/prisma/schema.prod.prisma` com provider `postgresql`. O `.env` deve ter a URL completa do banco PostgreSQL, por exemplo `DATABASE_URL="postgres://user:pass@host:5432/openshorts"`.
+
+Para executar as migrações localmente, utilizamos um script auxiliar em Python (`prisma_migrate.py`) que detecta o ambiente e invoca o comando apropriado do Prisma com o schema correto.
+
+**Geração inicial do banco de desenvolvimento (SQLite):**
+```bash
+cd backend
+export DATABASE_URL="file:./dev.db"
+python prisma_migrate.py dev --name init
 ```
 
 ---
