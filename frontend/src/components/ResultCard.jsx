@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Share2, Instagram, Youtube, Video, AlertCircle, Loader2, Copy, Check, Wand2, Type, Calendar, Languages, FileText, Link2, Scissors, Crosshair, TrendingUp } from 'lucide-react';
+import { Download, Share2, Instagram, Youtube, Video, AlertCircle, Loader2, Copy, Check, Wand2, Type, Calendar, FileText, Link2, Scissors, Crosshair, TrendingUp } from 'lucide-react';
 import { getApiUrl } from '../config';
 import { apiFetch } from '../lib/api';
 import SubtitleModal from './SubtitleModal';
@@ -9,13 +9,12 @@ import ClipActionBar from '../features/result-card/ClipActionBar';
 import SocialPostModal from '../features/result-card/SocialPostModal';
 
 import HookModal from './HookModal';
-import TranslateModal from './TranslateModal';
 import Modal from './ui/Modal';
 import SegmentedControl from './ui/SegmentedControl';
 import WatermarkModal, { watermarkNoticeDismissed } from './WatermarkModal';
 import { useAuth } from '../contexts/AuthContext';
 import { renderInBrowser } from '../lib/renderInBrowser';
-import { applySubtitles, applyHook, translateClip, autoEditClip, fetchClipTranscript, removeSubtitles } from '../services/clipService';
+import { applySubtitles, applyHook, autoEditClip, fetchClipTranscript, removeSubtitles } from '../services/clipService';
 import { postToSocial } from '../services/socialService';
 import { useStreamDownload } from '../hooks/useStreamDownload';
 import { useSocialPost } from '../hooks/useSocialPost';
@@ -45,7 +44,7 @@ function formatDuration(clip) {
     return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 }
 
-export default function ResultCard({ clip, index, rankIndex, jobId, durable, uploadPostKey, uploadUserId, geminiApiKey, elevenLabsKey, isManaged, onPlay, onPause, onBulkSubtitle, clipCount = 1, bulkProgress, initialState = null, onStateChange, connectedPlatforms = null, onConnectSocials, onEditClip = null, onReframeClip = null }) {
+export default function ResultCard({ clip, index, rankIndex, jobId, durable, uploadPostKey, uploadUserId, geminiApiKey, isManaged, onPlay, onPause, onBulkSubtitle, clipCount = 1, bulkProgress, initialState = null, onStateChange, connectedPlatforms = null, onConnectSocials, onEditClip = null, onReframeClip = null }) {
     const [showModal, setShowModal] = useState(false);
     const [showDescModal, setShowDescModal] = useState(false);
     const [showSubtitleModal, setShowSubtitleModal] = useState(false);
@@ -118,9 +117,7 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
     const [isEditing, setIsEditing] = useState(false);
     const [isSubtitling, setIsSubtitling] = useState(false);
     const [isHooking, setIsHooking] = useState(false);
-    const [isTranslating, setIsTranslating] = useState(false);
     const [showHookModal, setShowHookModal] = useState(false);
-    const [showTranslateModal, setShowTranslateModal] = useState(false);
     const [editError, setEditError] = useState(null);
 
     const [clipDuration, setClipDuration] = useState(() => {
@@ -463,47 +460,6 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
         }
     };
 
-    const handleTranslate = async (options) => {
-        console.log('[Translate] Starting translation with options:', options);
-        setIsTranslating(true);
-        setEditError(null);
-        try {
-            const apiKey = elevenLabsKey;
-            console.log('[Translate] API Key available:', !!apiKey);
-
-            if (!apiKey) {
-                throw new Error("ElevenLabs API Key is missing. Please set it in Settings.");
-            }
-
-            const requestBody = {
-                job_id: jobId,
-                clip_index: index,
-                target_language: options.targetLanguage,
-                input_filename: serverVideoFile
-            };
-            console.log('[Translate] Request body:', requestBody);
-            console.log('[Translate] Sending request to /api/translate');
-
-            const data = await translateClip(requestBody, { 'X-ElevenLabs-Key': apiKey });
-            console.log('[Translate] Success response:', data);
-            if (data.new_video_url) {
-                setCurrentVideoUrl(getApiUrl(data.new_video_url));
-                setServerVideoFile(data.new_video_url.split('/').pop());
-                if (videoRef.current) {
-                    videoRef.current.load();
-                }
-                setShowTranslateModal(false);
-            }
-
-        } catch (e) {
-            console.error('[Translate] Exception:', e);
-            setEditError(e.message);
-            setTimeout(() => setEditError(null), 5000);
-        } finally {
-            setIsTranslating(false);
-        }
-    };
-
     const { posting, postResult, setPostResult, canPost, handlePost } = useSocialPost({
         isManaged,
         uploadPostKey,
@@ -670,8 +626,6 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
                     isSubtitling={isSubtitling}
                     setShowHookModal={setShowHookModal}
                     isHooking={isHooking}
-                    setShowTranslateModal={setShowTranslateModal}
-                    isTranslating={isTranslating}
                     plan={plan}
                     setShowWatermarkModal={setShowWatermarkModal}
                     downloadClip={downloadClip}
@@ -776,15 +730,6 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
                 serverRender={hasServerBurns}
                 burnedHook={burnedHook}
                 onRemove={burnedHook ? handleRemoveHook : null}
-            />
-
-            <TranslateModal
-                isOpen={showTranslateModal}
-                onClose={() => setShowTranslateModal(false)}
-                onTranslate={handleTranslate}
-                isProcessing={isTranslating}
-                videoUrl={currentVideoUrl}
-                hasApiKey={!!elevenLabsKey}
             />
 
             {showWatermarkModal && (

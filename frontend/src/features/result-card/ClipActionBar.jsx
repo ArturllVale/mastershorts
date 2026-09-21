@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scissors, Crosshair, Wand2, Sparkles, Type, Languages, Loader2, Download, Share2 } from 'lucide-react';
+import { Scissors, Crosshair, Wand2, Sparkles, Type, Loader2, Download, Share2 } from 'lucide-react';
 import { watermarkNoticeDismissed } from '../../components/WatermarkModal';
 
 export default function ClipActionBar({
@@ -12,8 +12,6 @@ export default function ClipActionBar({
     isSubtitling,
     setShowHookModal,
     isHooking,
-    setShowTranslateModal,
-    isTranslating,
     plan,
     setShowWatermarkModal,
     downloadClip,
@@ -75,16 +73,6 @@ export default function ClipActionBar({
                     >
                         {isHooking ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" /> : <Sparkles size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
                         <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">{isHooking ? 'Inserindo…' : 'Gancho'}</span>
-                    </button>
-
-                    <button
-                        onClick={() => setShowTranslateModal(true)}
-                        disabled={isTranslating}
-                        title="Dublagem por IA e Tradução de Voz"
-                        className="flex flex-col items-center justify-center py-1.5 sm:py-2 px-1 rounded-input border border-rule bg-paper hover:bg-paper3 hover:border-rule2 text-ink2 hover:text-ink transition-all duration-150 group disabled:opacity-40 min-w-0 shadow-sm"
-                    >
-                        {isTranslating ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" /> : <Languages size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
-                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">{isTranslating ? 'Dublando…' : 'Dublar Voz'}</span>
                     </button>
                 </div>
             </div>

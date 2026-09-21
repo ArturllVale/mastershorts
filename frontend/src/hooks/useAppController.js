@@ -32,7 +32,6 @@ export function useAppController() {
     llmApiKey, setLlmApiKey,
     llmFallbackModels, setLlmFallbackModels,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
-    elevenLabsKey, setElevenLabsKey, saveElevenLabsKey,
     falKey, setFalKey, saveFalKey
   } = useApiKeys();
   const { stashPendingJob, peekPendingJob, popPendingJob } = usePendingJob();
@@ -421,7 +420,6 @@ export function useAppController() {
     llmApiKey, setLlmApiKey,
     llmFallbackModels, setLlmFallbackModels,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
-    elevenLabsKey, setElevenLabsKey, saveElevenLabsKey,
     falKey, setFalKey, saveFalKey,
     handleClipStateChange, handleClipRerendered, flushClipState
   };

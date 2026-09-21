@@ -29,13 +29,6 @@ export function useApiKeys() {
     return '';
   });
 
-  // ElevenLabs API State - Load encrypted
-  const [elevenLabsKey, setElevenLabsKey] = useState(() => {
-    const stored = localStorage.getItem('elevenLabsKey_v1');
-    if (stored) return decrypt(stored);
-    return '';
-  });
-
   // fal.ai API State - Load encrypted
   const [falKey, setFalKey] = useState(() => {
     const stored = localStorage.getItem('falKey_v1');
@@ -80,13 +73,6 @@ export function useApiKeys() {
     }
   };
 
-  const saveElevenLabsKey = (key) => {
-    setElevenLabsKey(key);
-    if (!key.startsWith('ENC:')) {
-      localStorage.setItem('elevenLabsKey_v1', encrypt(key));
-    }
-  };
-
   const saveFalKey = (key) => {
     setFalKey(key);
     if (!key.startsWith('ENC:')) {
@@ -120,9 +106,6 @@ export function useApiKeys() {
     uploadPostKey,
     setUploadPostKey,
     saveUploadPostKey,
-    elevenLabsKey,
-    setElevenLabsKey,
-    saveElevenLabsKey,
     falKey,
     setFalKey,
     saveFalKey,

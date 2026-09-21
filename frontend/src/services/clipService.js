@@ -42,22 +42,6 @@ export async function applyHook(params) {
 }
 
 /**
- * Translates and dubs a clip via ElevenLabs.
- *
- * @param {object} params - Translation options (job_id, clip_index, language, etc.)
- * @returns {Promise<object>} { new_video_url, ... }
- */
-export async function translateClip(params) {
-  const res = await apiFetch('/api/translate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-/**
  * Auto-edits a clip: tries Remotion effects endpoint first, falls back to
  * the legacy FFmpeg /api/edit endpoint.
  *

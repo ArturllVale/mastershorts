@@ -94,14 +94,6 @@ class HookRequest(BaseModel):
     remove: Optional[bool] = False  # strip the burned hook instead of adding one
 
 
-class TranslateRequest(BaseModel):
-    job_id: str
-    clip_index: int
-    target_language: str
-    source_language: Optional[str] = None
-    input_filename: Optional[str] = None
-
-
 class SocialPostRequest(BaseModel):
     job_id: str
     clip_index: int

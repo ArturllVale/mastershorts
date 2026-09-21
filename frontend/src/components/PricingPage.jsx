@@ -19,7 +19,7 @@ const HOSTED_VS_SELF = [
     icon: KeyRound,
     label: 'Chaves de API',
     hosted: 'A chave Gemini está inclusa. Nada para criar, colar ou recarregar.',
-    self: 'Você cria e utiliza sua própria chave Gemini, além de ElevenLabs e fal.ai para dublagem.',
+    self: 'Você cria e utiliza sua própria chave Gemini, além de fal.ai opcionalmente.',
   },
   {
     icon: Server,

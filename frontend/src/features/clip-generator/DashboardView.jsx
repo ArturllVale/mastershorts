@@ -42,7 +42,6 @@ export default function DashboardView({
   handleClipStateChange,
   durableClips,
   apiKey,
-  elevenLabsKey,
   handleClipPlay,
   handleClipPause,
   handleBulkSubtitles,
@@ -281,7 +280,6 @@ export default function DashboardView({
                       onStateChange={handleClipStateChange}
                       durable={durableClips[i]}
                       geminiApiKey={apiKey}
-                      elevenLabsKey={elevenLabsKey}
                       isManaged={isManaged}
                       onPlay={(time) => handleClipPlay(time)}
                       onPause={handleClipPause}

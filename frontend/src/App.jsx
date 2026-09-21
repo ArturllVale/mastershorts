@@ -88,7 +88,6 @@ function App() {
     llmApiKey, setLlmApiKey,
     llmFallbackModels, setLlmFallbackModels,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
-    elevenLabsKey, setElevenLabsKey, saveElevenLabsKey,
     falKey, setFalKey, saveFalKey,
     handleClipStateChange, handleClipRerendered, flushClipState
   } = useAppController();
@@ -294,7 +293,6 @@ function App() {
             handleClipStateChange={handleClipStateChange}
             durableClips={durableClips}
             apiKey={apiKey}
-            elevenLabsKey={elevenLabsKey}
             handleClipPlay={handleClipPlay}
             handleClipPause={handleClipPause}
             handleBulkSubtitles={handleBulkSubtitles}
