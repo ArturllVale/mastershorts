@@ -44,7 +44,7 @@ const FEATURES = [
   ['Hook text overlays', 'AI-written hook titles covering the first seconds, which is where a short-form viewer decides whether to stay.'],
   ['AI video effects', 'Gemini-generated FFmpeg filter chains for colour grading, transitions and visual clean-up.'],
   ['Local video upload', 'Podcasts, webinars, livestreams, interviews and vlogs, at full resolution, from a file or a YouTube link.'],
-  ['Self-hosted and private', 'Run it with Docker on your own machine and the source video never leaves your infrastructure.'],
+  ['Self-hosted and private', 'Run it locally on your own machine and the source video never leaves your infrastructure.'],
   ['Free AI YouTube studio', 'AI thumbnail generator, 10 viral title suggestions and auto-written descriptions with chapter timestamps.'],
   ['Direct social publishing', 'Post to TikTok, Instagram Reels and YouTube Shorts from the dashboard.'],
   ['MCP server, API and CLI for AI agents', 'Connect Claude, ChatGPT or n8n to an always-on endpoint (mcp.openshorts.app/mcp) and automate clipping end to end, with a REST API, per-user keys, completion webhooks and a zero-dependency CLI (pip install openshorts). Guide at /mcp.'],
@@ -89,7 +89,7 @@ const FAQ = [
   ],
   [
     'What are the system requirements to self-host?',
-    'Any machine with Docker, realistically 8GB of RAM and a modern multi-core CPU. An NVIDIA GPU is optional and cuts processing time by roughly an order of magnitude. Docker Compose pulls Python 3.11, FFmpeg, YOLOv8, MediaPipe, faster-whisper and the React dashboard. Linux, macOS and Windows via WSL2 are supported.',
+    'Realistically 8GB of RAM, Python 3.11+, Node.js 18+, FFmpeg and a modern multi-core CPU. An NVIDIA GPU is optional and cuts processing time by roughly an order of magnitude. Linux, macOS and Windows are supported.',
   ],
 ]
 
@@ -101,7 +101,7 @@ export const LANDING_FALLBACK = `<div id="seo-content" style="background:oklch(1
 <section style="${S.section};padding-top:4rem"><div style="${S.wrap}">
   <p style="${S.eyebrow}">AI clip generator &middot; cloud or self-hosted</p>
   <h1 style="${S.h1}">the free open source ai clip generator, built to clip what people actually watch.</h1>
-  <p style="${S.p};max-width:44rem;font-size:1.05rem">Turn long videos into viral 9:16 shorts, or generate UGC marketing videos with AI actors. Online in the cloud with zero setup, or self-hosted with Docker for free. Also a clipping tool for AI agents: Claude, ChatGPT and n8n drive it over <a href="/mcp" style="${S.a}">MCP</a>, or run a channel on autopilot with the <a href="/n8n-youtube-shorts-automation" style="${S.a}">n8n workflow</a>.</p>
+  <p style="${S.p};max-width:44rem;font-size:1.05rem">Turn long videos into viral 9:16 shorts, or generate UGC marketing videos with AI actors. Online in the cloud with zero setup, or self-hosted locally for free. Also a clipping tool for AI agents: Claude, ChatGPT and n8n drive it over <a href="/mcp" style="${S.a}">MCP</a>, or run a channel on autopilot with the <a href="/n8n-youtube-shorts-automation" style="${S.a}">n8n workflow</a>.</p>
   <p style="${S.muted};max-width:44rem"><strong style="color:oklch(75% 0.11 150)">No credit card required.</strong> 20 free minutes every month. Paid plans from $12/month without a watermark. Prefer to run it yourself? <a style="${S.a}" href="https://github.com/mutonby/openshorts" rel="noopener">Self-host free on GitHub</a>.</p>
 </div></section>
 

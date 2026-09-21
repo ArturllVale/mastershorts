@@ -27,13 +27,13 @@ export default function SocialPostModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            eyebrow="PUBLISH"
-            title="post clip"
+            eyebrow="PUBLICAR"
+            title="publicar corte"
             size="md"
             footer={
                 noAccountsConnected ? (
                     <button onClick={handleConnectAccounts} className="btn-primary w-full">
-                        <Link2 size={16} /> connect accounts
+                        <Link2 size={16} /> conectar contas
                     </button>
                 ) : (
                     <button
@@ -41,7 +41,7 @@ export default function SocialPostModal({
                         disabled={posting || !canPost}
                         className="btn-primary w-full"
                     >
-                        {posting ? <><Loader2 size={16} className="animate-spin" /> {isScheduling ? 'scheduling…' : 'publishing…'}</> : <><Share2 size={16} /> {isScheduling ? 'schedule post' : 'publish now'}</>}
+                        {posting ? <><Loader2 size={16} className="animate-spin" /> {isScheduling ? 'agendando…' : 'publicando…'}</> : <><Share2 size={16} /> {isScheduling ? 'agendar publicação' : 'publicar agora'}</>}
                     </button>
                 )
             }
@@ -49,38 +49,38 @@ export default function SocialPostModal({
             {!canPost && (
                 <div className="mb-4 px-3 py-2 rounded-input text-xs text-warn bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] flex items-start gap-2">
                     <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                    <div className="lowercase">configure api key in settings first.</div>
+                    <div className="lowercase">configure a chave de api nas configurações primeiro.</div>
                 </div>
             )}
 
             {noAccountsConnected && (
                 <div className="mb-4 px-3 py-2 rounded-input text-xs text-warn bg-[color-mix(in_oklab,var(--color-warn)_10%,transparent)] flex items-start gap-2">
                     <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                    <div className="lowercase">no social accounts connected yet — link tiktok, instagram or youtube to publish this clip.</div>
+                    <div className="lowercase">nenhuma conta social conectada — vincule tiktok, instagram ou youtube para publicar este corte.</div>
                 </div>
             )}
 
             <div className="space-y-4">
                 {/* Title & Description */}
                 <div>
-                    <label className="eyebrow block mb-1.5">TITLE</label>
+                    <label className="eyebrow block mb-1.5">TÍTULO</label>
                     <input
                         type="text"
                         value={postTitle}
                         onChange={(e) => setPostTitle(e.target.value)}
                         className="input-field"
-                        placeholder="enter a catchy title…"
+                        placeholder="digite um título chamativo…"
                     />
                 </div>
 
                 <div>
-                    <label className="eyebrow block mb-1.5">CAPTION</label>
+                    <label className="eyebrow block mb-1.5">LEGENDA / DESCRIÇÃO</label>
                     <textarea
                         value={postDescription}
                         onChange={(e) => setPostDescription(e.target.value)}
                         rows={4}
                         className="input-field resize-none"
-                        placeholder="write a caption for your post…"
+                        placeholder="escreva uma legenda para o seu post…"
                     />
                 </div>
 
@@ -88,7 +88,7 @@ export default function SocialPostModal({
                 <div className="p-3 bg-paper rounded-input border border-rule">
                     <label className="flex items-center justify-between cursor-pointer">
                         <span className="flex items-center gap-2 text-sm text-ink2 lowercase">
-                            <Calendar size={16} className={isScheduling ? 'text-brass' : 'text-muted'} /> schedule post
+                            <Calendar size={16} className={isScheduling ? 'text-brass' : 'text-muted'} /> agendar publicação
                         </span>
                         <input
                             type="checkbox"
@@ -100,7 +100,7 @@ export default function SocialPostModal({
 
                     {isScheduling && (
                         <div className="mt-3 animate-fade">
-                            <label className="eyebrow block mb-1.5">DATE · TIME</label>
+                            <label className="eyebrow block mb-1.5">DATA · HORA</label>
                             <input
                                 type="datetime-local"
                                 value={scheduleDate}
@@ -113,7 +113,7 @@ export default function SocialPostModal({
 
                 {/* Platforms */}
                 <div>
-                    <label className="eyebrow block mb-1.5">NETWORKS</label>
+                    <label className="eyebrow block mb-1.5">REDES SOCIAIS</label>
                     <SegmentedControl
                         options={platformOptions}
                         value={

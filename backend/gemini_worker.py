@@ -323,9 +323,10 @@ HOOK PLAYBOOK — pick the strongest fitting pattern for `viral_hook_text` (max 
   named, quote the clip's strongest sentence instead of summarising the topic.
 
 COPY RULES — ALL text fields (descriptions, title, hook, explanation) MUST be written in TRANSCRIPT_LANGUAGE ({language}):
-- Descriptions (TikTok + Instagram): 1-2 punchy sentences that tease the payoff
-  without spoiling it, then 3-5 topically relevant hashtags. No generic hashtag spam.
-- `video_title_for_youtube_short`: max 100 chars, curiosity-driven, no fake claims.
+- STRICT BAN ON PLACEHOLDERS: NEVER use the word "placeholder", empty strings "", or template tokens. Every single clip MUST have real, engaging copy in {language}.
+- `viral_hook_text`: max 10 words, punchy on-screen hook overlay with 1 emoji. NEVER "placeholder".
+- Descriptions (TikTok + Instagram): 1-2 punchy sentences in {language} that tease the payoff without spoiling it, then 3-5 topically relevant hashtags. No generic hashtag spam.
+- `video_title_for_youtube_short`: max 100 chars, curiosity-driven, no fake claims, in {language}.
 - `predicted_score`: honest 0-100 estimate of viral potential.
 - `explanation`: a short 1-2 sentence justification for the score. Why is this specific moment viral? (e.g. "This clip addresses a common pain point with a surprising hot take").
 

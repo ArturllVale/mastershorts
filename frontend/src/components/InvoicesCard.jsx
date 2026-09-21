@@ -11,6 +11,12 @@ const STATUS_CLASS = {
   overdue: 'badge-warn',
 };
 
+const STATUS_LABELS = {
+  paid: 'pago',
+  partially_paid: 'parcialmente pago',
+  overdue: 'atrasado',
+};
+
 function formatDate(iso) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
@@ -21,7 +27,7 @@ function formatMoney(amount, currency) {
   const n = Number(amount);
   if (!Number.isFinite(n)) return `${amount} ${currency}`;
   try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: (currency || 'EUR').toUpperCase() }).format(n);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: (currency || 'BRL').toUpperCase() }).format(n);
   } catch (_) {
     return `${n.toFixed(2)} ${currency}`;
   }
@@ -35,28 +41,28 @@ export default function InvoicesCard() {
     let cancelled = false;
     apiJson('/api/billing/invoices')
       .then((d) => { if (!cancelled) setInvoices(Array.isArray(d.invoices) ? d.invoices : []); })
-      .catch((e) => { if (!cancelled) { setError(e?.detail || 'Could not load invoices.'); setInvoices([]); } });
+      .catch((e) => { if (!cancelled) { setError(e?.detail || 'Não foi possível carregar as faturas.'); setInvoices([]); } });
     return () => { cancelled = true; };
   }, []);
 
   return (
     <div className="card p-6">
       <h3 className="font-display text-lg text-ink mb-1 flex items-center gap-2">
-        <FileText size={16} className="text-brass" /> Invoices
+        <FileText size={16} className="text-brass" /> Faturas
       </h3>
       <p className="text-muted text-sm mb-4">
-        Legally valid invoices for every charge on this account.
+        Faturas e comprovantes válidos para cada cobrança desta conta.
       </p>
 
       {invoices === null ? (
         <div className="flex items-center gap-2 text-muted text-sm py-4">
-          <Loader2 size={16} className="animate-spin text-brass" /> Loading invoices…
+          <Loader2 size={16} className="animate-spin text-brass" /> Carregando faturas…
         </div>
       ) : error ? (
         <p className="text-sm text-warn">{error}</p>
       ) : invoices.length === 0 ? (
         <p className="text-sm text-muted">
-          No invoices yet. They appear here after your first payment — give it a few minutes if you just subscribed.
+          Nenhuma fatura ainda. Elas aparecerão aqui após seu primeiro pagamento — aguarde alguns instantes se acabou de assinar.
         </p>
       ) : (
         <ul className="divide-y divide-rule">
@@ -67,14 +73,14 @@ export default function InvoicesCard() {
                 <div className="text-muted text-xs mt-0.5">
                   {formatDate(inv.doc_date)} · <span className="text-ink2">{formatMoney(inv.total, inv.currency)}</span>
                   {inv.status && (
-                    <span className={`ml-2 ${STATUS_CLASS[inv.status] || 'badge-warn'}`}>{inv.status.replace(/_/g, ' ')}</span>
+                    <span className={`ml-2 ${STATUS_CLASS[inv.status] || 'badge-warn'}`}>{STATUS_LABELS[inv.status] || inv.status.replace(/_/g, ' ')}</span>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {inv.public_url && (
                   <a href={inv.public_url} target="_blank" rel="noopener noreferrer" className="btn-ghost px-3 py-1.5 text-xs">
-                    <ExternalLink size={14} /> View
+                    <ExternalLink size={14} /> Visualizar
                   </a>
                 )}
                 {inv.pdf_url && (

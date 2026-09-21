@@ -174,11 +174,11 @@ function App() {
             <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 text-xs text-ink2 min-w-0 flex-1">
               <KeyRound size={16} className="shrink-0 text-warn mt-0.5 sm:mt-0" />
               <div className="min-w-0">
-                <span className="font-semibold text-ink">AI Provider Configuration Required.</span>{' '}
+                <span className="font-semibold text-ink">Configuração do Provedor de IA Necessária.</span>{' '}
                 <span className="text-muted">
                   {llmProvider === 'openai'
-                    ? 'Configure your OpenAI-compatible endpoint in Settings to process videos.'
-                    : 'Set your free Google Gemini API key to enable video analysis and clipping.'}
+                    ? 'Configure seu endpoint compatível com OpenAI nas Configurações para processar vídeos.'
+                    : 'Configure sua chave gratuita da API do Google Gemini para habilitar a análise e criação de cortes.'}
                 </span>
               </div>
             </div>
@@ -186,7 +186,7 @@ function App() {
               onClick={() => goToTab('settings')}
               className="btn-secondary px-3 py-1 text-xs shrink-0 w-full sm:w-auto"
             >
-              Configure in Settings
+              Configurar nos Ajustes
             </button>
           </div>
         )}
@@ -196,12 +196,12 @@ function App() {
           <div className="mx-3 sm:mx-6 mt-2 px-3.5 sm:px-4 py-3 bg-paper2 border border-rule rounded-card flex items-start justify-between gap-3 animate-fade shrink-0">
             <div className="flex items-start sm:items-center gap-2 text-sm text-ink2 flex-wrap min-w-0">
               <RotateCcw size={16} className="text-brass shrink-0 mt-0.5 sm:mt-0" />
-              <span className="font-medium">Session recovered</span>
-              <span className="text-muted text-xs">Your previous work has been restored.</span>
+              <span className="font-medium">Sessão recuperada</span>
+              <span className="text-muted text-xs">Seu trabalho anterior foi restaurado.</span>
             </div>
             <button
               onClick={() => setSessionRecovered(false)}
-              aria-label="dismiss"
+              aria-label="fechar"
               className="text-muted hover:text-ink transition-colors shrink-0 -m-1 p-1"
             >
               <X size={16} />
@@ -321,57 +321,57 @@ function App() {
       <Modal
         isOpen={showKeyModal}
         onClose={() => setShowKeyModal(false)}
-        eyebrow="SETUP"
-        title="AI Engine Configuration Required"
+        eyebrow="CONFIGURAÇÃO"
+        title="Configuração do Modelo de IA Necessária"
         footer={
           <div className="flex gap-3">
             <button
               onClick={() => setShowKeyModal(false)}
               className="btn-ghost flex-1 px-4 py-2 text-sm"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               onClick={() => { setShowKeyModal(false); goToTab('settings'); }}
               className="btn-primary flex-1 px-4 py-2 text-sm"
             >
-              Go to Settings
+              Ir para Configurações
             </button>
           </div>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            OpenShorts requires an AI engine to analyze video transcripts and locate viral moments.
+            O OpenShorts necessita de um modelo de IA para analisar as transcrições de vídeo e encontrar momentos virais.
           </p>
 
           {llmProvider === 'openai' ? (
             <div className="rounded-input p-4 space-y-2 border border-rule2 bg-paper3/40">
               <p className="text-xs font-medium text-ink flex items-center gap-2">
                 <AlertTriangle size={12} className="text-warn" />
-                OpenAI Endpoint Required
+                Endpoint OpenAI Necessário
               </p>
               <p className="text-xs text-muted leading-relaxed">
-                Configure your OpenAI-compatible endpoint URL (such as Ollama, LM Studio, vLLM, or OpenAI) in Settings to start clipping videos.
+                Configure a URL do seu endpoint compatível com OpenAI (como Ollama, LM Studio, vLLM ou OpenAI) nas Configurações para iniciar.
               </p>
             </div>
           ) : (
             <div className={`rounded-input p-4 space-y-2 border ${!apiKey ? 'border-rule2' : 'border-rule opacity-70'}`}>
               <p className="text-xs font-medium text-ink flex items-center gap-2">
                 {apiKey ? <Check size={12} className="text-ok" /> : <AlertTriangle size={12} className="text-warn" />}
-                Gemini API Key {apiKey && <span className="text-ok">— set</span>}
+                Chave de API do Gemini {apiKey && <span className="text-ok">— configurada</span>}
               </p>
               {!apiKey && (
                 <>
                   <ol className="text-xs text-muted space-y-1 list-decimal list-inside">
-                    <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-brass underline">aistudio.google.com/app/apikey</a></li>
-                    <li>Sign in with your Google account</li>
-                    <li>Click "Create API Key"</li>
-                    <li>Paste your key below or configure in Settings</li>
+                    <li>Acesse <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-brass underline">aistudio.google.com/app/apikey</a></li>
+                    <li>Faça login com sua conta Google</li>
+                    <li>Clique em "Create API Key"</li>
+                    <li>Cole sua chave abaixo ou configure nos Ajustes</li>
                   </ol>
                   <input
                     type="text"
-                    placeholder="Paste your Gemini API key here..."
+                    placeholder="Cole sua chave de API do Gemini aqui..."
                     className="input-field"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && e.target.value.trim()) {
@@ -390,24 +390,24 @@ function App() {
 
       {/* Pre-flight quality gate */}
       {qualityGate && (
-        <Modal isOpen={true} onClose={() => setQualityGate(null)} size="md" eyebrow="HEADS UP" title="baixa qualidade da fonte">
+        <Modal isOpen={true} onClose={() => setQualityGate(null)} size="md" eyebrow="AVISO" title="Baixa qualidade da fonte">
           <div className="space-y-4">
             <p className="text-sm text-ink2">
-              O YouTube sÃ³ oferece <span className="text-brass font-semibold">{qualityGate.info.max_height}p</span> para este vÃ­deo
-              (below the {qualityGate.info.min_height}p we recommend). Processar mesmo assim produzirÃ¡ clipes de baixa qualidade.
+              O YouTube só oferece <span className="text-brass font-semibold">{qualityGate.info.max_height}p</span> para este vídeo
+              (abaixo dos {qualityGate.info.min_height}p recomendados). Processar mesmo assim produzirá cortes de baixa qualidade.
             </p>
             {qualityGate.info.cookies_invalid && (
               <p className="text-xs text-muted">
-                Your YouTube cookies look expired â€” refreshing them (export again from an incognito window) often unlocks HD.
+                Seus cookies do YouTube parecem ter expirado — atualizá-los (exportando novamente de uma janela anônima) costuma liberar o HD.
               </p>
             )}
             <div className="flex gap-2 justify-end pt-2">
-              <button onClick={() => setQualityGate(null)} className="btn-ghost">cancel</button>
+              <button onClick={() => setQualityGate(null)} className="btn-ghost">Cancelar</button>
               <button
                 onClick={() => { const d = qualityGate.data; setQualityGate(null); handleProcess(d, true); }}
                 className="btn-primary"
               >
-                process anyway
+                Processar mesmo assim
               </button>
             </div>
           </div>

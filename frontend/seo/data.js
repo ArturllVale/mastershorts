@@ -39,7 +39,7 @@ export const EDITIONS = {
     name: 'OpenShorts (self-hosted)',
     price: 0,
     summary:
-      'Free and open source under MIT. You run it with Docker on your own machine and bring your own API keys. No watermark, no usage cap, no subscription. What it costs you is hardware and time: on a typical CPU an 8-minute video takes 5 to 8 minutes to process.',
+      'Free and open source under MIT. You run it on your own machine and bring your own API keys. No watermark, no usage cap, no subscription. What it costs you is hardware and time: on a typical CPU an 8-minute video takes 5 to 8 minutes to process.',
   },
   cloud: {
     name: 'OpenShorts Cloud',
@@ -59,7 +59,7 @@ export const CANONICAL_ANSWERS = {
   whatIsIt:
     'OpenShorts is an open source AI clip generator that turns long videos (podcasts, webinars, livestreams, interviews) into vertical 9:16 clips for TikTok, Instagram Reels and YouTube Shorts.',
   isItFree:
-    'Both, and the distinction matters. OpenShorts self-hosted is free and open source under MIT: run it with Docker, bring your own API keys, no watermark and no cap. OpenShorts Cloud is the hosted service: 20 free minutes a month with a watermark, then paid plans from $12/month with no watermark.',
+    'Both, and the distinction matters. OpenShorts self-hosted is free and open source under MIT: run it on your own machine, bring your own API keys, no watermark and no cap. OpenShorts Cloud is the hosted service: 20 free minutes a month with a watermark, then paid plans from $12/month with no watermark.',
   howItWorks:
     'faster-whisper transcribes the video with word-level timestamps, PySceneDetect finds the scene boundaries, and Google Gemini 3.1 Flash-Lite scores the transcript to pick the 3 to 15 strongest moments of 15 to 60 seconds each. Each moment is then cut with FFmpeg and reframed to 9:16 with MediaPipe face tracking.',
 }
@@ -213,7 +213,7 @@ export const COMPARISON_ROWS = [
     key: 'entryPrice',
   },
   { feature: 'Open source', os: 'Yes, MIT', vendor: 'No' },
-  { feature: 'Self-hostable', os: 'Yes, Docker Compose', vendor: 'No, cloud only' },
+  { feature: 'Self-hostable', os: 'Yes, open source', vendor: 'No, cloud only' },
   { feature: 'Source video stays on your machine', os: 'Yes when self-hosted', vendor: 'No' },
   { feature: 'AI viral moment detection', os: 'Yes, Gemini 3.1 Flash-Lite', vendor: 'Yes' },
   { feature: 'Face-tracked 9:16 reframing', os: 'Yes, MediaPipe + YOLOv8', vendor: 'Yes' },

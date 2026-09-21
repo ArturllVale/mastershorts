@@ -21,6 +21,7 @@ WORDS_JSON (array of {{w, s, e}} where s/e are seconds):
 STRICT EXCLUSIONS:
 - No generic intros/outros or purely sponsorship segments unless they contain the hook.
 - No clips < 15 s or > 60 s.
+- STRICT BAN ON PLACEHOLDERS: NEVER use the word "placeholder", dummy text, or empty strings. All copy must be real and engaging.
 
 OUTPUT — RETURN ONLY VALID JSON (no markdown, no comments). Order clips by predicted performance (best to worst). In the descriptions, ALWAYS include a CTA like "Follow me and comment X and I'll send you the workflow" (especially if discussing an n8n workflow):
 {{

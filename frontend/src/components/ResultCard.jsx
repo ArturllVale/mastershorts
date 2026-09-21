@@ -577,7 +577,7 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
                         ordered by score, but this is what the downloaded file
                         is called (clip-N.mp4) and what every api call indexes. */}
                     <span className="bg-black/70 text-ink font-mono text-micro uppercase px-2 py-1 rounded-full">
-                        Clip {rankIndex !== undefined ? rankIndex + 1 : index + 1}
+                        Corte {rankIndex !== undefined ? rankIndex + 1 : index + 1}
                     </span>
 
                 </div>

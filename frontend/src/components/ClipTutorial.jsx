@@ -5,28 +5,28 @@ import Modal from './ui/Modal';
 const TOUR = [
   {
     target: '[data-tutorial="nav-clips"]',
-    title: 'Clip Generator',
-    body: 'This is the tool people come for. A long video in, vertical shorts out. The other menu items stay locked until you finish one run.',
+    title: 'Gerador de Cortes',
+    body: 'Esta é a ferramenta principal. Envie um vídeo longo e receba vídeos curtos verticais. As outras ferramentas são liberadas após o primeiro processamento.',
   },
   {
     target: '[data-tutorial="source-tabs"]',
-    title: 'Upload or paste a link',
-    body: 'Drop an MP4, or switch to Video URL and paste YouTube, TikTok, Instagram…',
+    title: 'Envie ou cole um link',
+    body: 'Envie um arquivo MP4 ou cole o link do YouTube, TikTok, Instagram…',
   },
   {
     target: '[data-tutorial="drop-zone"]',
-    title: 'Your video',
-    body: 'Click the box or paste the link here. Keep files under 500MB.',
+    title: 'Seu vídeo',
+    body: 'Clique na área de envio ou cole o link aqui. Recomendamos arquivos de até 500MB.',
   },
   {
     target: '[data-tutorial="output-format"]',
-    title: 'Output format',
-    body: '9:16 is TikTok, Reels and Shorts. Leave it unless you need a square feed post or landscape.',
+    title: 'Formato de saída',
+    body: '9:16 é ideal para TikTok, Reels e Shorts. Deixe assim, a menos que precise de formato quadrado ou horizontal.',
   },
   {
     target: '[data-tutorial="generate"]',
-    title: 'Generate',
-    body: 'Tick that you have the rights, then generate. That is the whole first run.',
+    title: 'Gerar cortes',
+    body: 'Confirme que possui os direitos do vídeo e clique em gerar.',
   },
 ];
 
@@ -115,25 +115,25 @@ export default function ClipTutorial({ phase, jobStatus, onStart, onSkip, onDism
 
   if (phase === 'intro') {
     return (
-      <Modal isOpen hideClose eyebrow="FIRST CLIPS" title="Let's make your first shorts" size="md">
+      <Modal isOpen hideClose eyebrow="PRIMEIROS CORTES" title="Vamos criar seus primeiros cortes" size="md">
         <div className="flex items-start gap-3 mb-4">
           <div className="w-10 h-10 rounded-input bg-paper3 flex items-center justify-center shrink-0">
             <LayoutDashboard size={18} className="text-brass" />
           </div>
           <p className="text-sm text-ink2 leading-relaxed">
-            People come here for <b className="text-ink font-medium">Clip Generator</b>: a long video in,
-            vertical shorts out. We will walk the screen, then you run one video.
+            O principal objetivo é o <b className="text-ink font-medium">Gerador de Cortes</b>: entra um vídeo longo e
+            saem vídeos curtos verticais. Vamos mostrar como funciona e você fará o primeiro teste.
           </p>
         </div>
         <button type="button" onClick={onStart} className="btn-primary w-full">
-          Show me around <ArrowRight size={16} />
+          Iniciar Tour <ArrowRight size={16} />
         </button>
         <button
           type="button"
           onClick={onSkip}
           className="w-full mt-2 text-muted hover:text-ink text-sm py-2 transition-colors"
         >
-          I'll explore later
+          Explorar depois
         </button>
       </Modal>
     );
@@ -146,11 +146,11 @@ export default function ClipTutorial({ phase, jobStatus, onStart, onSkip, onDism
           bottom-3 md:bottom-6 card p-4"
         role="status"
       >
-        <p className="eyebrow mb-2">First clips</p>
+        <p className="eyebrow mb-2">Primeiros cortes</p>
         <p className={`text-sm leading-relaxed ${jobStatus === 'error' ? 'text-danger' : 'text-muted'}`}>
           {jobStatus === 'error'
-            ? 'That run failed. Try another video — other tools stay locked until one job finishes.'
-            : 'Hang on — Clip Generator is finding the moments and cutting vertical shorts.'}
+            ? 'O processamento falhou. Tente outro vídeo — as demais ferramentas serão liberadas após a conclusão de um corte.'
+            : 'Aguarde — o Gerador de Cortes está encontrando os melhores momentos e criando os vídeos verticais.'}
         </p>
       </div>
     );
@@ -169,10 +169,10 @@ export default function ClipTutorial({ phase, jobStatus, onStart, onSkip, onDism
           role="status"
         >
           <p className="text-sm text-muted leading-snug flex-1 min-w-0">
-            Your turn — add a video and generate.
+            Sua vez — adicione um vídeo e clique em Gerar.
           </p>
           <button type="button" onClick={onSkip} className="text-xs text-muted hover:text-ink shrink-0">
-            Skip
+            Pular
           </button>
         </div>
       );
@@ -182,7 +182,7 @@ export default function ClipTutorial({ phase, jobStatus, onStart, onSkip, onDism
     const tip = spot?.tip;
 
     return (
-      <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Clip Generator tutorial">
+      <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Tour do Gerador de Cortes">
         {!hole && <div className="absolute inset-0 bg-black/55" />}
         {hole && (
           <div
@@ -211,7 +211,7 @@ export default function ClipTutorial({ phase, jobStatus, onStart, onSkip, onDism
           <div className="flex flex-wrap items-center gap-2">
             {step > 0 && (
               <button type="button" onClick={() => setStep((s) => s - 1)} className="btn-ghost text-sm px-3">
-                <ArrowLeft size={14} /> Back
+                <ArrowLeft size={14} /> Voltar
               </button>
             )}
             <button
@@ -219,11 +219,11 @@ export default function ClipTutorial({ phase, jobStatus, onStart, onSkip, onDism
               onClick={last ? onLast : () => setStep((s) => s + 1)}
               className="btn-primary text-sm px-4 ml-auto"
             >
-              {last ? 'Got it' : 'Next'} <ArrowRight size={14} />
+              {last ? 'Entendi' : 'Próximo'} <ArrowRight size={14} />
             </button>
           </div>
           <button type="button" onClick={onSkip} className="mt-3 text-xs text-muted hover:text-ink transition-colors">
-            Skip — unlock all tools
+            Pular — desbloquear ferramentas
           </button>
         </div>
       </div>
@@ -232,19 +232,19 @@ export default function ClipTutorial({ phase, jobStatus, onStart, onSkip, onDism
 
   if (phase === 'celebrate') {
     return (
-      <Modal isOpen onClose={onDismissCelebrate} hideClose eyebrow="DONE" title="You made your first clips" size="sm">
+      <Modal isOpen onClose={onDismissCelebrate} hideClose eyebrow="CONCLUÍDO" title="Seus primeiros cortes estão prontos!" size="sm">
         <div className="text-center py-2">
           <div className="inline-flex p-3 bg-paper3 rounded-full text-ok mb-4">
             <CheckCircle2 size={28} />
           </div>
           <p className="text-sm text-ink2 leading-relaxed mb-1">
-            That is the whole product, on one video.
+            Parabéns! Seus primeiros cortes foram gerados com sucesso.
           </p>
           <p className="text-sm text-muted leading-relaxed mb-6">
-            The other tools are unlocked. Come back to Clip Generator whenever you have another long video.
+            Todas as outras ferramentas foram desbloqueadas. Volte ao Gerador de Cortes sempre que tiver novos vídeos longos.
           </p>
           <button type="button" onClick={onDismissCelebrate} className="btn-primary w-full">
-            <Sparkles size={16} /> See my clips
+            <Sparkles size={16} /> Ver meus cortes
           </button>
         </div>
       </Modal>

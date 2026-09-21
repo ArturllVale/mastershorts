@@ -1,11 +1,10 @@
 import os
 import shutil
-# Check if PIL is installed, if not we can't run this locally but it will run in docker
+# Check if PIL is installed
 try:
     from hooks import create_hook_image
 except ImportError:
-    print("⚠️ PIL not found locally. Please run this inside the Docker container.")
-    # Mocking for local check if needed or just exit
+    print("⚠️ PIL not found. Please install backend requirements (pip install -r backend/requirements.txt).")
     exit(1)
 
 def verify():

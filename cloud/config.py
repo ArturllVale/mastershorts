@@ -350,6 +350,6 @@ def validate_required():
         raise RuntimeError(
             "BILLING_ENABLED is set but required settings are missing: "
             + ", ".join(missing)
-            + ". Set them (see docker-compose.cloud.yml) or unset BILLING_ENABLED "
+            + ". Set them in your environment variables (.env) or unset BILLING_ENABLED "
             "to run in self-hosted BYOK mode."
         )

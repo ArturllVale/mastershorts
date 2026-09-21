@@ -18,7 +18,7 @@ const PRESETS = [
 
 const RECOMMENDED_FALLBACKS = [
   { label: 'OpenRouter Free', id: 'openrouter/openrouter/free' },
-  { label: 'NVIDIA Nemotron 120B', id: 'nvidia/nvidia/nemotron-3-super-120b-a12b' },
+  { label: 'NVIDIA Nemotron 120B', id: 'nvidia/nemotron-3-super-120b-a12b' },
   { label: 'Grok 4.6', id: 'grok-cli/grok-4.6' },
   { label: 'Agnes 2.5 Flash', id: 'agnes/agnes-2.5-flash' },
 ];
@@ -156,8 +156,8 @@ export default function OpenAiEndpointInput({
             <Server size={18} />
           </div>
           <div>
-            <h2 className="font-display text-lg text-ink">OpenAI-Compatible Endpoint</h2>
-            <p className="text-xs text-muted">OmniRoute, Ollama, LM Studio, vLLM, OpenRouter, ou NVIDIA NIM</p>
+            <h2 className="font-display text-lg text-ink">Endpoint Compatível com OpenAI</h2>
+            <p className="text-xs text-muted">OmniRoute, Ollama, LM Studio, vLLM, OpenRouter ou NVIDIA NIM</p>
           </div>
         </div>
         <span className="readout">BYOK</span>
@@ -166,7 +166,7 @@ export default function OpenAiEndpointInput({
       {/* Presets Chips */}
       <div>
         <label className="block text-[11px] font-mono uppercase tracking-wider text-muted mb-2">
-          Quick Presets
+          Predefinições Rápidas
         </label>
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map((p) => (
@@ -188,7 +188,7 @@ export default function OpenAiEndpointInput({
         {/* Base URL */}
         <div>
           <label className="block text-xs font-medium text-ink mb-1.5">
-            Endpoint Base URL <span className="text-brass">*</span>
+            URL Base do Endpoint <span className="text-brass">*</span>
           </label>
           <input
             type="text"
@@ -209,7 +209,7 @@ export default function OpenAiEndpointInput({
         {/* Model Name */}
         <div>
           <label className="block text-xs font-medium text-ink mb-1.5">
-            Primary Model <span className="text-brass">*</span>
+            Modelo Principal <span className="text-brass">*</span>
           </label>
           <input
             type="text"
@@ -239,7 +239,7 @@ export default function OpenAiEndpointInput({
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-medium text-ink flex items-center gap-1.5">
               <Layers size={13} className="text-brass" />
-              Fallback Models <span className="text-muted font-normal">(Separados por vírgula)</span>
+              Modelos de Contingência (Fallback) <span className="text-muted font-normal">(Separados por vírgula)</span>
             </label>
             <button
               type="button"
@@ -282,7 +282,7 @@ export default function OpenAiEndpointInput({
         {/* API Key */}
         <div>
           <label className="block text-xs font-medium text-ink mb-1.5">
-            API Key / Bearer Token <span className="text-muted font-normal">(Opcional para servidores locais abertos)</span>
+            Chave de API / Token Bearer <span className="text-muted font-normal">(Opcional para servidores locais abertos)</span>
           </label>
           <div className="relative">
             <input

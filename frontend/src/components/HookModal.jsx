@@ -5,32 +5,32 @@ import Modal from './ui/Modal';
 import SegmentedControl from './ui/SegmentedControl';
 
 const ENTRANCE_OPTIONS = [
-    { value: 'spring', label: 'Bounce' },
-    { value: 'fade', label: 'Fade' },
-    { value: 'slide-up', label: 'Slide Up' },
-    { value: 'none', label: 'None' },
+    { value: 'spring', label: 'Pulo' },
+    { value: 'fade', label: 'Esmaecer' },
+    { value: 'slide-up', label: 'Subir' },
+    { value: 'none', label: 'Nenhum' },
 ];
 
 // Must mirror hooks.py HOOK_STYLES.
 const HOOK_STYLES = [
-    { value: 'classic', label: 'Classic', box: 'rgba(255,255,255,0.94)', text: '#000' },
-    { value: 'dark', label: 'Dark', box: 'rgba(18,18,20,0.92)', text: '#fff' },
-    { value: 'yellow', label: 'Yellow', box: 'rgba(255,214,0,0.96)', text: '#000' },
-    { value: 'red', label: 'Red', box: 'rgba(220,38,38,0.96)', text: '#fff' },
-    { value: 'outline', label: 'Outline', box: 'transparent', text: '#fff', outline: true },
-    { value: 'outline_yellow', label: 'Outline+', box: 'transparent', text: '#FFD600', outline: true },
+    { value: 'classic', label: 'Clássico', box: 'rgba(255,255,255,0.94)', text: '#000' },
+    { value: 'dark', label: 'Escuro', box: 'rgba(18,18,20,0.92)', text: '#fff' },
+    { value: 'yellow', label: 'Amarelo', box: 'rgba(255,214,0,0.96)', text: '#000' },
+    { value: 'red', label: 'Vermelho', box: 'rgba(220,38,38,0.96)', text: '#fff' },
+    { value: 'outline', label: 'Contorno', box: 'transparent', text: '#fff', outline: true },
+    { value: 'outline_yellow', label: 'Contorno+', box: 'transparent', text: '#FFD600', outline: true },
 ];
 
 const POSITION_OPTIONS = [
-    { value: 'top', label: 'Top' },
-    { value: 'center', label: 'Center' },
-    { value: 'bottom', label: 'Bottom' },
+    { value: 'top', label: 'Superior' },
+    { value: 'center', label: 'Centro' },
+    { value: 'bottom', label: 'Inferior' },
 ];
 
 const SIZE_OPTIONS = [
-    { value: 'S', label: 'Small' },
-    { value: 'M', label: 'Medium' },
-    { value: 'L', label: 'Large' },
+    { value: 'S', label: 'Pequeno' },
+    { value: 'M', label: 'Médio' },
+    { value: 'L', label: 'Grande' },
 ];
 
 // Last-used hook settings, restored on the next open (style always reset to
@@ -80,7 +80,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} size="lg" eyebrow="EDITOR · HOOK" title="Viral Hook">
+        <Modal isOpen={isOpen} onClose={onClose} size="lg" eyebrow="EDITOR · GANCHO" title="Gancho Viral (Hook)">
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Left: Preview */}
                 <div className="flex-1 flex flex-col items-center justify-center bg-black rounded-card border border-rule overflow-hidden relative aspect-[9/16] max-h-[600px]">
@@ -108,7 +108,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                                         paddingRight: '12px'
                                     }}
                                 >
-                                    {text || "Enter your text..."}
+                                    {text || "Digite seu texto..."}
                                 </div>
                             </div>
                         </>
@@ -120,20 +120,20 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                     <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar pr-1">
                         {/* Text Input */}
                         <div>
-                            <p className="eyebrow mb-2">Text</p>
+                            <p className="eyebrow mb-2">Texto</p>
                             <textarea
                                 value={text}
                                 onChange={(e) => setText(e.target.value)}
                                 rows={4}
                                 className="input-field resize-none font-serif"
                                 style={{ fontFamily: 'Noto Serif, serif' }}
-                                placeholder="Enter text that will stop the scroll..."
+                                placeholder="Digite o texto que vai prender a atenção..."
                             />
                         </div>
 
                         {/* Style (new) */}
                         <div>
-                            <p className="eyebrow mb-2">Style</p>
+                            <p className="eyebrow mb-2">Estilo</p>
                             <div className="grid grid-cols-3 gap-1.5">
                                 {HOOK_STYLES.map((s) => (
                                     <button
@@ -159,7 +159,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
 
                         {/* Position Control */}
                         <div>
-                            <p className="eyebrow mb-2">Position</p>
+                            <p className="eyebrow mb-2">Posição</p>
                             <SegmentedControl
                                 options={POSITION_OPTIONS}
                                 value={position}
@@ -168,15 +168,14 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                             />
                             {position === 'bottom' && hasCaptions && (
                                 <p className="text-[11px] text-warn mt-1.5 leading-relaxed">
-                                    This clip has captions near the bottom — the hook may
-                                    overlap them (and TikTok's UI). Top is the safe zone.
+                                    Este corte tem legendas perto da base — o gancho pode sobrepô-las. A posição superior é a mais recomendada.
                                 </p>
                             )}
                         </div>
 
                         {/* Size Control */}
                         <div>
-                            <p className="eyebrow mb-2">Size</p>
+                            <p className="eyebrow mb-2">Tamanho</p>
                             <SegmentedControl
                                 options={SIZE_OPTIONS}
                                 value={size}
@@ -187,7 +186,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
 
                         {/* Entrance Animation (new) */}
                         <div className={serverRender ? 'opacity-50' : ''}>
-                            <p className="eyebrow mb-2">Entrance</p>
+                            <p className="eyebrow mb-2">Animação de Entrada</p>
                             <SegmentedControl
                                 options={ENTRANCE_OPTIONS}
                                 value={entranceAnimation}
@@ -197,8 +196,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                             />
                             {serverRender && (
                                 <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
-                                    This clip re-renders on the server, where the hook is
-                                    static — the entrance animation won't apply.
+                                    Este corte é renderizado no servidor de forma estática — a animação de entrada aplica-se no preview.
                                 </p>
                             )}
                         </div>
@@ -206,7 +204,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                         {/* Display Duration (new) */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <p className="eyebrow">Duration</p>
+                                <p className="eyebrow">Duração</p>
                                 <span className="readout">{displayDuration}S</span>
                             </div>
                             <input
@@ -226,8 +224,8 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                         {burnedHook && (
                             <div className="p-3 border border-rule rounded-input text-xs text-muted space-y-2">
                                 <p>
-                                    This clip has a hook burned in ("{burnedHook}").
-                                    Generating replaces it with the new one.
+                                    Este corte já possui um gancho ("{burnedHook}").
+                                    Gerar novamente substituirá o atual.
                                 </p>
                                 {onRemove && (
                                     <button
@@ -235,20 +233,20 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                                         disabled={isProcessing}
                                         className="text-danger underline underline-offset-2 hover:opacity-80 transition-opacity"
                                     >
-                                        Remove hook from clip
+                                        Remover gancho do corte
                                     </button>
                                 )}
                             </div>
                         )}
 
                         <div className="p-3 border border-rule rounded-input text-xs text-muted">
-                            Tip: keep it short and punchy. Using "POV:" or specific questions works best for retention.
+                            Dica: mantenha o texto curto e direto. Frases como "POV:" ou perguntas instigantes retêm mais atenção.
                         </div>
                     </div>
 
                     <div className="flex gap-2 mt-5 shrink-0">
                         <button onClick={onClose} className="btn-ghost">
-                            Cancel
+                            Cancelar
                         </button>
                         <button
                             onClick={() => {
@@ -267,7 +265,7 @@ export default function HookModal({ isOpen, onClose, onGenerate, onRemove, isPro
                             className="btn-primary flex-1"
                         >
                             {isProcessing && <Loader2 size={16} className="animate-spin text-brassink" />}
-                            {isProcessing ? 'Generating...' : 'Add Hook'}
+                            {isProcessing ? 'Gerando...' : 'Adicionar Gancho'}
                         </button>
                     </div>
                 </div>

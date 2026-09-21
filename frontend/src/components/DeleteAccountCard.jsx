@@ -7,13 +7,13 @@ import { apiJson } from '../lib/api';
 // box, because the answer is stored in a record that outlives the account and
 // free text is how personal data gets into one by accident.
 const REASONS = [
-  ['too_expensive', 'Too expensive'],
-  ['not_using_it', "I'm not using it"],
-  ['clip_quality', "The clips weren't good enough"],
-  ['missing_feature', 'Missing a feature I need'],
-  ['found_alternative', 'I found something better'],
-  ['privacy', 'Privacy concerns'],
-  ['other', 'Something else'],
+  ['too_expensive', 'Muito caro'],
+  ['not_using_it', 'Não estou usando'],
+  ['clip_quality', 'A qualidade dos cortes não foi suficiente'],
+  ['missing_feature', 'Falta um recurso que preciso'],
+  ['found_alternative', 'Encontrei uma alternativa melhor'],
+  ['privacy', 'Preocupações com privacidade'],
+  ['other', 'Outro motivo'],
 ];
 
 // GDPR Art. 17 erasure, self-service (backend: cloud/account.py). The privacy
@@ -62,7 +62,7 @@ export default function DeleteAccountCard() {
       window.location.hash = '#/deleted';
       window.location.reload();
     } catch (e) {
-      setError(e?.detail || 'Could not delete your account. Please try again or email info@openshorts.app.');
+      setError(e?.detail || 'Não foi possível excluir sua conta. Tente novamente ou entre em contato com o suporte.');
       sending.current = false;
       setBusy(false);
     }
@@ -71,47 +71,44 @@ export default function DeleteAccountCard() {
   return (
     <div className="card p-6">
       <h3 className="font-display text-lg text-ink mb-1 flex items-center gap-2">
-        <Trash2 size={16} className="text-danger" /> Delete account
+        <Trash2 size={16} className="text-danger" /> Excluir conta
       </h3>
       <p className="text-muted text-sm">
-        Close your OpenShorts account and erase everything we hold about you. This
-        cannot be undone.
+        Encerre sua conta do MasterShorts e apague todos os seus dados. Esta
+        ação não pode ser desfeita.
       </p>
 
       {!open ? (
         <button onClick={() => setOpen(true)} className="btn-danger px-4 py-2 mt-4">
-          <Trash2 size={16} /> Delete my account
+          <Trash2 size={16} /> Excluir minha conta
         </button>
       ) : (
         <div className="mt-4 space-y-4">
           <div className="rounded-card border border-danger/40 bg-danger/5 p-3 text-sm text-ink2">
             <p className="flex items-start gap-2 text-ink">
               <AlertTriangle size={16} className="text-danger shrink-0 mt-0.5" />
-              <b>This is permanent. There is no recovery.</b>
+              <b>Isto é permanente. Não há recuperação.</b>
             </p>
-            <p className="mt-2">Deleted immediately:</p>
+            <p className="mt-2">Excluído imediatamente:</p>
             <ul className="list-disc pl-5 mt-1 space-y-0.5">
-              <li>your account and sign-in</li>
-              <li>every project, clip and transcript, here and in our storage</li>
-              <li>your API keys, so anything using them stops working</li>
-              <li>the link to any social accounts you connected</li>
+              <li>sua conta e dados de login</li>
+              <li>todos os projetos, cortes e transcrições armazenados</li>
+              <li>suas chaves de API, interrompendo automações ativas</li>
+              <li>a conexão com qualquer rede social vinculada</li>
             </ul>
             <p className="mt-2">
-              Any active subscription is cancelled as part of this. We keep your
-              invoices for six years because Spanish law requires it, plus a
-              one-way hash of your email address, instead of the address, as
-              proof the deletion happened.
+              Qualquer assinatura ativa será cancelada como parte desta operação.
             </p>
           </div>
 
           <label className="block">
-            <span className="text-sm text-muted">Why are you leaving? (optional)</span>
+            <span className="text-sm text-muted">Por que você está saindo? (opcional)</span>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="input-field w-full text-sm mt-1"
             >
-              <option value="">Prefer not to say</option>
+              <option value="">Prefiro não informar</option>
               {REASONS.map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
@@ -120,7 +117,7 @@ export default function DeleteAccountCard() {
 
           <label className="block">
             <span className="text-sm text-muted">
-              Type <b className="text-ink">{email}</b> to confirm
+              Digite <b className="text-ink">{email}</b> para confirmar
             </span>
             <input
               value={confirm}
@@ -136,11 +133,11 @@ export default function DeleteAccountCard() {
           <div className="flex items-center gap-2">
             <button onClick={remove} disabled={!matches || busy} className="btn-danger px-4 py-2">
               {busy ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-              {busy ? 'Deleting…' : 'Permanently delete my account'}
+              {busy ? 'Excluindo…' : 'Excluir definitivamente minha conta'}
             </button>
             <button onClick={() => { setOpen(false); setConfirm(''); setError(''); }}
                     disabled={busy} className="btn-quiet">
-              Cancel
+              Cancelar
             </button>
           </div>
         </div>

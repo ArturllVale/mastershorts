@@ -483,14 +483,13 @@ async def _assert_job_owner(request, record):
 #   * a running job writes a heartbeat into its manifest every few seconds,
 #     so the new instance skips manifests that are alive elsewhere and resumes
 #     only the stale ones (an instance killed mid-job stops heartbeating);
-#   * SIGTERM (docker stop) also drains, up to DRAIN_TIMEOUT_SECONDS — keep it
-#     under the Coolify stop grace period — before letting uvicorn exit.
+#   * SIGTERM also drains, up to DRAIN_TIMEOUT_SECONDS — keep it
+#     under the orchestrator stop grace period — before letting uvicorn exit.
 # After the jobs are drained, keep SERVING this long with /health/ready at 503
-# before closing the socket: the proxy only drops a container once its Docker
-# healthcheck has failed interval*retries times (15 s with the Coolify
-# settings), and closing the socket earlier sends that many seconds of
-# requests to a dead port. Measured 2026-08-25: ~60 s of alternating 502/200
-# per deploy with retries=12 and no grace at all.
+# before closing the socket: the proxy only drops an instance once its
+# healthcheck has failed interval*retries times, and closing the socket earlier
+# sends that many seconds of requests to a dead port. Measured 2026-08-25: ~60 s
+# of alternating 502/200 per deploy with retries=12 and no grace at all.
 # Once uvicorn has the signal it closes within --timeout-graceful-shutdown
 # (15 s), but the interpreter then waits for non-daemon threads, and a
 # request cancelled mid-flight can leave an executor thread stuck in a
@@ -606,7 +605,7 @@ async def lifespan(app: FastAPI):
     _resumed_reservation_ids = _resume_interrupted_jobs()
     # Deploy handover: claim the marker (any older instance sees it and drains),
     # keep watching it in case a newer one appears, keep looking for manifests
-    # left behind, and drain instead of dying on docker stop.
+    # left behind, and drain instead of dying on SIGTERM.
     _write_instance_marker()
     _install_drain_signal_handler()
     asyncio.create_task(_handover_watch())
@@ -706,13 +705,12 @@ async def health():
 
 @app.get("/health/ready")
 async def health_ready():
-    """Readiness probe for the Docker HEALTHCHECK (Dockerfile). Traefik's docker
-    provider drops a container from the load balancer as soon as it turns
-    unhealthy, so answering 503 from the moment SIGTERM arrives pulls this
-    instance out of rotation while it can still serve, instead of after its
-    socket is gone. Only SIGTERM flips it: a drain triggered by the instance
-    marker starts while the new container is still booting, and going
-    unready then would leave nobody routable."""
+    """Readiness probe. Reverse proxies drop an instance from the load
+    balancer as soon as it turns unhealthy, so answering 503 from the moment
+    SIGTERM arrives pulls this instance out of rotation while it can still
+    serve, instead of after its socket is gone. Only SIGTERM flips it: a drain
+    triggered by the instance marker starts while the new instance is still
+    booting, and going unready then would leave nobody routable."""
     if job_queue_service._stopping:
         return JSONResponse({"status": "stopping"}, status_code=503)
     return {"status": "ready"}

@@ -167,8 +167,8 @@ async def request_magic_link(payload: MagicLinkRequest, request: Request):
     # Normalize (strip +tags / Gmail dots) so aliases can't mint extra accounts.
     email = email_policy.normalize_email(payload.email)
 
-    # Best-effort: uvicorn resolves this from X-Forwarded-For (trusted "*" in
-    # the Dockerfile), which a client can forge — good enough against the bots
+    # Best-effort: uvicorn resolves this from X-Forwarded-For (trusted in
+    # production), which a client can forge — good enough against the bots
     # we actually see, but not a security boundary.
     client_ip = request.client.host if request.client else None
 

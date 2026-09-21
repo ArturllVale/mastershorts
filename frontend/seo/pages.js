@@ -50,7 +50,7 @@ function competitorPage(slug) {
   const faq = [
     {
       q: `Is there a free alternative to ${c.name}?`,
-      a: `Yes. OpenShorts self-hosted is free and open source under MIT, with no watermark and no usage cap, and it runs on your own machine with Docker. OpenShorts Cloud also has a free tier of 20 minutes a month with a watermark and no credit card. ${c.name} starts at ${c.entryPrice}.`,
+      a: `Yes. OpenShorts self-hosted is free and open source under MIT, with no watermark and no usage cap, and it runs on your own machine. OpenShorts Cloud also has a free tier of 20 minutes a month with a watermark and no credit card. ${c.name} starts at ${c.entryPrice}.`,
     },
     {
       q: `Is there an open source alternative to ${c.name}?`,
@@ -75,7 +75,7 @@ it takes a long video, finds the segments worth clipping, cuts them, reframes
 them to 9:16 and burns in subtitles. It adds two things ${esc(c.name)} does not
 have, AI voice dubbing into more than 30 languages and an AI UGC generator with
 lip-synced actors. The caveat is that the free edition is self-hosted, which
-means Docker and a machine to run it on. If you want a hosted product with no
+means a machine to run it on. If you want a hosted product with no
 setup, that is OpenShorts Cloud, and it is a paid service above 20 minutes a month.</p>
 
 <h2>What does ${esc(c.name)} cost?</h2>
@@ -197,7 +197,7 @@ const freeClipGenerator = () => ({
   path: '/free-ai-clip-generator',
   title: 'Free AI Clip Generator With No Watermark (MIT) | OpenShorts',
   description:
-    'A genuinely free AI clip generator: MIT-licensed, self-hosted with Docker, no watermark and no cap. Hosted from $12/month if you would rather not run it.',
+    'A genuinely free AI clip generator: MIT-licensed, self-hosted, no watermark and no cap. Hosted from $12/month if you would rather not run it.',
   h1: 'A free AI clip generator that is actually free',
   breadcrumb: [{ name: 'Free AI clip generator' }],
   cta: {
@@ -207,7 +207,7 @@ const freeClipGenerator = () => ({
     button: 'Get free clips',
   },
   tldr: [
-    'OpenShorts self-hosted is a free AI clip generator under the MIT licence. No watermark, no usage cap, no subscription. You run it with Docker and supply your own Google Gemini API key, whose free tier covers 1,500 requests a day.',
+    'OpenShorts self-hosted is a free AI clip generator under the MIT licence. No watermark, no usage cap, no subscription. You run it on your own machine and supply your own Google Gemini API key, whose free tier covers 1,500 requests a day.',
     'It turns a long video into 3 to 15 vertical clips: faster-whisper transcribes at word level, PySceneDetect finds the cuts, Gemini 3.1 Flash-Lite scores the moments, and MediaPipe face tracking reframes each one to 9:16.',
     'If you do not want to run anything, OpenShorts Cloud gives you 20 free minutes a month with a watermark, and paid plans from $12/month without one.',
   ],
@@ -223,7 +223,7 @@ under MIT, and you can read all of it.</p>
 
 <h2>How do you generate clips from a long video for free?</h2>
 <ol>
-<li>Clone the repository from GitHub and start it with <code>docker compose up --build</code>.</li>
+<li>Clone the repository from GitHub and start it with <code>npm run dev</code>.</li>
 <li>Create a Google Gemini API key. The free tier covers 1,500 requests a day, which is far more than a single creator uses.</li>
 <li>Paste a YouTube link or upload a local file. Podcasts, webinars, livestreams, interviews and vlogs all work.</li>
 <li>The pipeline transcribes, detects scenes, scores moments and returns 3 to 15 clips of 15 to 60 seconds each, already cropped to 9:16 with subtitles burned in.</li>
@@ -231,11 +231,11 @@ under MIT, and you can read all of it.</p>
 </ol>
 
 <h2>What do you need to run it?</h2>
-<p>Any machine with Docker. 8GB of RAM and a modern multi-core CPU is the
+<p>Any modern machine. 8GB of RAM and a modern multi-core CPU is the
 realistic floor. An NVIDIA GPU is optional and changes the numbers a lot: on CPU
 an 8-minute video takes roughly 5 to 8 minutes to process, and on a GPU the same
 video takes about 50 seconds. Linux, macOS and Windows via WSL2 all work, and
-Docker Compose pulls Python 3.11, FFmpeg, YOLOv8, MediaPipe and faster-whisper
+OpenShorts runs on Python 3.11, Node.js, FFmpeg, YOLOv8, MediaPipe and faster-whisper
 for you.</p>
 
 <h2>Is a free clip generator good enough for real posting?</h2>
@@ -291,13 +291,13 @@ ${faqBlock([
 
 const openSourceClipper = () => ({
   path: '/open-source-video-clipper',
-  title: 'Open Source Video Clipper, Self-Hosted (Docker) | OpenShorts',
+  title: 'Open Source Video Clipper, Self-Hosted | OpenShorts',
   description:
-    'An MIT-licensed open source video clipper you self-host with Docker: AI moment detection, face-tracked 9:16 reframing and word-level subtitles.',
+    'An MIT-licensed open source video clipper you self-host locally: AI moment detection, face-tracked 9:16 reframing and word-level subtitles.',
   h1: 'An open source video clipper you can self-host',
   breadcrumb: [{ name: 'Open source video clipper' }],
   tldr: [
-    'OpenShorts is an MIT-licensed video clipper that runs entirely on your own hardware via Docker Compose. Source video never leaves the machine.',
+    'OpenShorts is an MIT-licensed video clipper that runs entirely on your own hardware. Source video never leaves the machine.',
     'The stack is Python 3.11, FastAPI, faster-whisper, PySceneDetect, MediaPipe, YOLOv8, FFmpeg and Google Gemini 3.1 Flash-Lite, with a React dashboard.',
     'It is the only open source tool in this category. Opus Clip, Klap, Vizard and Submagic are all closed-source cloud services.',
   ],
@@ -315,7 +315,7 @@ the source means you can change it rather than file a feature request.</p>
 ${PIPELINE_STEPS.map((s) => `<h3>${esc(s.title)}</h3><p>${esc(s.body)}</p>`).join('')}
 
 <h2>What does it run on?</h2>
-<p>Docker Compose brings up the FastAPI backend and the React dashboard together.
+<p>OpenShorts brings up the FastAPI backend and the React dashboard together.
 The realistic floor is 8GB of RAM and a modern multi-core CPU; an NVIDIA GPU is
 optional and takes an 8-minute video from roughly 5 to 8 minutes of processing
 down to about 50 seconds. Linux, macOS and Windows via WSL2 are all supported.
@@ -337,7 +337,7 @@ no setup, and you cannot read a line of what they do with your video.</p>
 ${faqBlock([
   {
     q: 'Is there an open source alternative to Opus Clip?',
-    a: 'Yes. OpenShorts is MIT-licensed and self-hostable with Docker, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level subtitles. Opus Clip is closed source and cloud only, starting at $15/month.',
+    a: 'Yes. OpenShorts is MIT-licensed and self-hostable, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level subtitles. Opus Clip is closed source and cloud only, starting at $15/month.',
   },
   {
     q: 'Can I run it without sending video to any third party?',
@@ -352,7 +352,7 @@ ${faqBlock([
   faq: [
     {
       q: 'Is there an open source alternative to Opus Clip?',
-      a: 'Yes. OpenShorts is MIT-licensed and self-hostable with Docker, covering AI moment detection, face-tracked 9:16 reframing and word-level subtitles. Opus Clip is closed source and cloud only.',
+      a: 'Yes. OpenShorts is MIT-licensed and self-hostable, covering AI moment detection, face-tracked 9:16 reframing and word-level subtitles. Opus Clip is closed source and cloud only.',
     },
     {
       q: 'What licence is OpenShorts released under?',
@@ -452,7 +452,7 @@ const noWatermark = () => ({
   published: '2026-08-04',
   updated: '2026-08-04',
   tldr: [
-    'Every hosted "free" clip generator watermarks its exports, because the watermark is the upsell. The one structural exception is software you run yourself. OpenShorts self-hosted is MIT-licensed, runs with Docker, and never watermarks anything because there is no watermark code in it.',
+    'Every hosted "free" clip generator watermarks its exports, because the watermark is the upsell. The one structural exception is software you run yourself. OpenShorts self-hosted is MIT-licensed, runs locally, and never watermarks anything because there is no watermark code in it.',
     'OpenShorts Cloud, the hosted service, follows the same rule as every other hosted tool and says so plainly: the free 20 minutes a month carry a watermark, and paid plans from $12/month do not.',
     'If a tool claims free, unlimited and unwatermarked at once and it is a hosted service, one of the three claims is temporary.',
   ],
@@ -497,7 +497,7 @@ price is $12/month, and the comparison table above is what that buys elsewhere.<
 ${faqBlock([
   {
     q: 'Is there a free AI clip generator without a watermark?',
-    a: 'Yes, with one honest qualifier: it is self-hosted. OpenShorts is MIT-licensed and runs on your own machine with Docker, with no watermark and no usage cap. Hosted services, including OpenShorts Cloud, watermark their free tiers; unwatermarked hosted plans start at $12/month.',
+    a: 'Yes, with one honest qualifier: it is self-hosted. OpenShorts is MIT-licensed and runs on your own machine, with no watermark and no usage cap. Hosted services, including OpenShorts Cloud, watermark their free tiers; unwatermarked hosted plans start at $12/month.',
   },
   {
     q: 'Does the free OpenShorts Cloud plan add a watermark?',
@@ -582,7 +582,7 @@ better fit, and that is a real recommendation rather than false modesty.</p>
 ${faqBlock([
   {
     q: 'Is there a free open source AI video generator?',
-    a: 'Yes, in both senses. For text-to-video, Genmo’s Mochi 1, Open-Sora and HunyuanVideo publish open weights and need a powerful GPU. For making clips from your own footage, OpenShorts is MIT-licensed and runs with Docker on an ordinary machine: free self-hosted with no watermark, or hosted from $12/month.',
+    a: 'Yes, in both senses. For text-to-video, Genmo’s Mochi 1, Open-Sora and HunyuanVideo publish open weights and need a powerful GPU. For making clips from your own footage, OpenShorts is MIT-licensed and runs on an ordinary machine: free self-hosted with no watermark, or hosted from $12/month.',
   },
   {
     q: 'Can open source AI generate videos from text?',
@@ -675,7 +675,7 @@ page applies.</p>
 ${faqBlock([
   {
     q: 'How do I turn a podcast into clips for free?',
-    a: 'Self-host OpenShorts: clone the MIT-licensed repo, run docker compose up, add a free-tier Google Gemini API key and paste your episode link. No watermark and no cap. If you would rather not run anything, OpenShorts Cloud clips 20 minutes a month free with a watermark, and paid plans start at $12/month.',
+    a: 'Self-host OpenShorts: clone the MIT-licensed repo, run npm run dev, add a free-tier Google Gemini API key and paste your episode link. No watermark and no cap. If you would rather not run anything, OpenShorts Cloud clips 20 minutes a month free with a watermark, and paid plans start at $12/month.',
   },
   {
     q: 'How does it handle two people talking?',
@@ -695,7 +695,7 @@ ${sources([
   faq: [
     {
       q: 'How do I turn a podcast into clips for free?',
-      a: 'Self-host OpenShorts (MIT, Docker, bring a free-tier Gemini key): no watermark, no cap. Or use OpenShorts Cloud: 20 free minutes a month with a watermark, paid plans from $12/month.',
+      a: 'Self-host OpenShorts (MIT, self-hosted, bring a free-tier Gemini key): no watermark, no cap. Or use OpenShorts Cloud: 20 free minutes a month with a watermark, paid plans from $12/month.',
     },
     {
       q: 'How does it handle two people talking?',
@@ -763,7 +763,7 @@ ${pricingParagraph}
 ${faqBlock([
   {
     q: 'Can I convert a YouTube video to Shorts for free?',
-    a: 'Yes, two ways. Self-host OpenShorts (MIT licence, Docker, your own free-tier Gemini API key): unlimited, no watermark. Or use the hosted free tier: 20 minutes of source video a month, watermarked, no credit card. Paid hosted plans without watermark start at $12/month.',
+    a: 'Yes, two ways. Self-host OpenShorts (MIT licence, self-hosted, your own free-tier Gemini API key): unlimited, no watermark. Or use the hosted free tier: 20 minutes of source video a month, watermarked, no credit card. Paid hosted plans without watermark start at $12/month.',
   },
   {
     q: 'Do I need to download the video first?',
@@ -778,7 +778,7 @@ ${faqBlock([
   faq: [
     {
       q: 'Can I convert a YouTube video to Shorts for free?',
-      a: 'Yes: self-hosted OpenShorts is free with no cap (MIT, Docker, your own Gemini key), and the hosted free tier covers 20 watermarked minutes a month. Paid hosted plans start at $12/month.',
+      a: 'Yes: self-hosted OpenShorts is free with no cap (MIT, self-hosted, your own Gemini key), and the hosted free tier covers 20 watermarked minutes a month. Paid hosted plans start at $12/month.',
     },
     {
       q: 'Do I need to download the video first?',
@@ -1356,12 +1356,12 @@ const opusClipFree = () => ({
   cta: {
     label: 'Free, both ways',
     title: 'Twenty free minutes, no credit card',
-    body: 'Or run the whole thing on your own machine for nothing: MIT-licensed, Docker, no watermark and no cap.',
+    body: 'Or run the whole thing on your own machine for nothing: MIT-licensed, self-hosted, no watermark and no cap.',
     button: 'Get free clips',
   },
   tldr: [
     `Opus Clip's free tier is real but conditional: 60 source minutes a month, 720p, watermarked, and free-plan exports are deleted after three days. Its link import is a paid feature, so a YouTube URL does not work there.`,
-    'OpenShorts has two free routes and neither one watermarks anything on the self-hosted side. Self-hosted is MIT-licensed, runs with Docker, and has no metering or watermark code in it. The hosted free tier is 20 minutes a month with a watermark and no credit card.',
+    'OpenShorts has two free routes and neither one watermarks anything on the self-hosted side. Self-hosted is MIT-licensed, runs locally, and has no metering or watermark code in it. The hosted free tier is 20 minutes a month with a watermark and no credit card.',
     'The honest trade: self-hosting costs you a machine and 5 to 8 minutes of processing per 8 minutes of video on CPU. If that is not worth it, the paid answer here is $12/month, not $15.',
   ],
   body: `
@@ -1382,12 +1382,12 @@ stays free when your usage grows.</p>
 Cloud terms are ours and current.</p>
 
 <h2>The first free route: run it yourself</h2>
-<p>Clone the repository, run <code>docker compose up --build</code>, add a
+<p>Clone the repository, run <code>npm run dev</code>, add a
 Google Gemini API key (its free tier covers 1,500 requests a day) and paste a
 link. Nothing is metered because there is no metering code: the same pipeline
 the hosted service runs, MIT-licensed, on your hardware. Source video never
 leaves the machine, which is the other reason people choose this route.</p>
-<p>What it costs you instead: Docker, 8GB of RAM as a realistic floor, and time.
+<p>What it costs you instead: 8GB of RAM as a realistic floor, and time.
 An 8-minute video takes roughly 5 to 8 minutes to process on CPU and about 50
 seconds on an NVIDIA GPU. For a weekly podcast that is a coffee break; for
 twenty videos a day it is a job.</p>
@@ -1410,7 +1410,7 @@ entry tier's allowance by the second episode of the month.</p>
 ${faqBlock([
   {
     q: 'Is there a free alternative to Opus Clip with no watermark?',
-    a: 'Yes: OpenShorts self-hosted. It is MIT-licensed, runs on your own machine with Docker, and never adds a watermark because the self-hosted edition contains no watermark code. You supply a Google Gemini API key, whose free tier covers 1,500 requests a day.',
+    a: 'Yes: OpenShorts self-hosted. It is MIT-licensed, runs on your own machine, and never adds a watermark because the self-hosted edition contains no watermark code. You supply a Google Gemini API key, whose free tier covers 1,500 requests a day.',
   },
   {
     q: 'Can I use Opus Clip for free every month?',
@@ -1418,7 +1418,7 @@ ${faqBlock([
   },
   {
     q: 'What is the catch with the free self-hosted route?',
-    a: 'Hardware and time, not a hidden fee. It needs Docker and realistically 8GB of RAM, and an 8-minute video takes 5 to 8 minutes to process on CPU (about 50 seconds on an NVIDIA GPU). There is no cap, no watermark and no subscription.',
+    a: 'Hardware and time, not a hidden fee. It needs realistically 8GB of RAM, and an 8-minute video takes 5 to 8 minutes to process on CPU (about 50 seconds on an NVIDIA GPU). There is no cap, no watermark and no subscription.',
   },
 ])}
 
@@ -1430,7 +1430,7 @@ ${sources([
   faq: [
     {
       q: 'Is there a free alternative to Opus Clip without a watermark?',
-      a: 'Yes: OpenShorts self-hosted is MIT-licensed, runs with Docker on your own machine, and has no watermark and no cap.',
+      a: 'Yes: OpenShorts self-hosted is MIT-licensed, runs on your own machine, and has no watermark and no cap.',
     },
     {
       q: 'How much free usage does OpenShorts give hosted?',
@@ -1483,7 +1483,7 @@ ${li(OPUS.tiers.map(([n, d]) => `<strong>${esc(n)}</strong>: ${esc(d)}`))}
 
 <h2>Where OpenShorts differs</h2>
 ${li([
-  `OpenShorts is MIT-licensed and can be self-hosted with Docker, so the source video never leaves your machine. Opus AI is cloud only.`,
+  `OpenShorts is MIT-licensed and can be self-hosted, so the source video never leaves your machine. Opus AI is cloud only.`,
   `OpenShorts adds AI voice dubbing into 30+ languages and an AI UGC generator with lip-synced actors; the Opus AI feature set is clipping and captioning.`,
   `Opus AI has the larger caption-style library and a longer track record. If your clips live or die on animated caption design, that advantage is real and this page is not going to pretend otherwise.`,
   `OpenShorts self-hosted has no meter of any kind; Opus AI bills credits per minute of source imported, and those credits expire 60 days after purchase.`,
@@ -1503,7 +1503,7 @@ ${faqBlock([
   },
   {
     q: 'Does Opus AI have an open source alternative?',
-    a: 'Yes. OpenShorts is MIT-licensed, self-hostable with Docker, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level burned-in subtitles. It also adds dubbing into 30+ languages and AI UGC video, which Opus AI does not have.',
+    a: 'Yes. OpenShorts is MIT-licensed, self-hostable, and covers the same core job: AI moment detection, face-tracked 9:16 reframing and word-level burned-in subtitles. It also adds dubbing into 30+ languages and AI UGC video, which Opus AI does not have.',
   },
 ])}
 `,
@@ -1674,7 +1674,7 @@ ${faqBlock([
   },
   {
     q: 'How do I get a free transcript from a video?',
-    a: 'Self-host OpenShorts: transcription runs locally with faster-whisper at word level and the transcript comes back with the finished job, at no cost and with no watermark. The self-hosted edition needs Docker and a Google Gemini API key for the moment scoring, whose free tier covers 1,500 requests a day.',
+    a: 'Self-host OpenShorts: transcription runs locally with faster-whisper at word level and the transcript comes back with the finished job, at no cost and with no watermark. The self-hosted edition needs a Google Gemini API key for the moment scoring, whose free tier covers 1,500 requests a day.',
   },
   {
     q: 'Is word-level timing important in a transcript?',
@@ -1879,7 +1879,7 @@ const alternativasIndex = () => {
     published: '2026-09-17',
     updated: '2026-09-17',
     tldr: [
-      'OpenShorts es la única herramienta de esta categoría con código abierto y autoalojable: MIT, se ejecuta con Docker en tu propia máquina y no lleva marca de agua ni límite de uso.',
+      'OpenShorts es la única herramienta de esta categoría con código abierto y autoalojable: MIT, se ejecuta en tu propia máquina y no lleva marca de agua ni límite de uso.',
       `Los precios de entrada, comprobados el ${esc(OPUS.checked)}: OpenShorts $0 autoalojado o $12/mes alojado, Submagic ${esc(COMPETITORS.submagic.entryPrice)}, Opus Clip ${esc(OPUS.entryPrice)}, Vizard ${esc(COMPETITORS.vizard.entryPrice)} y Klap ${esc(COMPETITORS.klap.entryPrice)}.`,
       'Las herramientas no son equivalentes: Submagic no detecta momentos, Klap no deja ajustar la salida y Vizard espera que edites en su línea de tiempo. Cada comparativa de abajo dice dónde gana de verdad.',
     ],
@@ -1902,7 +1902,7 @@ página, no por popularidad de la herramienta.</p>
 <table>
 <thead><tr><th>Herramienta</th><th>Precio de entrada</th><th>Código abierto</th><th>Autoalojable</th></tr></thead>
 <tbody>
-<tr><td class="os">OpenShorts</td><td class="os">$0 autoalojado · $12/mes alojado</td><td class="yes">Sí, MIT</td><td class="yes">Sí, Docker</td></tr>
+<tr><td class="os">OpenShorts</td><td class="os">$0 autoalojado · $12/mes alojado</td><td class="yes">Sí, MIT</td><td class="yes">Sí, autoalojado</td></tr>
 <tr><td>Submagic</td><td>${esc(COMPETITORS.submagic.entryPrice)}</td><td>No</td><td>No</td></tr>
 <tr><td>Opus Clip</td><td>${esc(OPUS.entryPrice)}</td><td>No</td><td>No</td></tr>
 <tr><td>Vizard</td><td>${esc(COMPETITORS.vizard.entryPrice)}</td><td>No</td><td>No</td></tr>
@@ -1919,7 +1919,7 @@ medidor de ningún tipo, así que un vídeo de 90 minutos cuesta lo mismo que un
 ${faqBlock([
   {
     q: '¿Cuál es la alternativa gratuita a Opus Clip?',
-    a: 'OpenShorts autoalojado: licencia MIT, se ejecuta con Docker en tu máquina, sin marca de agua y sin límite de uso. Solo necesitas una clave de Google Gemini, cuyo plan gratuito cubre 1.500 peticiones al día. Si prefieres no instalar nada, OpenShorts Cloud da 20 minutos al mes con marca de agua y planes de pago desde $12/mes.',
+    a: 'OpenShorts autoalojado: licencia MIT, se ejecuta en tu máquina, sin marca de agua y sin límite de uso. Solo necesitas una clave de Google Gemini, cuyo plan gratuito cubre 1.500 peticiones al día. Si prefieres no instalar nada, OpenShorts Cloud da 20 minutos al mes con marca de agua y planes de pago desde $12/mes.',
   },
   {
     q: '¿Qué herramienta de clipping tiene código abierto?',
@@ -1934,7 +1934,7 @@ ${faqBlock([
     faq: [
       {
         q: '¿Cuál es la alternativa gratuita a Opus Clip?',
-        a: 'OpenShorts autoalojado: MIT, Docker, sin marca de agua y sin límite. Hosted: 20 minutos gratis al mes y planes desde $12/mes.',
+        a: 'OpenShorts autoalojado: MIT, sin marca de agua y sin límite. Hosted: 20 minutos gratis al mes y planes desde $12/mes.',
       },
       {
         q: '¿Qué herramienta de clipping es de código abierto?',
@@ -2090,7 +2090,7 @@ ${faqBlock([
   },
   {
     q: 'Is it free for streamers?',
-    a: 'Self-hosted OpenShorts is free and open source under MIT with no per-minute meter, which is the edition that makes sense when your sources are measured in hours: run it with Docker and bring your own Gemini API key. OpenShorts Cloud covers 20 minutes a month free with a watermark, and paid hosted plans start at $12/month.',
+    a: 'Self-hosted OpenShorts is free and open source under MIT with no per-minute meter, which is the edition that makes sense when your sources are measured in hours: run it on your own machine and bring your own Gemini API key. OpenShorts Cloud covers 20 minutes a month free with a watermark, and paid hosted plans start at $12/month.',
   },
 ])}
 
@@ -2131,7 +2131,7 @@ ${sources([
         'Turn a multi-hour GTA 5 or GTA RP stream VOD into vertical 9:16 clips for TikTok, YouTube Shorts and Instagram Reels, keeping the gameplay full width and the facecam visible.',
       totalTime: 'PT15M',
       supply: [{ '@type': 'HowToSupply', name: 'A GTA 5 stream VOD (link or local file) you have the rights to' }],
-      tool: [{ '@type': 'HowToTool', name: 'OpenShorts (self-hosted with Docker, or OpenShorts Cloud)' }],
+      tool: [{ '@type': 'HowToTool', name: 'OpenShorts (self-hosted, or OpenShorts Cloud)' }],
       step: [
         {
           '@type': 'HowToStep',
@@ -2208,7 +2208,7 @@ export function relatedFor(page, all) {
     '/alternatives/submagic': 'Captions only, so it does not replace a clipper.',
     '/free-ai-clip-generator': 'What free means when there is no metering code.',
     '/free-ai-clip-generator-no-watermark': 'Why free tools watermark, and the structural exception.',
-    '/open-source-video-clipper': 'Self-hosting with Docker, and the MIT licence carve-out.',
+    '/open-source-video-clipper': 'Self-hosting, and the MIT licence carve-out.',
     '/open-source-ai-video-generator': 'Text-to-video or clips from your footage: which you want.',
     '/how-openshorts-works': 'The full pipeline, stage by stage.',
     '/gta-5-clips': 'Stream VODs, webcam inset kept, no per-minute meter.',

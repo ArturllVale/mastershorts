@@ -3,37 +3,37 @@ import { Loader2, Languages, AlertCircle } from 'lucide-react';
 import Modal from './ui/Modal';
 
 const LANGUAGES = {
-    "es": "Spanish",
-    "fr": "French",
-    "de": "German",
-    "it": "Italian",
-    "pt": "Portuguese",
-    "pl": "Polish",
+    "es": "Espanhol",
+    "fr": "Francês",
+    "de": "Alemão",
+    "it": "Italiano",
+    "pt": "Português",
+    "pl": "Polonês",
     "hi": "Hindi",
-    "ja": "Japanese",
-    "ko": "Korean",
-    "zh": "Chinese",
-    "ar": "Arabic",
-    "ru": "Russian",
-    "tr": "Turkish",
-    "nl": "Dutch",
-    "sv": "Swedish",
-    "id": "Indonesian",
+    "ja": "Japonês",
+    "ko": "Coreano",
+    "zh": "Chinês",
+    "ar": "Árabe",
+    "ru": "Russo",
+    "tr": "Turco",
+    "nl": "Holandês",
+    "sv": "Sueco",
+    "id": "Indonésio",
     "fil": "Filipino",
-    "ms": "Malay",
-    "vi": "Vietnamese",
-    "th": "Thai",
-    "uk": "Ukrainian",
-    "el": "Greek",
-    "cs": "Czech",
-    "fi": "Finnish",
-    "ro": "Romanian",
-    "da": "Danish",
-    "bg": "Bulgarian",
-    "hr": "Croatian",
-    "sk": "Slovak",
-    "ta": "Tamil",
-    "en": "English",
+    "ms": "Malaio",
+    "vi": "Vietnamita",
+    "th": "Tailandês",
+    "uk": "Ucraniano",
+    "el": "Grego",
+    "cs": "Tcheco",
+    "fi": "Finlandês",
+    "ro": "Romeno",
+    "da": "Dinamarquês",
+    "bg": "Búlgaro",
+    "hr": "Croata",
+    "sk": "Eslovaco",
+    "ta": "Tâmil",
+    "en": "Inglês",
 };
 
 export default function TranslateModal({ isOpen, onClose, onTranslate, isProcessing, videoUrl, hasApiKey }) {
@@ -50,8 +50,8 @@ export default function TranslateModal({ isOpen, onClose, onTranslate, isProcess
         <Modal
             isOpen={isOpen}
             onClose={isProcessing ? undefined : onClose}
-            eyebrow="DUB"
-            title="Dub Voice"
+            eyebrow="DUBLAGEM"
+            title="Dublagem com IA"
             size="md"
             footer={
                 <div className="flex gap-3">
@@ -60,7 +60,7 @@ export default function TranslateModal({ isOpen, onClose, onTranslate, isProcess
                         disabled={isProcessing}
                         className="btn-ghost flex-1"
                     >
-                        Cancel
+                        Cancelar
                     </button>
                     <button
                         onClick={handleSubmit}
@@ -70,12 +70,12 @@ export default function TranslateModal({ isOpen, onClose, onTranslate, isProcess
                         {isProcessing ? (
                             <>
                                 <Loader2 size={16} className="animate-spin" />
-                                Dubbing...
+                                Dublando...
                             </>
                         ) : (
                             <>
                                 <Languages size={16} />
-                                Dub Voice
+                                Dublar Voz
                             </>
                         )}
                     </button>
@@ -86,13 +86,13 @@ export default function TranslateModal({ isOpen, onClose, onTranslate, isProcess
                 <div className="w-10 h-10 rounded-input bg-surface-2 flex items-center justify-center shrink-0 border border-border">
                     <Languages size={18} className="text-accent" />
                 </div>
-                <p className="text-xs text-text-tertiary">AI voice translation powered by ElevenLabs</p>
+                <p className="text-xs text-text-tertiary">Tradução e dublagem de voz por IA (ElevenLabs)</p>
             </div>
 
             {!hasApiKey && (
                 <div className="mb-4 flex items-start gap-2">
-                    <span className="badge-warn shrink-0"><AlertCircle size={12} /> Key Missing</span>
-                    <p className="text-sm text-text-tertiary">Configure ElevenLabs API Key in Settings first.</p>
+                    <span className="badge-warn shrink-0"><AlertCircle size={12} /> Chave Ausente</span>
+                    <p className="text-sm text-text-tertiary">Configure a chave de API da ElevenLabs nas Configurações primeiro.</p>
                 </div>
             )}
 
@@ -109,7 +109,7 @@ export default function TranslateModal({ isOpen, onClose, onTranslate, isProcess
             {/* Language Selection */}
             <div className="mb-5">
                 <label className="eyebrow block mb-2">
-                    Target Language
+                    Idioma de Destino
                 </label>
                 <select
                     value={targetLanguage}
@@ -127,12 +127,12 @@ export default function TranslateModal({ isOpen, onClose, onTranslate, isProcess
 
             {/* Info */}
             <p className="text-xs text-text-tertiary leading-relaxed mb-2">
-                The audio will be dubbed with AI-generated voice in the selected language, matching the original speaker's characteristics.
+                O áudio será dublado com voz gerada por IA no idioma selecionado, mantendo as características do locutor original.
             </p>
 
             {/* AI Act art. 50 disclosure */}
             <p className="text-xs text-text-tertiary leading-relaxed mb-2">
-                The dubbed file is tagged as AI-generated content. When you publish it, disclose that the voice is synthetic.
+                O arquivo dublado é sinalizado como conteúdo gerado por IA. Ao publicar, informe que a voz é sintética.
             </p>
 
             {/* Processing State */}
@@ -141,8 +141,8 @@ export default function TranslateModal({ isOpen, onClose, onTranslate, isProcess
                     <div className="flex items-center gap-3">
                         <Loader2 size={18} className="text-accent animate-spin" />
                         <div>
-                            <p className="text-sm text-text-primary font-medium">Dubbing audio...</p>
-                            <p className="text-xs text-text-tertiary">This may take a few minutes</p>
+                            <p className="text-sm text-text-primary font-medium">Dublando áudio...</p>
+                            <p className="text-xs text-text-tertiary">Isso pode levar alguns minutos</p>
                         </div>
                     </div>
                 </div>

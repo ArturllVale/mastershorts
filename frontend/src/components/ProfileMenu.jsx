@@ -32,7 +32,7 @@ export default function ProfileMenu() {
       {open && (
         <div className="card absolute right-0 top-full mt-2 w-56 z-30 shadow-none overflow-hidden animate-fade">
           <div className="px-4 py-3 border-b border-rule">
-            <p className="eyebrow">Signed in as</p>
+            <p className="eyebrow">Conectado como</p>
             <p className="text-sm text-ink truncate mt-0.5" title={user.email}>{user.email}</p>
           </div>
           {!isManaged && (
@@ -40,20 +40,20 @@ export default function ProfileMenu() {
               onClick={() => { setOpen(false); window.location.hash = '#/pricing'; }}
               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-brass hover:bg-paper3 transition-colors"
             >
-              <Sparkles size={16} /> Start free
+              <Sparkles size={16} /> Começar grátis
             </button>
           )}
           <button
             onClick={() => { setOpen(false); window.location.hash = '#/account'; }}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-ink2 hover:bg-paper3 transition-colors"
           >
-            <CreditCard size={16} className="text-muted" /> Account &amp; billing
+            <CreditCard size={16} className="text-muted" /> Minha Conta &amp; Planos
           </button>
           <button
             onClick={() => { setOpen(false); logout(); }}
             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-ink2 hover:bg-paper3 transition-colors border-t border-rule"
           >
-            <LogOut size={16} className="text-muted" /> Sign out
+            <LogOut size={16} className="text-muted" /> Sair
           </button>
         </div>
       )}

@@ -24,11 +24,11 @@ export default function SettingsView({
     <div className="h-full overflow-y-auto p-4 sm:p-8 max-w-2xl mx-auto animate-fade">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
         <div>
-          <p className="eyebrow mb-1.5">04 · SETTINGS</p>
-          <h1 className="font-display lowercase text-2xl text-ink">Settings</h1>
+          <p className="eyebrow mb-1.5">04 · CONFIGURAÇÕES</p>
+          <h1 className="font-display lowercase text-2xl text-ink">Configurações</h1>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted mt-1">
-          <Shield size={12} className="text-ok shrink-0" /> Privacy: keys and endpoints only live in your browser
+          <Shield size={12} className="text-ok shrink-0" /> Privacidade: chaves e endpoints ficam salvos apenas no seu navegador
         </div>
       </div>
 
@@ -39,13 +39,13 @@ export default function SettingsView({
               <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
                 <Shield size={16} className="text-brass" />
               </div>
-              <h2 className="text-base font-medium text-ink lowercase">Included in your plan</h2>
+              <h2 className="text-base font-medium text-ink lowercase">Incluso no seu plano</h2>
             </div>
-            <span className="badge-ok">Managed</span>
+            <span className="badge-ok">Gerenciado</span>
           </div>
           <p className="text-xs text-muted mb-0 leading-relaxed">
-            Your plan includes the <strong>Clip Generator</strong> and <strong>YouTube Studio</strong>,
-            fully managed — no API keys required.
+            Seu plano inclui o <strong>Gerador de Cortes</strong> e o <strong>Estúdio YouTube</strong>,
+            totalmente gerenciados — sem necessidade de chaves de API.
           </p>
         </div>
       ) : billingEnabled ? (
@@ -55,15 +55,15 @@ export default function SettingsView({
               <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
                 <Sparkles size={16} className="text-brass" />
               </div>
-              <h2 className="text-base font-medium text-ink lowercase">Choose your plan</h2>
+              <h2 className="text-base font-medium text-ink lowercase">Escolha seu plano</h2>
             </div>
-            <span className="badge-ok">Free plan available</span>
+            <span className="badge-ok">Plano gratuito disponível</span>
           </div>
           <p className="text-xs text-muted mb-5 leading-relaxed">
-            Generate shorts with zero setup — no API keys needed. Start free with 20 min/month, or go paid from $12/mo. Cancel anytime.
+            Gere shorts sem configurações complicadas — sem necessidade de chaves de API. Comece gratuitamente com 20 min/mês ou assine a partir de R$ 12/mês. Cancele quando quiser.
           </p>
           <button onClick={() => setShowPlanChoice(true)} className="btn-primary py-2 px-4 text-sm">
-            <Sparkles size={16} /> Choose a plan
+            <Sparkles size={16} /> Escolher um plano
           </button>
         </div>
       ) : (
@@ -72,9 +72,9 @@ export default function SettingsView({
           <div className="card p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-0.5">AI Engine</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-0.5">Modelo de IA</p>
                 <p className="text-xs text-ink2">
-                  Choose which provider analyzes video content to discover viral moments.
+                  Escolha qual provedor analisa o conteúdo do vídeo para encontrar momentos virais.
                 </p>
               </div>
 
@@ -102,7 +102,7 @@ export default function SettingsView({
                   }`}
                 >
                   <Server size={13} className={llmProvider === 'openai' ? 'text-brass' : 'text-muted'} />
-                  OpenAI Endpoint
+                  Endpoint OpenAI
                 </button>
               </div>
             </div>

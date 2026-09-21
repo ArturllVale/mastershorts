@@ -8,14 +8,7 @@ OpenShorts is an AI-powered vertical video generator that transforms long YouTub
 
 ## Development Commands
 
-### Local Development (Docker)
-```bash
-docker compose up --build   # Build and run full stack
-```
-- Backend: http://localhost:8000 (FastAPI/Uvicorn)
-- Frontend: http://localhost:5175 (Vite proxies API calls to backend)
-
-### Development (Local)
+### Development (Concurrently)
 ```bash
 npm run dev                 # Run backend and frontend concurrently
 ```
@@ -332,8 +325,8 @@ portrait clip cannot reproduce the shrink either.
   caller's auth headers, so it can never drift from the REST behavior. Cloud
   mode 401s without a resolvable user; self-host stays BYOK-open.
 - **stdio transport** (`mcp_stdio.py`): the same `handle_message` / `call_tool`
-  as a subprocess, for hosts that only launch MCP servers as a command (Glama's
-  Dockerfile deployments wrap one; a local client can skip the web server).
+  as a subprocess, for hosts that only launch MCP servers as a command (a local
+  client can skip the web server).
   Two invariants: `sys.stdout` is swapped for stderr **before `app` is
   imported**, because the pipeline prints everywhere and one stray line
   corrupts the JSON-RPC stream; and the app's lifespan is entered
@@ -491,32 +484,26 @@ container before stopping the old one (rolling update) and both share
 - A running job heartbeats its `.resume.json` every 10 s. The resume scan
   (startup + every 30 s) re-enqueues only manifests nobody heartbeated for
   60 s, so no job runs twice and none is lost. Max 2 resume attempts.
-- SIGTERM (`docker stop`) drains too, up to `DRAIN_TIMEOUT_SECONDS` (840),
-  then hands the signal to uvicorn. The app's Coolify stop grace period is
-  900 s (`application_settings.stop_grace_period`); keep the timeout below it.
+- SIGTERM (termination signal) drains too, up to `DRAIN_TIMEOUT_SECONDS` (840),
+  then hands the signal to uvicorn. Keep the timeout below the orchestrator grace period.
   After the drain hands the signal to uvicorn, `--timeout-graceful-shutdown 15`
-  (Dockerfile) caps the wait for in-flight connections: uvicorn's default is
-  unbounded, and one open range download kept a drained container alive for
+  caps the wait for in-flight connections: uvicorn's default is
+  unbounded, and one open range download kept a drained instance alive for
   the full grace period while Traefik still routed half the traffic to its
   closed port.
-- `/health/ready` + the Dockerfile `HEALTHCHECK` are what keep Traefik off a
-  dying container: its docker provider only routes to `healthy` containers,
+- `/health/ready` is what keeps Traefik off a
+  dying instance: the reverse proxy only routes to healthy targets,
   so an instance answers 503 from the moment it gets SIGTERM (out of rotation
   within ~10 s, socket still open) and a booting one gets no traffic until it
   answers. Only SIGTERM flips it, not the marker drain: at that point the new
-  container is still booting and nobody else would be routable. The Coolify
-  app has its health check enabled on that path so it waits for the new
-  container to be `healthy` before stopping the old one. With that option on,
-  Coolify replaces the Dockerfile HEALTHCHECK with its own curl/wget command
-  AND its own interval/retries (5 s × 3), so the image must ship `curl` or
-  every deploy rolls back as unhealthy, and a stopping container takes 15 s
-  to turn `unhealthy`. That is why the drain keeps serving for
+  instance is still booting and nobody else would be routable.
+  That is why the drain keeps serving for
   `PROXY_DRAIN_SECONDS` (20) after the jobs are done before it hands the
   signal to uvicorn: closing the socket earlier is 502s until Traefik
   notices (measured ~60 s per deploy with retries=12 and no grace). And
   `HARD_EXIT_SECONDS` (30) after that the process is ended outright: uvicorn
   finishing does not end the interpreter while an executor thread hangs in
-  a network probe, and that kept a drained container alive for the full 900 s.
+  a network probe.
   `/health` stays a plain liveness probe for the external watcher.
 - `/api/status` answers from disk for a job this instance never held, so a
   poll landing on either container during the handover is fine.

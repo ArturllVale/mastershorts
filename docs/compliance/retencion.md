@@ -64,7 +64,7 @@ trabajo, es decir una hora después de la *última* subida de cualquier usuario.
 
 | Qué | Plazo | Nota |
 |---|---|---|
-| Log de aplicación (stdout del contenedor) | **7 días** en el log rotatorio de Docker | Requiere `max-size`/`max-file` en el runtime — ver "pendiente" abajo |
+| Log de aplicación (stdout) | **7 días** en el log rotatorio del sistema | Requiere rotación de logs en el runtime — ver "pendiente" abajo |
 | Alertas operativas a Telegram | Las conserva Telegram | **No contienen email ni título de vídeo** desde el 4-sep-2026: identifican al usuario por los 8 primeros caracteres de su uuid (`cloud/alerts.user_ref`) |
 | Copias de seguridad cifradas de PostgreSQL | **30 días** | `ops/pg_backup.sh` — la política promete que una supresión desaparece de toda copia en 30 días, y esto es lo único que lo hace cierto |
 | Analítica (OpenPanel, solo con consentimiento) | Identificadores 13 meses; datos brutos 25 meses | Instancia propia |
@@ -80,10 +80,9 @@ trabajo, es decir una hora después de la *última* subida de cualquier usuario.
 
 ## Pendiente (no se puede hacer desde el repositorio)
 
-- **Rotación del log del contenedor**: fijar `max-size=50m`, `max-file=3` (o el
-  equivalente en Coolify) en el runtime del contenedor de la API. La fila de 7
-  días de arriba describe la intención; hasta que esté configurado el plazo real
-  depende del demonio de Docker del host.
+- **Rotación de logs**: configurar política de rotación de logs (ej. `max-size=50m`, `max-file=3`)
+  en el runtime del servidor de la API. La fila de 7 días de arriba describe la intención;
+  hasta que esté configurado el plazo real depende de la configuración del host.
 - **Programar `ops/pg_backup.sh`** en el host de la base de datos y hacer **una
   restauración de prueba**.
 - **Retención en OpenPanel**: confirmar en la instancia

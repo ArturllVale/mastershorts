@@ -160,7 +160,7 @@ class TestDrain:
 
 
 class TestReadiness:
-    """Traefik drops a container the moment its Docker healthcheck fails, so
+    """Traefik drops an instance the moment its healthcheck fails, so
     /health/ready must go 503 on SIGTERM (socket still open, proxy stops
     sending traffic) but stay 200 on a marker drain (the newer instance is
     still booting and nobody else is routable yet)."""

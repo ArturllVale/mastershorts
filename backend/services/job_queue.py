@@ -78,13 +78,14 @@ def _relocate_root_job_artifacts(job_id: str, job_output_dir: str) -> bool:
 def _canonical_clip_file(output_dir, base_name, index):
     """The file to serve for clip ``index``, preferring a derived version."""
     clean = f"{base_name}_clip_{index + 1}.mp4"
+    derived = []
     try:
-        derived = (glob.glob(os.path.join(output_dir, f"subtitled_*_{clean}"))
-                   + glob.glob(os.path.join(output_dir, f"recut_*_{clean}"))
-                   + glob.glob(os.path.join(output_dir, f"hooked_*_{clean}"))
-                   + glob.glob(os.path.join(output_dir, f"hook_{clean}")))
+        if os.path.isdir(output_dir):
+            for f in os.listdir(output_dir):
+                if f.endswith(clean) and (f.startswith("subtitled_") or f.startswith("recut_") or f.startswith("hooked_") or f.startswith("hook_")):
+                    derived.append(os.path.join(output_dir, f))
     except Exception:
-        derived = []
+        pass
     if not derived:
         return clean
     # Highest timestamp wins — that's the most recent styling.
@@ -860,16 +861,13 @@ def _scrub_secrets(line: str) -> str:
 def _visible_logs(logs):
     """Logs to surface to the client.
 
-    Self-host (BILLING off) shows the full pipeline output so people running
-    their own instance can debug. Cloud shows a curated whitelist view
-    (log_view.friendly_logs): plain progress for normal users — transcription
-    percentage, clip counters — with no file paths, model names or pipeline
-    internals.
+    Shows a curated, human-friendly whitelist view in pt-BR (log_view.friendly_logs)
+    for app users — download percentage, transcription progress, and clip counters —
+    with no file paths, model names or pipeline internals.
 
-    DEBUG_LOGS=true forces the full output even under billing — for local dev
-    where you run in paid mode but still want the raw logs.
+    DEBUG_LOGS=true forces raw uncurated pipeline logs for developers debugging locally.
     """
-    if not BILLING_ENABLED or DEBUG_LOGS:
+    if DEBUG_LOGS:
         return logs
     from log_view import friendly_logs
     return friendly_logs(logs)

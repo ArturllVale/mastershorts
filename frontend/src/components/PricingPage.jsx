@@ -11,74 +11,68 @@ import PricingSection from './PricingSection';
 const HOSTED_VS_SELF = [
   {
     icon: Cpu,
-    label: 'Speed',
-    hosted: 'An 8-minute video is clipped in about 50 seconds on our NVIDIA GPU.',
-    self: '5 to 8 minutes for the same video on a typical CPU, unless you own a CUDA GPU.',
+    label: 'Velocidade',
+    hosted: 'Um vídeo de 8 minutos é cortado em cerca de 50 segundos em nossa GPU NVIDIA.',
+    self: '5 a 8 minutos para o mesmo vídeo em uma CPU comum, a menos que você tenha uma GPU CUDA.',
   },
   {
     icon: KeyRound,
-    label: 'API keys',
-    hosted: 'The Gemini key is included. Nothing to create, paste or top up.',
-    self: 'You create and pay for your own Gemini key, plus ElevenLabs and fal.ai for dubbing and AI Shorts.',
+    label: 'Chaves de API',
+    hosted: 'A chave Gemini está inclusa. Nada para criar, colar ou recarregar.',
+    self: 'Você cria e utiliza sua própria chave Gemini, além de ElevenLabs e fal.ai para dublagem.',
   },
-    {
+  {
     icon: Server,
-    label: 'Setup',
-    hosted: 'Sign in and paste a link. Nothing to install.',
-    self: 'Docker, 8GB+ RAM and a few GB of model downloads on the first run.',
+    label: 'Instalação',
+    hosted: 'Faça login e cole um link. Nada para instalar.',
+    self: '8GB+ de RAM, Node.js, Python e download de modelos pesados na primeira execução.',
   },
   {
     icon: HardDrive,
-    label: 'Storage',
-    hosted: 'Clips are hosted for you and re-open in any browser.',
-    self: 'Your own disk and your own backups.',
+    label: 'Armazenamento',
+    hosted: 'Os cortes ficam salvos na nuvem e abrem em qualquer navegador.',
+    self: 'No seu próprio computador e com seus próprios backups.',
   },
 ];
 
 // Billing / value questions reused verbatim from Landing.jsx faqs
 const FAQS = [
   {
-    question: "Is OpenShorts really free? What's the catch?",
-    answer: "There is no catch, but there are two different things on offer. (1) Self-hosted is 100% free and open source: you run it with Docker on your own machine, bring your own API keys, and there are no watermarks, no usage limits and no subscription. What it costs you is hardware and time. On a typical CPU an 8-minute video takes 5 to 8 minutes to process, and you need your own Google Gemini key (required, free tier is 1,500 requests/day), plus ElevenLabs for dubbing and fal.ai for AI Shorts if you want those. (2) Hosted at openshorts.app is the same software with the running costs covered: our NVIDIA GPU clips that same 8-minute video in about 50 seconds, the Gemini key is included so there is nothing to create or paste, auto-posting to TikTok, Instagram and YouTube is already wired up, and your clips are stored and re-openable from any browser. It has a free plan (20 minutes a month, watermark, no credit card) and paid plans from $12/mo for 100 minutes without watermark. So: free if you are happy to run it yourself, paid if you would rather it just ran fast. Both are far cheaper than Opus Clip ($15-228/month) or Kapwing ($24-79/month)."
+    question: "O MasterShorts é realmente gratuito? Qual é a pegadinha?",
+    answer: "Não há pegadinha. A versão local/auto-hospedada é 100% gratuita e de código aberto: você roda na sua máquina, traz suas próprias chaves de API e não há marcas d'água nem limites de uso. O plano em nuvem oferece a conveniência de rodar em nossos servidores com GPU rápida (~50 segundos por vídeo), sem precisar instalar nada, com 20 minutos grátis todo mês e planos acessíveis para criadores que precisam de mais minutos."
   },
   {
-    question: "How does OpenShorts compare to Opus Clip?",
-    answer: "OpenShorts is a free, self-hosted alternative to Opus Clip. Both offer AI viral moment detection and smart vertical cropping. Key differences: OpenShorts is completely free vs Opus Clip's $15-228/month pricing. OpenShorts runs on your infrastructure (full data privacy) vs cloud-only. OpenShorts uses Google Gemini 3.1 Flash-Lite for AI analysis vs Opus Clip's proprietary model. OpenShorts adds AI voice dubbing in 30+ languages, AI-generated video effects, and hook text overlays. The trade-off is that OpenShorts requires Docker self-hosting, while Opus Clip is a ready-to-use cloud service."
+    question: "Como o MasterShorts se compara ao Opus Clip?",
+    answer: "O MasterShorts oferece detecção inteligente de momentos virais com IA, reenquadramento facial vertical automático 9:16, legendas animadas em português, geração de títulos e miniaturas, além de dublagem por voz em múltiplos idiomas. Ele roda na nuvem ou localmente no seu computador com privacidade total dos seus dados."
   },
   {
-    question: "Can OpenShorts generate YouTube thumbnails and titles for free?",
-    answer: "Yes. OpenShorts includes a free AI YouTube thumbnail generator, a free AI YouTube title generator, and a free AI YouTube description generator — all powered by Google Gemini 3.1 Flash-Lite. Upload your video and the AI suggests 10 viral title options with an interactive refinement chat. Then it generates multiple thumbnail designs using AI image generation — upload a face photo and background image for personalized results. The studio also auto-generates YouTube descriptions with chapter timestamps and lets you publish directly to YouTube. Everything is 100% free with the Gemini free tier."
+    question: "O MasterShorts pode gerar miniaturas e títulos para o YouTube de graça?",
+    answer: "Sim. O MasterShorts inclui estúdio completo com sugestão de títulos virais, chat interativo de refinamento com IA, gerador de miniaturas personalizadas e descrições automáticas com capítulos para publicação direta."
   },
   {
-    question: "Is there a free open source clip generator?",
-    answer: "Yes — OpenShorts is a 100% free, open source clip generator. Unlike paid clip generators like Opus Clip ($15-228/month) or Kapwing ($24-79/month), OpenShorts lets you generate unlimited clips with no watermarks, no usage limits, and no subscription fees. It also includes a free AI YouTube thumbnail generator, free AI YouTube title generator, and free AI YouTube description generator — features that other clip generators charge extra for. You self-host it with Docker on your own machine for full privacy and control."
+    question: "O acesso à API e ao servidor MCP custa extra?",
+    answer: "Não. Todos os planos podem utilizar a API REST e o servidor MCP para integrar automações com Claude, ChatGPT ou n8n consumindo os mesmos minutos mensais da sua conta."
   },
   {
-    question: "Does API and MCP access cost extra?",
-    answer: "No. Every plan, including the free one, can create API keys in the account page and use the REST API and the MCP server. Calls draw from the same monthly minutes as the dashboard, so automating with Claude, ChatGPT or n8n does not change the price of anything. The value of the hosted endpoint is that it is always on: an agent or a scheduled pipeline can clip and publish while your own machine is off, which is the one thing the self-hosted edition cannot do for you."
-  },
-  {
-    question: "What are the system requirements to run OpenShorts?",
-    answer: "OpenShorts runs on any system with Docker installed. The recommended setup is 8GB+ RAM and a modern multi-core CPU. GPU acceleration (NVIDIA CUDA) is optional but speeds up video processing significantly. The Docker Compose setup handles all dependencies automatically — Python 3.11, FFmpeg, YOLOv8, MediaPipe, faster-whisper, and the React dashboard. It works on Linux, macOS, and Windows (via WSL2/Docker Desktop)."
+    question: "Quais são os requisitos de sistema para rodar localmente?",
+    answer: "Recomenda-se 8GB+ de RAM, Python 3.11+, Node.js 18+, FFmpeg instalado e um processador moderno multi-core. Placas de vídeo NVIDIA com suporte a CUDA aceleram ainda mais o processamento."
   }
 ];
 
 const TRUST_CARDS = [
   {
-    eyebrow: 'no watermarks · no per-clip credits',
+    eyebrow: 'sem marcas d’água nos planos pagos',
     body: (
       <>
-        Clips export clean — no watermarks. Plans meter minutes of input video per billing
-        period, never per-clip credits.
+        Seus cortes exportam limpos e em alta resolução. Os planos contabilizam minutos de vídeo processado por mês, nunca créditos artificiais por corte.
       </>
     ),
   },
   {
-    eyebrow: 'cancel anytime',
+    eyebrow: 'cancele quando quiser',
     body: (
       <>
-        Start on the free plan — 20 minutes a month, no credit card. Billing for paid
-        plans runs on Stripe — cancel anytime from your account.
+        Comece no plano gratuito — 20 minutos por mês, sem necessidade de cartão de crédito. Cancele sua assinatura a qualquer momento com um clique.
       </>
     ),
   },
@@ -135,11 +129,11 @@ export default function PricingPage({ onRequireLogin }) {
       {/* Header */}
       <header className="px-6 pt-20 pb-12">
         <div className="max-w-6xl mx-auto text-center">
-          <p className="eyebrow mb-5">PRICING</p>
+          <p className="eyebrow mb-5">PLANOS E PREÇOS</p>
           <h1 className="font-display text-ink tracking-tight text-4xl md:text-6xl leading-[1.02] mb-5">
-            Start clipping in minutes.
+            Comece a criar cortes em minutos.
           </h1>
-          <p className="font-mono text-xs text-text-tertiary">Free plan · 20 min/month · No credit card required</p>
+          <p className="font-mono text-xs text-text-tertiary">Plano gratuito · 20 min/mês · Sem cartão de crédito</p>
         </div>
       </header>
 
@@ -147,19 +141,19 @@ export default function PricingPage({ onRequireLogin }) {
       <section className="px-6 pb-16">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-5 md:gap-6">
-            <DemoFigure src="/demo/clip-source.mp4" label="input · 16:9" />
+            <DemoFigure src="/demo/clip-source.mp4" label="entrada · 16:9" />
 
             <MoveRight size={20} className="text-accent hidden md:block" aria-hidden="true" />
             <ArrowDown size={20} className="text-accent md:hidden justify-self-center" aria-hidden="true" />
 
             <DemoFigure
               src="/demo/clip-vertical.mp4"
-              label="output · 9:16 · tracked"
+              label="saída · 9:16 · rastreado"
               className="w-44 sm:w-48 justify-self-center md:justify-self-auto"
             />
           </div>
           <p className="text-center text-xs text-text-tertiary mt-4">
-            Real output from the clip generator — same footage, reframed by AI face tracking.
+            Resultado real do gerador de cortes — mesmo vídeo, reenquadrado por rastreamento facial com IA.
           </p>
         </div>
       </section>
@@ -175,20 +169,20 @@ export default function PricingPage({ onRequireLogin }) {
       <section className="px-6 py-16 border-t border-border">
         <div className="max-w-5xl mx-auto">
           <div className="mb-8">
-            <p className="eyebrow mb-3">HOSTED OR SELF-HOSTED</p>
+            <p className="eyebrow mb-3">EM NUVEM OU AUTO-HOSPEDADO</p>
             <h2 className="font-display text-3xl md:text-4xl text-text-primary tracking-tight">
-              What you are actually paying for
+              O que você está realmente pagando
             </h2>
             <p className="text-text-secondary text-sm mt-3 max-w-2xl leading-relaxed">
-              The software is the same and it is open source either way. What a plan buys you is the
-              hardware, the API keys and the setup, so here is exactly what that means.
+              O software é o mesmo e de código aberto. O que um plano em nuvem oferece é o hardware acelerado,
+              as chaves de API inclusas e a conveniência de não configurar servidores.
             </p>
           </div>
 
           <div className="hidden md:grid grid-cols-[9rem_1fr_1fr] gap-x-6 pb-2 mb-2 border-b border-border">
             <span />
-            <span className="eyebrow">Hosted on this site</span>
-            <span className="eyebrow">Self-hosted</span>
+            <span className="eyebrow">Hospedado na nuvem</span>
+            <span className="eyebrow">Auto-hospedado (Local)</span>
           </div>
 
           <div className="divide-y divide-border border-b border-border">
@@ -199,14 +193,14 @@ export default function PricingPage({ onRequireLogin }) {
                   <span className="text-sm font-medium">{label}</span>
                 </div>
                 <div>
-                  <span className="eyebrow block mb-1 md:hidden">Hosted on this site</span>
+                  <span className="eyebrow block mb-1 md:hidden">Hospedado na nuvem</span>
                   <p className="text-sm text-text-primary leading-relaxed">
                     <Check size={14} className="text-success inline-block mr-1.5 -mt-0.5" />
                     {hosted}
                   </p>
                 </div>
                 <div>
-                  <span className="eyebrow block mb-1 mt-2 md:hidden">Self-hosted</span>
+                  <span className="eyebrow block mb-1 mt-2 md:hidden">Auto-hospedado (Local)</span>
                   <p className="text-sm text-text-secondary leading-relaxed">{self}</p>
                 </div>
               </div>
@@ -215,8 +209,8 @@ export default function PricingPage({ onRequireLogin }) {
 
           <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
             <p className="text-xs text-text-tertiary leading-relaxed max-w-xl">
-              Self-hosting is genuinely free and always will be. It costs you a machine, your own API
-              keys and the time to keep it running.
+              Executar no seu próprio computador é 100% gratuito e sempre será. Requer hardware adequado,
+              suas próprias chaves de API e tempo de processamento.
             </p>
           </div>
         </div>
@@ -241,9 +235,9 @@ export default function PricingPage({ onRequireLogin }) {
       <section className="px-6 py-16 border-t border-border">
         <div className="max-w-3xl mx-auto">
           <div className="mb-10">
-            <p className="eyebrow mb-3">BILLING · FAQ</p>
+            <p className="eyebrow mb-3">DÚVIDAS · PERGUNTAS FREQUENTES</p>
             <h2 className="font-display text-3xl md:text-4xl text-text-primary tracking-tight">
-              Common Questions
+              Perguntas Comuns
             </h2>
           </div>
           <div className="divide-y divide-border border-y border-border">
@@ -264,11 +258,11 @@ export default function PricingPage({ onRequireLogin }) {
       <section className="px-6 py-24 border-t border-border">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="font-display text-3xl md:text-5xl text-text-primary tracking-tight mb-8">
-            Twenty free minutes. Every month. No card until you decide.
+            Vinte minutos gratuitos. Todo mês. Sem cartão até você decidir.
           </h2>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <button onClick={scrollToPlans} className="btn-primary whitespace-nowrap">
-              Start Free
+              Começar Grátis
               <ArrowRight size={16} />
             </button>
           </div>

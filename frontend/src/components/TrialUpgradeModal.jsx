@@ -40,31 +40,30 @@ export default function TrialUpgradeModal({ plan, onActivated, onClose }) {
       } else {
         // Charge is processing (or card needs attention) — let them proceed anyway.
         await onActivated();
-        setError('Almost there — your plan is activating. If it doesn\'t unlock in a minute, check your billing details.');
+        setError('Quase lá — seu plano está sendo ativado. Se não liberar em um instante, verifique seus dados de cobrança.');
       }
     } catch (e) {
-      setError('Could not activate your plan. Please try again or manage billing from your account.');
+      setError('Não foi possível ativar seu plano. Tente novamente ou gerencie a cobrança na sua conta.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Modal isOpen onClose={onClose} eyebrow="TRIAL" size="md">
+    <Modal isOpen onClose={onClose} eyebrow="TESTE GRATUITO" size="md">
       {done ? (
         <div className="text-center py-4">
           <div className="inline-flex p-3 bg-paper3 rounded-full text-ok mb-4"><CheckCircle2 size={24} /></div>
-          <h2 className="font-display text-xl text-ink mb-1">You're all set</h2>
-          <p className="text-muted text-sm">Your plan is active{planMinutes ? ` with ${planMinutes} minutes` : ''}. Go ahead and generate your clips.</p>
+          <h2 className="font-display text-xl text-ink mb-1">Tudo pronto!</h2>
+          <p className="text-muted text-sm">Seu plano está ativo{planMinutes ? ` com ${planMinutes} minutos` : ''}. Prossiga para gerar seus cortes.</p>
         </div>
       ) : (
         <>
           <div className="inline-flex p-3 bg-paper3 rounded-full text-brass mb-4"><Rocket size={24} /></div>
-          <h2 className="font-display text-xl text-ink mb-1">You've used your free trial minutes</h2>
+          <h2 className="font-display text-xl text-ink mb-1">Você utilizou seus minutos de teste</h2>
           <p className="text-muted text-sm mb-6">
-            Activate your{plan ? <> <span className="capitalize font-medium text-ink">{plan}</span></> : ''} plan now to unlock{' '}
-            {planMinutes ? <><b className="text-ink font-medium">{planMinutes} minutes</b> every month</> : 'your full monthly minutes'} and keep creating.
-            Your card is charged today and your 3-day trial ends now.
+            Ative seu plano{plan ? <> <span className="capitalize font-medium text-ink">{plan}</span></> : ''} agora para desbloquear{' '}
+            {planMinutes ? <><b className="text-ink font-medium">{planMinutes} minutos</b> todo mês</> : 'seus minutos mensais completos'} e continuar criando.
           </p>
 
           {error && <p className="text-warn text-xs mb-4">{error}</p>}
@@ -74,14 +73,14 @@ export default function TrialUpgradeModal({ plan, onActivated, onClose }) {
             disabled={busy}
             className="btn-primary w-full"
           >
-            {busy ? <><Loader2 size={18} className="animate-spin" /> Activating…</> : <>Activate my plan now</>}
+            {busy ? <><Loader2 size={18} className="animate-spin" /> Ativando…</> : <>Ativar meu plano agora</>}
           </button>
           <button
             onClick={onClose}
             disabled={busy}
             className="w-full mt-2 text-muted hover:text-ink text-sm py-2 disabled:opacity-60 transition-colors"
           >
-            Maybe later
+            Talvez mais tarde
           </button>
         </>
       )}

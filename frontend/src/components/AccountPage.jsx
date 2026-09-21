@@ -71,7 +71,7 @@ export default function AccountPage() {
     try {
       const { url } = await apiJson('/api/billing/portal', { method: 'POST' });
       window.location.href = url;
-    } catch (e) { setBusy(false); alert('Could not open billing portal.'); }
+    } catch (e) { setBusy(false); alert('Não foi possível abrir o portal de cobrança.'); }
   }, []);
 
   const buyTopup = useCallback(async (price_id) => {
@@ -82,7 +82,7 @@ export default function AccountPage() {
         body: JSON.stringify({ price_id }),
       });
       window.location.href = url;
-    } catch (e) { setBusy(false); alert(e?.detail || 'Could not start checkout.'); }
+    } catch (e) { setBusy(false); alert(e?.detail || 'Não foi possível iniciar o checkout.'); }
   }, []);
 
   if (!me) return <div className="flex justify-center py-16"><Loader2 className="animate-spin text-brass" /></div>;
@@ -96,72 +96,72 @@ export default function AccountPage() {
     <div className="max-w-2xl mx-auto space-y-6 animate-fade">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="eyebrow mb-1.5">ACCOUNT</p>
-          <h2 className="font-display text-2xl text-text-primary leading-tight tracking-tight">Your Account</h2>
+          <p className="eyebrow mb-1.5">MINHA CONTA</p>
+          <h2 className="font-display text-2xl text-text-primary leading-tight tracking-tight">Sua Conta</h2>
           <p className="text-text-tertiary text-sm mt-1">{me.user?.email}</p>
         </div>
         <button onClick={logout} className="btn-quiet shrink-0">
-          <LogOut size={16} /> Sign out
+          <LogOut size={16} /> Sair
         </button>
       </div>
 
       {activating && (
         <div className="card px-4 py-3 text-sm text-text-secondary flex items-center gap-2">
-          <Loader2 size={16} className="animate-spin text-accent" /> Activating your plan…
+          <Loader2 size={16} className="animate-spin text-accent" /> Ativando seu plano…
         </div>
       )}
 
       <div className="card p-6">
         <div className="flex items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-text-primary font-medium capitalize">{plan ? `${plan} plan` : 'No active plan'}</span>
+            <span className="text-text-primary font-medium capitalize">{plan ? `Plano ${plan}` : 'Nenhum plano ativo'}</span>
             {me.status && me.status !== 'active'
               && !PAYMENT_ISSUE_STATES.includes(me.status) && (
               <span className="badge-warn">{me.status}</span>
             )}
             {me.cancel_at_period_end && (
-              <span className="badge-warn">Cancels at period end</span>
+              <span className="badge-warn">Cancela no fim do período</span>
             )}
           </div>
           {me.has_billing_account ? (
             <button onClick={openPortal} disabled={busy} className="btn-ghost px-4 py-2 shrink-0">
-              <CreditCard size={16} /> Manage billing
+              <CreditCard size={16} /> Gerenciar cobrança
             </button>
           ) : (
             <button onClick={() => { window.location.hash = '#/pricing'; }} className="btn-primary px-4 py-2 shrink-0 text-xs">
-              Upgrade
+              Fazer Upgrade
             </button>
           )}
         </div>
 
         {PAYMENT_ISSUE_STATES.includes(me.status) && (
           <div className="mb-4 rounded-lg border border-warn/40 bg-warn/5 p-3 text-sm text-text-secondary">
-            <b className="text-text-primary">We couldn't charge your card.</b>{' '}
+            <b className="text-text-primary">Não conseguimos cobrar seu cartão.</b>{' '}
             {me.status === 'incomplete'
-              ? 'Your payment was never completed, so the plan never started.'
-              : 'Your plan is paused and you\'re on free minutes until it goes through.'}{' '}
+              ? 'Seu pagamento não foi concluído, logo o plano não foi iniciado.'
+              : 'Seu plano está pausado e você está em minutos gratuitos até que seja processado.'}{' '}
             <button onClick={openPortal} disabled={busy}
                     className="underline underline-offset-2 hover:text-text-primary">
-              Update your card
+              Atualize seu cartão
             </button>{' '}
-            and it resumes right away.
+            para reativar imediatamente.
           </div>
         )}
 
         <div className="space-y-2.5">
           <div className="flex justify-between text-sm">
-            <span className="text-text-tertiary">Plan minutes</span>
-            <span className="text-text-secondary font-mono text-xs">{fmt1(m.plan_used)} / {fmt1(m.plan_allowance)} used</span>
+            <span className="text-text-tertiary">Minutos do plano</span>
+            <span className="text-text-secondary font-mono text-xs">{fmt1(m.plan_used)} / {fmt1(m.plan_allowance)} usados</span>
           </div>
           <div className="h-2 bg-surface-2 rounded-full overflow-hidden border border-border/40">
             <div className={`h-full transition-all rounded-full ${low ? 'bg-warn' : 'bg-accent'}`} style={{ width: `${usedPct}%` }} />
           </div>
           <div className="flex justify-between text-sm pt-1">
-            <span className="text-text-tertiary">Top-up minutes</span>
-            <span className="text-text-secondary font-mono text-xs">{fmt1(m.topup_remaining)} remaining</span>
+            <span className="text-text-tertiary">Minutos avulsos</span>
+            <span className="text-text-secondary font-mono text-xs">{fmt1(m.topup_remaining)} restantes</span>
           </div>
           <div className="flex justify-between text-sm pt-2.5 border-t border-border">
-            <span className="text-text-primary font-medium">Total remaining</span>
+            <span className="text-text-primary font-medium">Total restante</span>
             <span className="text-accent font-semibold font-mono">{fmt1(m.remaining)} min</span>
           </div>
         </div>
@@ -172,15 +172,15 @@ export default function AccountPage() {
 
       {topups.length > 0 && (
         <div className="card p-6">
-          <h3 className="font-display text-lg text-text-primary mb-1 flex items-center gap-2"><Plus size={16} className="text-accent" /> Buy More Minutes</h3>
-          <p className="text-text-tertiary text-sm mb-4">Top-ups never expire while your plan is active.</p>
+          <h3 className="font-display text-lg text-text-primary mb-1 flex items-center gap-2"><Plus size={16} className="text-accent" /> Comprar Mais Minutos</h3>
+          <p className="text-text-tertiary text-sm mb-4">Minutos avulsos nunca expiram enquanto seu plano estiver ativo.</p>
           <div className="grid grid-cols-2 gap-3">
             {topups.map((t) => (
               <button key={t.price_id} onClick={() => buyTopup(t.price_id)} disabled={busy}
                 className="border border-border hover:border-accent rounded-lg p-4 text-left transition-all bg-surface-2/40 hover:bg-surface-2 disabled:opacity-50">
                 <div className="text-text-primary font-medium">+{t.minutes} min</div>
                 <div className="font-mono text-xs text-text-tertiary mt-1">
-                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: (t.currency || 'usd').toUpperCase(), maximumFractionDigits: 0 }).format((t.amount || 0) / 100)}
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: (t.currency || 'BRL').toUpperCase(), maximumFractionDigits: 0 }).format((t.amount || 0) / 100)}
                 </div>
               </button>
             ))}

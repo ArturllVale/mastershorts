@@ -6,9 +6,8 @@ newline-delimited JSON-RPC from stdin, hands each message to
 through the identical in-process path (``call_tool`` -> httpx ASGITransport ->
 this app), so stdio and HTTP can never answer differently.
 
-Why it exists: some hosts only launch MCP servers as a subprocess (Glama's
-Dockerfile deployments wrap a stdio command, and a local client that would
-rather not run a web server can do
+Why it exists: some hosts only launch MCP servers as a subprocess (a
+local client that would rather not run a web server can do
 ``claude mcp add openshorts -- python mcp_stdio.py``). The hosted endpoint at
 mcp.openshorts.app stays the HTTP one.
 

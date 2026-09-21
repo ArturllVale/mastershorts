@@ -1,9 +1,8 @@
-"""Cloud-facing job log view.
+"""Job log view for human-friendly progress in pt-BR.
 
-Self-hosted instances see the raw pipeline output (useful for debugging).
-Cloud/paying users get a curated, whitelist-based view: friendly progress
-lines only — no file paths, model names, encoder details or pipeline
-internals. Anything not matched by a rule is hidden.
+Curated, whitelist-based view: friendly progress lines only — no file paths,
+model names, encoder details or pipeline internals. Non-technical users see
+human status messages in Brazilian Portuguese.
 """
 import re
 
@@ -16,22 +15,42 @@ def _strip_paths(line):
 
 
 # Ordered rules; first match wins. Replacement is a template using the
-# match's groups, or None to keep the (path-stripped) line verbatim.
+# match's groups, or a string literal, or None to keep the (path-stripped) line verbatim.
 _RULES = [
-    # Worker/job lifecycle + errors: keep, minus any paths.
-    (re.compile(r'^(Job started|Process finished|Process failed|'
-                r'Execution error|No metadata|❌)'), None),
-    # Live transcription progress emitted by transcribe_backends.
-    (re.compile(r'^🎙️ Transcribing… \d+%'), None),
-    (re.compile(r'Transcribing (video|audio)'), '🎙️ Transcribing audio…'),
-    (re.compile(r'Found (\d+) viral clips'), '🔥 Found {0} viral clips!'),
-    (re.compile(r'Processing Clip (\d+)'), '🎬 Creating clip {0}…'),
-    (re.compile(r'Clip (\d+) ready'), '✅ Clip {0} ready'),
+    # Worker/job lifecycle + errors in pt-BR
+    (re.compile(r'^Job started', re.I), '🚀 Iniciando processamento do vídeo...'),
+    (re.compile(r'^(?:Process finished|🎉 Processamento finalizado)', re.I), '🎉 Processamento concluído com sucesso!'),
+    (re.compile(r'^(?:Process failed|Execution error)', re.I), '❌ Ocorreu uma falha no processamento.'),
+    (re.compile(r'^❌\s*(.*)'), '❌ {0}'),
+
+    # Download progress
+    (re.compile(r'📥 Baixando vídeo:\s*(\d+)%'), '📥 Baixando vídeo: {0}%'),
+    (re.compile(r'\[download\]\s+(\d+(?:\.\d+)?)%'), '📥 Baixando vídeo: {0}%'),
+    (re.compile(r'(?:Downloading video from YouTube|Iniciando download do vídeo)', re.I), '📥 Iniciando download do vídeo...'),
+    (re.compile(r'(?:Download succeeded|Video downloaded in|✅ Download concluído)', re.I), '✅ Download concluído com sucesso!'),
+
+    # Transcription progress
+    (re.compile(r'🎙️ Transcrição em andamento:\s*(\d+)%'), '🎙️ Transcrição em andamento: {0}%'),
+    (re.compile(r'🎙️ Transcribing…\s*(\d+)%'), '🎙️ Transcrição em andamento: {0}%'),
+    (re.compile(r'Transcribing…\s*(\d+)%'), '🎙️ Transcrição em andamento: {0}%'),
+    (re.compile(r'(?:🎙️\s*)?(?:Iniciando transcrição|Transcribing (?:video|audio))', re.I), '🎙️ Iniciando transcrição do áudio...'),
+    (re.compile(r'Transcrição iniciada com sucesso', re.I), '🎙️ Transcrição iniciada com sucesso!'),
+    (re.compile(r'Detected language', re.I), '✅ Transcrição concluída com sucesso!'),
+
+    # AI Analysis & Viral Clips
+    (re.compile(r'Analisando momentos virais com Inteligência Artificial', re.I), '🤖 Analisando momentos virais com Inteligência Artificial...'),
+    (re.compile(r'(?:Found|identificados)\s+(\d+)\s+(?:viral\s+)?(?:clips|momentos virais)', re.I), '🔥 {0} momentos virais identificados!'),
+    (re.compile(r'Found (\d+) clips', re.I), '🔥 {0} momentos virais identificados!'),
+
+    # Clip generation & subtitles
+    (re.compile(r'(?:Processing Clip|Gerando corte|Creating clip)\s+(\d+)', re.I), '🎬 Gerando corte {0}…'),
+    (re.compile(r'(?:Captions burned|Auto-captions|Aplicando legendas automáticas)', re.I), '💬 Aplicando legendas automáticas…'),
+    (re.compile(r'(?:Clip|Corte)\s+(\d+)\s+(?:ready|pronto)', re.I), '✅ Corte {0} pronto!'),
 ]
 
 
 def friendly_log_line(line):
-    """Map one raw log line to its cloud-visible form, or None to hide it."""
+    """Map one raw log line to its user-visible pt-BR form, or None to hide it."""
     stripped = line.strip()
     if not stripped:
         return None
@@ -40,12 +59,16 @@ def friendly_log_line(line):
         if match:
             if template is None:
                 return _strip_paths(stripped)
-            return template.format(*match.groups())
+            # If the template references groups
+            if '{0}' in template and match.groups():
+                cleaned_groups = [_strip_paths(str(g)) for g in match.groups()]
+                return template.format(*cleaned_groups)
+            return template
     return None
 
 
 def friendly_logs(logs):
-    """Curated log list for cloud users, consecutive duplicates collapsed."""
+    """Curated log list for users in pt-BR, consecutive duplicates collapsed."""
     out = []
     for line in logs:
         friendly = friendly_log_line(line)

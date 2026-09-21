@@ -19,20 +19,20 @@ import {
 const CATEGORY_COPY = [
   {
     key: 'necessary',
-    label: 'Strictly necessary',
-    body: 'Your sign-in session, the token that lets your browser fetch your own clips, and your interface preferences. Stored in this browser only. Cannot be switched off — without them you cannot sign in.',
+    label: 'Estritamente necessários',
+    body: 'Sua sessão de login, o token de segurança para carregar seus próprios cortes e preferências de interface. Armazenados apenas neste navegador. Essenciais para o funcionamento.',
     locked: true,
   },
   {
     key: 'analytics',
-    label: 'Audience measurement',
-    body: 'Anonymous page and feature counters through OpenPanel, a self-hosted instance run by us. First-party only: no advertising network, no data sold, no profile shared with anyone, no cross-site tracking. Exempt from prior consent, always on.',
+    label: 'Métricas e aprimoramento',
+    body: 'Métricas anônimas de uso para aprimoramento contínuo da aplicação. Sem redes de publicidade, sem venda de dados e sem rastreamento entre sites.',
     locked: true,
   },
   {
     key: 'marketing',
     label: 'Marketing',
-    body: 'Advertising and remarketing trackers. We do not use any today; this switch exists so that if we ever add one, it starts off.',
+    body: 'Rastreadores de anúncios e remarketing. Não utilizamos nenhum atualmente; mantido desligado por padrão.',
   },
 ];
 
@@ -55,17 +55,16 @@ export default function CookieBanner() {
     <div
       role="dialog"
       aria-modal="false"
-      aria-label="Cookie and tracker preferences"
+      aria-label="Preferências de cookies e privacidade"
       className="fixed inset-x-0 bottom-0 z-50 p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
       <div className="card mx-auto max-w-3xl p-4 sm:p-5 space-y-4 shadow-2xl">
         <div className="space-y-2">
-          <h2 className="font-display text-lg text-ink">Before we count anything</h2>
+          <h2 className="font-display text-lg text-ink">Privacidade e preferências</h2>
           <p className="text-sm text-ink2">
-            We only store what the app needs to work unless you tell us otherwise.
-            Audience measurement stays off until you say yes, and you can change
-            this at any time from the “cookies” link in the footer.{' '}
-            <a href="#legal" className="underline hover:text-ink">Privacy policy</a>.
+            Armazenamos apenas o necessário para a plataforma funcionar corretamente.
+            Você pode personalizar suas preferências ou consultar nossa{' '}
+            <a href="#legal" className="underline hover:text-ink">Política de Privacidade</a>.
           </p>
         </div>
 
@@ -83,7 +82,7 @@ export default function CookieBanner() {
                 />
                 <label htmlFor={`consent-${cat.key}`} className="text-sm">
                   <span className="text-ink">{cat.label}</span>
-                  {cat.locked && <span className="text-muted"> · always on</span>}
+                  {cat.locked && <span className="text-muted"> · sempre ativo</span>}
                   <span className="block text-muted">{cat.body}</span>
                 </label>
               </li>
@@ -98,14 +97,14 @@ export default function CookieBanner() {
             className="btn-ghost flex-1"
             onClick={() => { rejectAll(); close(); }}
           >
-            Reject all
+            Rejeitar todos
           </button>
           <button
             type="button"
             className="btn-ghost flex-1"
             onClick={() => { acceptAll(); close(); }}
           >
-            Accept all
+            Aceitar todos
           </button>
           {details ? (
             <button
@@ -113,7 +112,7 @@ export default function CookieBanner() {
               className="btn-quiet sm:w-auto"
               onClick={() => { setConsent(draft); close(); }}
             >
-              Save my choice
+              Salvar preferências
             </button>
           ) : (
             <button
@@ -121,7 +120,7 @@ export default function CookieBanner() {
               className="btn-quiet sm:w-auto"
               onClick={() => setDetails(true)}
             >
-              Choose
+              Personalizar
             </button>
           )}
         </div>

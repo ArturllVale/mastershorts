@@ -108,7 +108,7 @@ async def edit_clip(
         def run_edit():
             editor = VideoEditor(api_key=final_api_key)
             
-            # SAFE FILE RENAMING STRATEGY (Avoid UnicodeEncodeError in Docker)
+            # SAFE FILE RENAMING STRATEGY (Avoid UnicodeEncodeError with non-ASCII paths)
             # Create a safe ASCII filename in the same directory
             safe_filename = f"temp_input_{req.job_id}.mp4"
             safe_input_path = os.path.join(OUTPUT_DIR, req.job_id, safe_filename)
@@ -1158,7 +1158,7 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
         # 1. Generate SRT — from the existing transcript, or a fresh
         # transcription when the audio was dubbed (see the metering note above).
         if is_dubbed:
-            print(f"🎙️ Dubbed video detected, transcribing audio for subtitles...")
+            print("🎙️ Vídeo dublado detectado, iniciando transcrição para legendas...")
             def run_transcribe_srt():
                 if is_karaoke:
                     return generate_srt_from_video(input_path, srt_path, style="karaoke", **karaoke_opts)

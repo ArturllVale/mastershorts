@@ -803,7 +803,7 @@ def download_youtube_video(url, output_dir="."):
         raise NotASingleVideo(f"This link is {reason}.")
 
     print(f"🔍 Debug: yt-dlp version: {yt_dlp.version.__version__}")
-    print("📥 Downloading video from YouTube...")
+    print("📥 Iniciando download do vídeo...", flush=True)
     step_start_time = time.time()
 
     cookies_path = '/app/cookies.txt'
@@ -908,11 +908,20 @@ def download_youtube_video(url, output_dir="."):
             # Bytes of a fragment still in flight: a failed attempt has
             # already paid for these even though 'finished' never fires.
             _dl_bytes["partial"] = int(d.get('downloaded_bytes') or 0)
+            total = int(d.get('total_bytes') or d.get('total_bytes_estimate') or 0)
+            downloaded = _dl_bytes["partial"]
+            if total > 0:
+                pct = int((downloaded / total) * 100)
+                last = _dl_bytes.get("last_pct", -1)
+                if pct != last and (pct % 5 == 0 or pct in (1, 2, 99, 100)):
+                    _dl_bytes["last_pct"] = pct
+                    print(f"📥 Baixando vídeo: {pct}%", flush=True)
         elif d.get('status') == 'finished':
             _dl_bytes["partial"] = 0
             _dl_bytes["total"] += int(d.get('total_bytes')
                                       or d.get('total_bytes_estimate')
                                       or d.get('downloaded_bytes') or 0)
+            print("✅ Download concluído com sucesso!", flush=True)
 
     def _attempt(extractor_args, fmt, proxy, cookies=True):
         _dl_bytes["total"] = 0
@@ -1180,8 +1189,12 @@ def auto_hook_clip(clip_path, clip):
     Returns (hooked_path, hook_config), or None when skipped or failed — a
     hook problem must never cost the user the clip itself (same fail-open
     contract as auto_caption_clip)."""
+    from clip_metadata import is_placeholder_or_empty, clean_or_generate_clip_metadata
     text = (clip.get('viral_hook_text') or '').strip()
-    if not text:
+    if is_placeholder_or_empty(text):
+        clean_or_generate_clip_metadata(clip)
+        text = (clip.get('viral_hook_text') or '').strip()
+    if is_placeholder_or_empty(text):
         return None
     style = os.environ.get("AUTO_HOOK_STYLE", "classic")
     try:
@@ -1566,10 +1579,11 @@ def clear_transcript_checkpoint(output_dir):
 
 
 def transcribe_video(video_path):
-    print("🎙️  Transcribing video...")
+    print("🎙️ Iniciando transcrição do áudio...", flush=True)
     from transcribe_backends import transcribe_media
 
     transcript = transcribe_media(video_path)
+    print("🎙️ Transcrição iniciada com sucesso!", flush=True)
 
     print(f"   Detected language '{transcript['language']}', "
           f"{len(transcript['segments'])} segments")
@@ -1675,7 +1689,19 @@ def score_batch_size():
     return 3 if llm_backend.active() else 8
 
 
-def get_viral_clips(transcript_result, video_duration):
+def detail_batch_size():
+    """Candidate windows per detail call: ``LLM_DETAIL_BATCH`` if set, else
+    4 for Gemini and 2 for an OpenAI-compatible server."""
+    raw = os.environ.get("LLM_DETAIL_BATCH", "").strip()
+    if raw:
+        try:
+            return max(1, int(raw))
+        except ValueError:
+            pass
+    return 2 if llm_backend.active() else 4
+
+
+def get_viral_clips(transcript_result, video_duration, video_title=None):
     """Two-pass clip selection: score transcript windows, then detail the best.
 
     Windowing gives even coverage on long videos (a single call over the whole
@@ -1688,10 +1714,10 @@ def get_viral_clips(transcript_result, video_duration):
         # Self-hosted text model: no Google key needed for this stage.
         client = None
         model_name = llm_backend.model_name()
-        print(f"\U0001f916  Analyzing with local LLM at {llm_backend.base_url()} (2-pass: score → detail)...")
+        print(f"🤖  Analyzing with local LLM at {llm_backend.base_url()} (2-pass: score → detail)...")
         print("⏳ This usually takes 1-3 minutes depending on your hardware.")
     else:
-        print("\U0001f916  Analyzing with Gemini (2-pass: score → detail)...")
+        print("🤖  Analyzing with Gemini (2-pass: score → detail)...")
         print("⏳ This usually takes 1-3 minutes.")
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
@@ -1700,7 +1726,7 @@ def get_viral_clips(transcript_result, video_duration):
             return None
         client = genai.Client(api_key=api_key)
         model_name = os.environ.get("GEMINI_MODEL") or 'gemini-3.1-flash-lite'
-    print(f"\U0001f916  Model: {model_name} | language: {language}")
+    print(f"🤖  Model: {model_name} | language: {language}")
 
     # Full word list — ground truth for snapping cut points.
     words = []
@@ -1756,22 +1782,61 @@ def get_viral_clips(transcript_result, video_duration):
             shortlist = windows[:target]  # scoring returned nothing usable
         print(f"✨ [Passo 1/2] Selecionadas {len(shortlist)} melhores janelas para geração detalhada.")
 
-        # --- Pass 2: detailed clip extraction on the shortlist ---
+        # --- Pass 2: detailed clip extraction on the shortlist in batches ---
         min_clips, max_clips = clip_count_targets(len(shortlist))
+        DETAIL_BATCH = detail_batch_size()
+        shorts = []
+        detail_batches = (len(shortlist) + DETAIL_BATCH - 1) // DETAIL_BATCH
 
-        def _detail_prompt(ws):
-            # A split batch keeps the full clip-count band: a short list can
-            # still hold the best clips, and the model returns fewer anyway.
-            return gemini_worker.DETAIL_PROMPT_TEMPLATE.format(
-                video_duration=video_duration, language=language,
-                min_clips=min_clips, max_clips=max_clips,
-                min_secs=min_secs, max_secs=max_secs,
-                windows_json=json.dumps(_payload(ws), ensure_ascii=False))
+        for b_idx, b in enumerate(range(0, len(shortlist), DETAIL_BATCH), 1):
+            batch_windows = shortlist[b:b + DETAIL_BATCH]
+            b_min = max(1, int(round(min_clips * len(batch_windows) / len(shortlist))))
+            b_max = max(b_min, int(round(max_clips * len(batch_windows) / len(shortlist))) + 1)
 
-        print(f"🎯 [Passo 2/2] Criando ganchos virais e títulos para os melhores momentos com '{model_name}'...", flush=True)
-        shorts = _run_stage_split(client, model_name, shortlist, _detail_prompt,
-                                  gemini_worker.DetailResponse, "shorts", costs, "detail")
-        print(f"🔥 [Passo 2/2] {len(shorts)} shorts virais gerados pela IA!", flush=True)
+            def _detail_prompt(ws):
+                return gemini_worker.DETAIL_PROMPT_TEMPLATE.format(
+                    video_duration=video_duration, language=language,
+                    min_clips=b_min, max_clips=b_max,
+                    min_secs=min_secs, max_secs=max_secs,
+                    windows_json=json.dumps(_payload(ws), ensure_ascii=False))
+
+            print(f"🎯 [Passo 2/2] Criando ganchos virais e títulos (lote {b_idx}/{detail_batches}) com '{model_name}'...", flush=True)
+            batch_shorts = _run_stage_split(client, model_name, batch_windows, _detail_prompt,
+                                           gemini_worker.DetailResponse, "shorts", costs, "detail")
+            shorts.extend(batch_shorts)
+            print(f"✅ [Passo 2/2] Lote {b_idx}/{detail_batches} concluído ({len(batch_shorts)} shorts gerados).", flush=True)
+
+        # If the LLM returned fewer clips than the required minimum, recover clips
+        # from the highest-scoring candidate windows not yet represented in shorts.
+        if len(shorts) < min_clips:
+            print(f"ℹ️ IA gerou {len(shorts)} shorts (meta mínima: {min_clips}). Preenchendo com as melhores janelas identificadas...", flush=True)
+            for win in shortlist:
+                if len(shorts) >= min_clips:
+                    break
+                w_start = float(win.get("start") or 0.0)
+                w_end = float(win.get("end") or 0.0)
+                overlaps = any(
+                    not (s.get("end", 0) <= w_start or s.get("start", 0) >= w_end)
+                    for s in shorts
+                )
+                if not overlaps:
+                    clip_len = min(45.0, max_secs)
+                    c_start = w_start
+                    c_end = min(w_end, c_start + clip_len)
+                    if c_end - c_start >= min_secs:
+                        shorts.append({
+                            "start": c_start,
+                            "end": c_end,
+                            "source_window_id": win.get("id", "window_fallback"),
+                            "predicted_score": win.get("score", 75),
+                            "explanation": "Momento de alta relevância destacado na pontuação inicial.",
+                            "video_description_for_tiktok": "",
+                            "video_description_for_instagram": "",
+                            "video_title_for_youtube_short": "",
+                            "viral_hook_text": "",
+                        })
+
+        print(f"🔥 [Passo 2/2] {len(shorts)} shorts virais identificados!", flush=True)
         if len(shorts) > max_clips:
             # By score, never by position: the results arrive in transcript
             # order, so slicing kept the earliest clips and silently dropped
@@ -1785,6 +1850,13 @@ def get_viral_clips(transcript_result, video_duration):
             ns, ne = snap_clip_to_words(s.get("start", 0), s.get("end", 0), words, video_duration,
                                         min_duration=min_secs, max_duration=max_secs)
             s["start"], s["end"] = ns, ne
+
+        # Sanitize and ensure every clip has valid, non-placeholder metadata
+        from clip_metadata import clean_or_generate_clip_metadata
+        for s in shorts:
+            clean_or_generate_clip_metadata(
+                s, transcript=transcript_result, start=s["start"], end=s["end"],
+                video_title=video_title, language=language)
 
         # Aggregate cost across both passes.
         cost_analysis = None
@@ -2071,8 +2143,9 @@ if __name__ == '__main__':
             transcript = None
 
         # 4. Gemini Analysis (transcript-driven, or vision for silent videos)
+        print("🤖 Analisando momentos virais com Inteligência Artificial...", flush=True)
         if transcript is not None:
-            clips_data = get_viral_clips(transcript, duration)
+            clips_data = get_viral_clips(transcript, duration, video_title=video_title)
         else:
             clips_data = get_visual_clips(input_video, duration)
 
@@ -2083,7 +2156,12 @@ if __name__ == '__main__':
             raise RuntimeError(
                 "Clip detection failed — the AI model did not return usable clips for this video.")
         else:
-            print(f"🔥 Found {len(clips_data['shorts'])} clips!")
+            print(f"🔥 {len(clips_data['shorts'])} momentos virais identificados!", flush=True)
+            from clip_metadata import clean_or_generate_clip_metadata
+            for c in clips_data.get('shorts', []):
+                clean_or_generate_clip_metadata(
+                    c, transcript=transcript, start=c.get('start'), end=c.get('end'),
+                    video_title=video_title)
 
             # Save metadata. Silent videos have no transcript → no subtitles,
             # which is correct (there's no speech to caption).
@@ -2105,7 +2183,7 @@ if __name__ == '__main__':
             def _process_one_clip(i, clip):
                 start = clip['start']
                 end = clip['end']
-                print(f"\n🎬 Processing Clip {i+1}: {start}s - {end}s")
+                print(f"\n🎬 Gerando corte {i+1} de {len(shorts)}…", flush=True)
                 print(f"   Title: {clip.get('video_title_for_youtube_short', 'No Title')}")
 
                 clip_filename = f"{video_title}_clip_{i+1}.mp4"
@@ -2140,10 +2218,11 @@ if __name__ == '__main__':
                         if hooked:
                             deliver_path, clip['auto_hook'] = hooked
                     if success:
+                        print(f"   💬 Aplicando legendas automáticas no corte {i+1}…", flush=True)
                         captioned = auto_caption_clip(
                             deliver_path, transcript, start, end,
                             split_ranges=_layouts.split_ranges(clip['layout_ranges']))
-                        print(f"   ✅ Clip {i+1} ready: {clip_final_path}")
+                        print(f"   ✅ Corte {i+1} pronto!", flush=True)
                         # Hand the API the file to actually serve for this clip.
                         # Without it the status poller guesses the clean reframe
                         # name, so a job in flight showed every clip stripped of
@@ -2187,3 +2266,4 @@ if __name__ == '__main__':
 
     total_time = time.time() - script_start_time
     print(f"\n⏱️  Total execution time: {total_time:.2f}s")
+    print("🎉 Processamento finalizado com sucesso!", flush=True)

@@ -15,19 +15,46 @@ _STDIO_CONFIGURED = False
 DEFAULT_WHISPER_MODEL = "small"
 
 
+def _detect_whisper_device_and_compute():
+    if sys.platform == "win32":
+        try:
+            for sp in sys.path:
+                cublas_bin = os.path.join(sp, "nvidia", "cublas", "bin")
+                cudnn_bin = os.path.join(sp, "nvidia", "cudnn", "bin")
+                if os.path.exists(cublas_bin) and cublas_bin not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = cublas_bin + os.pathsep + os.environ.get("PATH", "")
+                if os.path.exists(cudnn_bin) and cudnn_bin not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = cudnn_bin + os.pathsep + os.environ.get("PATH", "")
+        except Exception:
+            pass
+
+    device = (os.environ.get("WHISPER_DEVICE") or "").strip().lower()
+    compute_type = (os.environ.get("WHISPER_COMPUTE") or "").strip()
+    if not device or device == "auto":
+        try:
+            import ctranslate2
+            device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
+        except Exception:
+            device = "cpu"
+    if not compute_type or compute_type.lower() == "auto":
+        compute_type = "float16" if device == "cuda" else "int8"
+    return device, compute_type
+
+
 def get_whisper_config():
     """Return the faster-whisper model config, overridable via env vars."""
+    device, compute_type = _detect_whisper_device_and_compute()
     return {
         "model_size": os.environ.get("WHISPER_MODEL", DEFAULT_WHISPER_MODEL),
-        "device": os.environ.get("WHISPER_DEVICE", "cpu"),
-        "compute_type": os.environ.get("WHISPER_COMPUTE", "int8"),
+        "device": device,
+        "compute_type": compute_type,
     }
 
 
 # Decode params shared by both transcription paths. condition_on_previous_text
 # is off to avoid repetition/hallucination loops; vad_filter drops silence.
 WHISPER_TRANSCRIBE_PARAMS = {
-    "beam_size": 5,
+    "beam_size": int(os.environ.get("WHISPER_BEAM_SIZE", "1")),
     "vad_filter": True,
     "condition_on_previous_text": False,
     "word_timestamps": True,
@@ -121,9 +148,9 @@ def transcribe_audio(video_path):
     # Lazy import: transcribe_backends imports helpers from this module.
     from transcribe_backends import transcribe_media
 
-    _log(f"🎙️  Transcribing audio from: {video_path}")
+    _log("🎙️ Iniciando transcrição do áudio...")
     transcript = transcribe_media(video_path)
-    _log(f"✅ Transcription complete. Language: {transcript['language']}")
+    _log(f"🎙️ Transcrição concluída com sucesso! Idioma: {transcript.get('language', 'pt')}")
     return transcript
 
 
@@ -572,12 +599,12 @@ def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
         output_path
     ]
 
-    _log(f"🎬 Burning subtitles: {' '.join(cmd)}")
+    _log("🎬 Aplicando legendas ao corte…")
     result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
     if result.returncode != 0:
         stderr_text = result.stderr.decode(errors='replace')
-        _log(f"❌ FFmpeg Subtitle Error: {stderr_text}")
+        _log("❌ Erro ao aplicar legendas no vídeo.")
         raise Exception(f"FFmpeg failed: {stderr_text}")
 
     return True

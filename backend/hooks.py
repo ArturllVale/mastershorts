@@ -28,7 +28,7 @@ _EMOJI_RE = re.compile(
     "]+"
 )
 
-# Emoji-capable fonts, probed at runtime (Windows, WSL, Linux/Docker, macOS).
+# Emoji-capable fonts, probed at runtime (Windows, WSL, Linux, macOS).
 _EMOJI_FONT_CANDIDATES = [
     "C:\\Windows\\Fonts\\seguiemj.ttf",
     "/mnt/c/Windows/Fonts/seguiemj.ttf",
@@ -38,10 +38,9 @@ _EMOJI_FONT_CANDIDATES = [
 ]
 
 
-# Bitmap strike sizes color-emoji fonts ship with. NotoColorEmoji (the font
-# the Docker image installs) ONLY loads at its strike size — asking for an
-# arbitrary size raises "invalid pixel size" — so glyphs are rendered at the
-# native size and rescaled at draw time.
+# Bitmap strike sizes color-emoji fonts ship with. NotoColorEmoji ONLY loads
+# at its strike size — asking for an arbitrary size raises "invalid pixel size"
+# — so glyphs are rendered at the native size and rescaled at draw time.
 _EMOJI_BITMAP_SIZES = [109, 128, 136, 160, 96, 72, 64, 32]
 
 

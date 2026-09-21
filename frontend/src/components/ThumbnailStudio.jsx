@@ -14,7 +14,7 @@ import {
   publishThumbnail,
 } from '../services/thumbnailService';
 
-const STEPS = ['Input', 'Titles', 'Generate', 'Description'];
+const STEPS = ['Entrada', 'Títulos', 'Miniatura', 'Descrição'];
 
 import DragDropZone from '../features/thumbnail-studio/DragDropZone';
 import StepInput from '../features/thumbnail-studio/StepInput';
@@ -89,7 +89,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
 
   // --- Step 1: Analyze Video ---
   const handleAnalyze = async () => {
-    if (needsKey) return alert('Please set your Gemini API key in Settings first.');
+    if (needsKey) return alert('Configure sua chave de API do Gemini nas Configurações primeiro.');
     setIsAnalyzing(true);
 
     try {
@@ -101,7 +101,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
       } else if (videoFile) {
         formData.append('file', videoFile);
       } else {
-        return alert('Please upload a video file.');
+        return alert('Por favor, envie um arquivo de vídeo.');
       }
 
       const data = await analyzeVideo(formData, keyHeader);
@@ -111,11 +111,11 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
       setRecommended(data.recommended || []);
       setChatHistory([{
         role: 'assistant',
-        content: `Here are 10 viral title suggestions based on your video. Titles marked TOP PICK are my top picks. Click one to select it, or tell me how to refine them.`
+        content: `Aqui estão 10 sugestões de títulos virais baseados no seu vídeo. Os títulos marcados como RECOMENDADO são os meus favoritos. Clique em um para selecionar ou diga como deseja refiná-los.`
       }]);
       setStep(1);
     } catch (e) {
-      alert(`Analysis failed: ${e.message}`);
+      alert(`Falha na análise: ${e.message}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -159,13 +159,13 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
       setRecommended([]);
       setChatHistory(prev => [...prev, {
         role: 'assistant',
-        content: `Here are refined titles based on your feedback. Click one to select it.`
+        content: `Aqui estão os títulos refinados com base no seu feedback. Clique em um para selecionar.`
       }]);
       setTimeout(scrollToBottom, 100);
     } catch (e) {
       setChatHistory(prev => [...prev, {
         role: 'assistant',
-        content: `Failed to refine: ${e.message}`
+        content: `Falha ao refinar títulos: ${e.message}`
       }]);
     } finally {
       setIsRefining(false);
@@ -174,9 +174,9 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
 
   // --- Step 3: Generate Thumbnails ---
   const handleGenerate = async () => {
-    if (needsKey) return alert('Please set your Gemini API key in Settings first.');
+    if (needsKey) return alert('Configure sua chave de API do Gemini nas Configurações primeiro.');
     const finalTitle = selectedTitle || manualTitle;
-    if (!finalTitle) return alert('Please select or enter a title first.');
+    if (!finalTitle) return alert('Por favor, selecione ou digite um título primeiro.');
 
     setIsGenerating(true);
     setGeneratedThumbnails([]);
@@ -194,11 +194,11 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
 
       const data = await generateThumbnails(formData, keyHeader);
       if (!data.thumbnails || data.thumbnails.length === 0) {
-        throw new Error('No thumbnails were generated. Your Gemini API key may not have access to image generation.');
+        throw new Error('Nenhuma miniatura foi gerada. Sua chave da API do Gemini pode não ter acesso à geração de imagens.');
       }
       setGeneratedThumbnails(data.thumbnails);
     } catch (e) {
-      alert(`Generation failed: ${e.message}`);
+      alert(`Falha na geração: ${e.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -241,17 +241,17 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
 
   // --- Description Generation ---
   const handleGenerateDescription = async () => {
-    if (needsKey) return alert('Please set your Gemini API key in Settings first.');
+    if (needsKey) return alert('Configure sua chave de API do Gemini nas Configurações primeiro.');
     const finalTitle = selectedTitle || manualTitle;
-    if (!finalTitle) return alert('Please select a title first.');
-    if (!sessionId) return alert('No session available.');
+    if (!finalTitle) return alert('Por favor, selecione um título primeiro.');
+    if (!sessionId) return alert('Nenhuma sessão disponível.');
 
     setIsDescribing(true);
     try {
       const data = await generateDescription({ session_id: sessionId, title: finalTitle }, keyHeader);
       setDescription(data.description || '');
     } catch (e) {
-      alert(`Description generation failed: ${e.message}`);
+      alert(`Falha ao gerar descrição: ${e.message}`);
     } finally {
       setIsDescribing(false);
     }
@@ -350,11 +350,11 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
           </div>
           {step > 0 && (
             <button onClick={handleReset} className="text-xs text-text-tertiary hover:text-text-primary transition-colors flex items-center gap-1">
-              <Plus size={12} /> New Project
+              <Plus size={12} /> Novo Projeto
             </button>
           )}
         </div>
-        <p className="text-sm text-text-secondary mb-6">Generate viral titles, AI thumbnails, and descriptions</p>
+        <p className="text-sm text-text-secondary mb-6">Gere títulos virais, miniaturas com IA e descrições</p>
 
         <div className="mb-8">
           <StepIndicator steps={STEPS} current={step} />
@@ -365,8 +365,8 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
           <div className="mb-6 p-5 bg-warn/10 border border-warn/30 rounded-xl flex items-start gap-3">
             <AlertCircle size={18} className="text-warn shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-warn">Gemini API Key Required</p>
-              <p className="text-xs text-text-secondary mt-1">YouTube Studio requires a Google Gemini API key to function. Please configure it in the <strong>Settings</strong> tab before using this feature. Gemini's free tier includes 1,500 requests per day.</p>
+              <p className="text-sm font-medium text-warn">Chave de API do Gemini Necessária</p>
+              <p className="text-xs text-text-secondary mt-1">O YouTube Studio precisa de uma chave de API do Google Gemini para funcionar. Configure-a na aba <strong>Configurações</strong> antes de usar este recurso. O plano gratuito do Gemini inclui 1.500 requisições por dia.</p>
             </div>
           </div>
         )}
@@ -397,7 +397,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
             <div className="md:col-span-2 flex flex-col gap-4">
               {mode === 'manual' ? (
                 <div className="card p-6 space-y-4">
-                  <p className="eyebrow">YOUR TITLE</p>
+                  <p className="eyebrow">SEU TÍTULO</p>
                   <input
                     type="text"
                     value={manualTitle}
@@ -412,14 +412,14 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                     className="w-full btn-primary"
                   >
                     <ArrowRight size={16} />
-                    Continue to Thumbnails
+                    Continuar para Miniaturas
                   </button>
                 </div>
               ) : (
                 <div className="card p-4 flex flex-col h-[500px]">
                   <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border">
                     <MessageSquare size={14} className="text-accent" />
-                    <span className="eyebrow">TITLE REFINEMENT CHAT</span>
+                    <span className="eyebrow">CHAT DE REFINAMENTO DE TÍTULOS</span>
                   </div>
 
                   {/* Chat messages */}
@@ -444,7 +444,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleRefine()}
-                      placeholder="Make them more clickbait..."
+                      placeholder="Torne os títulos mais chamativos..."
                       className="input-field text-xs flex-1"
                       disabled={isRefining}
                     />
@@ -465,7 +465,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                   className="w-full btn-primary"
                 >
                   <ArrowRight size={16} />
-                  Use Selected Title
+                  Usar Título Selecionado
                 </button>
               )}
             </div>
@@ -475,7 +475,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
               {selectedTitle && (
                 <div className="p-3 bg-success/10 border border-success/30 rounded-xl flex items-center gap-2 text-sm">
                   <Check size={14} className="text-success shrink-0" />
-                  <span className="text-success font-medium truncate">Selected: {selectedTitle}</span>
+                  <span className="text-success font-medium truncate">Selecionado: {selectedTitle}</span>
                 </div>
               )}
 
@@ -505,7 +505,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                               <span className="leading-relaxed font-medium text-text-primary">{title}</span>
                               {rec && (
                                 <span className="badge-accent shrink-0">
-                                  {recRank === 0 ? 'TOP PICK' : '2ND PICK'}
+                                  {recRank === 0 ? 'RECOMENDADO' : '2ª OPÇÃO'}
                                 </span>
                               )}
                             </div>
@@ -513,7 +513,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                               <p className="text-xs text-text-tertiary mt-1.5 leading-relaxed">{rec.reason}</p>
                             )}
                             {thumbnailTexts[i] && (
-                              <p className="font-mono text-xs text-text-tertiary mt-1.5">Thumbnail hook: "{thumbnailTexts[i]}"</p>
+                              <p className="font-mono text-xs text-text-tertiary mt-1.5">Gancho da miniatura: "{thumbnailTexts[i]}"</p>
                             )}
                           </div>
                         </div>
@@ -526,7 +526,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
               {isRefining && (
                 <div className="flex items-center justify-center py-8 text-text-tertiary">
                   <Loader2 size={18} className="animate-spin mr-2 text-accent" />
-                  <span className="text-sm">Refining titles...</span>
+                  <span className="text-sm">Refinando títulos...</span>
                 </div>
               )}
             </div>
@@ -539,7 +539,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
             {/* Left: Controls */}
             <div className="md:col-span-2 space-y-4">
               <div className="card p-6 space-y-4">
-                <p className="eyebrow mb-1">TITLE</p>
+                <p className="eyebrow mb-1">TÍTULO</p>
                 <div className="p-3 bg-surface-2 border border-border rounded-lg text-sm text-text-primary">
                   {selectedTitle || manualTitle}
                 </div>
@@ -548,15 +548,15 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                   onClick={() => setStep(1)}
                   className="text-xs text-text-tertiary hover:text-text-primary transition-colors flex items-center gap-1"
                 >
-                  <ArrowLeft size={12} /> Change title
+                  <ArrowLeft size={12} /> Alterar título
                 </button>
               </div>
 
               {mode === 'video' && frames !== null && (
                 <div className="card p-6 space-y-3">
-                  <p className="eyebrow">YOUR FACE FROM THE VIDEO</p>
+                  <p className="eyebrow">SEU ROSTO EXTRAÍDO DO VÍDEO</p>
                   {frames.length === 0 ? (
-                    <p className="text-xs text-text-tertiary">{framesLoading ? 'Looking for sharp frames with a face...' : 'No usable face found in the video.'}</p>
+                    <p className="text-xs text-text-tertiary">{framesLoading ? 'Buscando quadros nítidos com rosto...' : 'Nenhum rosto utilizável encontrado no vídeo.'}</p>
                   ) : (
                     <>
                       <div className="grid grid-cols-3 gap-2">
@@ -575,7 +575,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                         ))}
                       </div>
                       <p className="text-xs text-text-tertiary">
-                        {selectedFrame ? 'This frame is the person reference (photo upload overrides it).' : 'Pick a frame so the thumbnail shows you, not a stranger.'}
+                        {selectedFrame ? 'Este quadro será a referência da pessoa (o envio de foto tem prioridade).' : 'Escolha um quadro para que a miniatura mostre você, e não uma pessoa estranha.'}
                       </p>
                     </>
                   )}
@@ -583,9 +583,9 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
               )}
 
               <div className="card p-6 space-y-4">
-                <p className="eyebrow">FACE IMAGE · OPTIONAL</p>
+                <p className="eyebrow">FOTO DO ROSTO · OPCIONAL</p>
                 <DragDropZone
-                  label="Upload face / person photo"
+                  label="Enviar foto de rosto / pessoa"
                   accept="image/*"
                   onFile={setFaceImage}
                   file={faceImage}
@@ -595,9 +595,9 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
               </div>
 
               <div className="card p-6 space-y-4">
-                <p className="eyebrow">BACKGROUND · OPTIONAL</p>
+                <p className="eyebrow">FUNDO · OPCIONAL</p>
                 <DragDropZone
-                  label="Upload background image"
+                  label="Enviar imagem de fundo"
                   accept="image/*"
                   onFile={setBgImage}
                   file={bgImage}
@@ -607,30 +607,30 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
               </div>
 
               <div className="card p-6 space-y-4">
-                <p className="eyebrow">INSTRUCTIONS · OPTIONAL</p>
+                <p className="eyebrow">INSTRUÇÕES ADICIONAIS · OPCIONAL</p>
                 <textarea
                   value={extraPrompt}
                   onChange={(e) => setExtraPrompt(e.target.value)}
-                  placeholder="e.g. Use red and black colors, dramatic lighting, include money emojis..."
+                  placeholder="Ex.: Use cores vermelho e preto, iluminação dramática, destaque bem o texto..."
                   className="input-field text-sm resize-none h-20"
                 />
               </div>
 
               <div className="card p-6 space-y-4">
-                <p className="eyebrow">TEXT ON THUMBNAIL</p>
+                <p className="eyebrow">TEXTO NA MINIATURA</p>
                 <SegmentedControl
-                  options={[{ value: true, label: 'Crisp' }, { value: false, label: 'AI Painted' }]}
+                  options={[{ value: true, label: 'Nítido' }, { value: false, label: 'Pintado por IA' }]}
                   value={burnText}
                   onChange={setBurnText}
                   size="sm"
                 />
                 <p className="text-xs text-text-tertiary">
-                  {burnText ? 'Text is set in a bold typography after the image is generated: crisp and accurate.' : 'The image model paints the text itself: more integrated stylistically.'}
+                  {burnText ? 'O texto é aplicado em tipografia nítida e legível após a geração da imagem.' : 'O modelo de imagem desenha o texto diretamente na arte: mais integrado visualmente.'}
                 </p>
               </div>
 
               <div className="card p-6 space-y-4">
-                <p className="eyebrow">COUNT</p>
+                <p className="eyebrow">QUANTIDADE</p>
                 <SegmentedControl
                   options={[1, 2, 3, 4].map(n => ({ value: n, label: String(n) }))}
                   value={thumbnailCount}
@@ -647,12 +647,12 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                 {isGenerating ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Generating thumbnails...
+                    Gerando miniaturas...
                   </>
                 ) : (
                   <>
                     <Sparkles size={16} />
-                    Generate Thumbnails
+                    Gerar Miniaturas
                   </>
                 )}
               </button>
@@ -662,7 +662,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
             <div className="md:col-span-3">
               {generatedThumbnails.length > 0 ? (
                 <div className="space-y-4">
-                  <p className="text-sm text-text-secondary font-medium">Generated Thumbnails — click to select</p>
+                  <p className="text-sm text-text-secondary font-medium">Miniaturas geradas — clique para selecionar</p>
                   <div className="grid gap-4">
                     {generatedThumbnails.map((thumb, i) => {
                       const url = thumb.url;
@@ -675,7 +675,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                       >
                         <img
                           src={getApiUrl(url)}
-                          alt={`Thumbnail ${i + 1}`}
+                          alt={`Miniatura ${i + 1}`}
                           className="w-full aspect-video object-cover"
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
@@ -684,25 +684,25 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                             className="btn-quiet bg-surface-1/90 backdrop-blur-sm"
                           >
                             <Download size={14} />
-                            Download
+                            Baixar
                           </button>
                         </div>
                         <div className="p-3 flex items-center justify-between gap-3 bg-surface-1">
                           <div className="min-w-0">
                             <span className="text-xs text-text-secondary flex items-center gap-2">
-                              Thumbnail {i + 1}{thumb.text ? ` · "${thumb.text}"` : ''}
+                              Miniatura {i + 1}{thumb.text ? ` · "${thumb.text}"` : ''}
                               {selectedThumbnail === url && (
-                                <span className="text-accent flex items-center gap-1 font-medium"><Check size={10} /> Selected</span>
+                                <span className="text-accent flex items-center gap-1 font-medium"><Check size={10} /> Selecionada</span>
                               )}
                             </span>
                             {thumb.why && <p className="text-xs text-text-tertiary mt-1 truncate">{thumb.why}</p>}
-                            {thumb.fallback && <p className="text-xs text-warn mt-1">Gemini refused to draw this person (public figures blocked); rendered without them.</p>}
+                            {thumb.fallback && <p className="text-xs text-warn mt-1">O Gemini bloqueou o desenho desta pessoa (figuras públicas protegidas); renderizado sem ela.</p>}
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDownload(url); }}
                             className="text-xs text-text-tertiary hover:text-text-primary transition-colors flex items-center gap-1 shrink-0"
                           >
-                            <Download size={12} /> Save
+                            <Download size={12} /> Salvar
                           </button>
                         </div>
                       </div>
@@ -712,14 +712,14 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
 
                   {/* Phone preview */}
                   <div className="card p-4 space-y-3">
-                    <p className="eyebrow">PHONE PREVIEW</p>
+                    <p className="eyebrow">PRÉVIA NO CELULAR</p>
                     <div className="space-y-3">
                       {generatedThumbnails.map((thumb) => (
                         <div key={thumb.url} className="flex gap-3 items-start">
                           <img src={getApiUrl(thumb.url)} alt="" className="w-[168px] h-[94px] object-cover rounded-lg shrink-0 border border-border" />
                           <div className="min-w-0">
                             <p className="text-sm text-text-primary leading-snug line-clamp-2 font-medium">{selectedTitle || manualTitle}</p>
-                            <p className="font-mono text-xs text-text-tertiary mt-1">Your channel · 1.2K views · 2 hours ago</p>
+                            <p className="font-mono text-xs text-text-tertiary mt-1">Seu canal · 1,2 mil visualizações · há 2 horas</p>
                           </div>
                         </div>
                       ))}
@@ -735,12 +735,12 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                     {isGenerating ? (
                       <>
                         <Loader2 size={14} className="animate-spin text-accent" />
-                        Regenerating...
+                        Gerando novamente...
                       </>
                     ) : (
                       <>
                         <Sparkles size={14} />
-                        Regenerate
+                        Gerar Novamente
                       </>
                     )}
                   </button>
@@ -752,7 +752,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                       className="w-full btn-primary"
                     >
                       <ArrowRight size={16} />
-                      Next: Description
+                      Avançar: Descrição
                     </button>
                   )}
                 </div>
@@ -760,8 +760,8 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                 <div className="h-full flex flex-col items-center justify-center text-text-tertiary space-y-4 min-h-[400px]">
                   <div className="w-14 h-14 rounded-full border-2 border-border border-t-accent animate-spin" />
                   <div className="text-center">
-                    <p className="text-sm font-medium text-text-primary">Generating thumbnails...</p>
-                    <p className="text-xs text-text-tertiary mt-1">This may take a minute per thumbnail</p>
+                    <p className="text-sm font-medium text-text-primary">Gerando miniaturas...</p>
+                    <p className="text-xs text-text-tertiary mt-1">Isso pode levar cerca de um minuto por miniatura</p>
                   </div>
                 </div>
               ) : (
@@ -770,8 +770,8 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                     <Image size={24} className="text-text-tertiary" />
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-text-secondary">Your thumbnails will appear here</p>
-                    <p className="text-xs text-text-tertiary mt-1">Configure options and click Generate</p>
+                    <p className="text-sm text-text-secondary">Suas miniaturas aparecerão aqui</p>
+                    <p className="text-xs text-text-tertiary mt-1">Configure as opções e clique em Gerar Miniaturas</p>
                   </div>
                 </div>
               )}
@@ -788,7 +788,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                 onClick={() => setStep(2)}
                 className="text-xs text-text-tertiary hover:text-text-primary transition-colors flex items-center gap-1 mb-2"
               >
-                <ArrowLeft size={12} /> Back to Generate
+                <ArrowLeft size={12} /> Voltar para Miniaturas
               </button>
 
               {/* Selected Thumbnail Preview */}
@@ -796,18 +796,18 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                 <div className="card overflow-hidden">
                   <img
                     src={getApiUrl(selectedThumbnail)}
-                    alt="Selected thumbnail"
+                    alt="Miniatura selecionada"
                     className="w-full aspect-video object-cover"
                   />
                   <div className="p-3 bg-surface-1">
-                    <span className="text-xs text-accent flex items-center gap-1 font-medium"><Check size={10} /> Selected Thumbnail</span>
+                    <span className="text-xs text-accent flex items-center gap-1 font-medium"><Check size={10} /> Miniatura Selecionada</span>
                   </div>
                 </div>
               )}
 
               {/* Title */}
               <div className="card p-6 space-y-3">
-                <p className="eyebrow">TITLE</p>
+                <p className="eyebrow">TÍTULO</p>
                 <div className="p-3 bg-surface-2 border border-border rounded-lg text-sm text-text-primary">
                   {selectedTitle || manualTitle}
                 </div>
@@ -819,12 +819,12 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                   <div className="flex items-center justify-between">
                     <p className="eyebrow flex items-center gap-2">
                       <Sparkles size={14} className="text-accent" />
-                      AI DESCRIPTION
+                      DESCRIÇÃO COM IA
                     </p>
-                    <span className="font-mono text-xs text-text-tertiary">WITH CHAPTERS</span>
+                    <span className="font-mono text-xs text-text-tertiary">COM CAPÍTULOS</span>
                   </div>
                   <p className="text-xs text-text-tertiary">
-                    Generate a YouTube description with chapter timestamps from your video transcript.
+                    Gere uma descrição para o YouTube com marcações de capítulos da transcrição do seu vídeo.
                   </p>
                   <button
                     onClick={handleGenerateDescription}
@@ -834,12 +834,12 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                     {isDescribing ? (
                       <>
                         <Loader2 size={14} className="animate-spin text-accent" />
-                        Generating description...
+                        Gerando descrição...
                       </>
                     ) : (
                       <>
                         <FileText size={14} />
-                        {description ? 'Regenerate Description' : 'Generate Description'}
+                        {description ? 'Gerar Novamente Descrição' : 'Gerar Descrição'}
                       </>
                     )}
                   </button>
@@ -853,7 +853,7 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                 <div className="flex items-center justify-between">
                   <p className="eyebrow flex items-center gap-2">
                     <FileText size={14} className="text-text-tertiary" />
-                    YOUTUBE DESCRIPTION
+                    DESCRIÇÃO DO YOUTUBE
                   </p>
                   <span className="font-mono text-xs text-text-tertiary">{description.length} / 5000</span>
                 </div>
@@ -862,8 +862,8 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={mode === 'video'
-                    ? "Click 'Generate Description' to auto-generate with chapters, or write your own..."
-                    : "Write your YouTube video description here..."
+                    ? "Clique em 'Gerar Descrição' para criar automaticamente com capítulos, ou escreva a sua..."
+                    : "Escreva a descrição do seu vídeo aqui..."
                   }
                   className="input-field text-sm resize-none flex-1 min-h-[500px] font-mono custom-scrollbar leading-relaxed"
                   maxLength={5000}
@@ -872,8 +872,8 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
                 {!description && (
                   <p className="text-xs text-text-tertiary">
                     {mode === 'video'
-                      ? "AI will generate a compelling description with chapter timestamps from your video's Whisper transcript."
-                      : "Write a description for your YouTube video. You can proceed to publish once you have a description."}
+                      ? "A IA criará uma descrição atrativa com marcações de capítulos a partir da transcrição do vídeo."
+                      : "Escreva uma descrição para o seu vídeo."}
                   </p>
                 )}
               </div>

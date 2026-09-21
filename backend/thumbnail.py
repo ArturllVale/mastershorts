@@ -69,10 +69,10 @@ def analyze_video_for_titles(api_key, video_path, transcript=None):
     """
     if transcript is None:
         from main import transcribe_video
-        print("🎬 [Thumbnail] Transcribing video...")
+        print("🎙️ Iniciando transcrição do áudio para miniatura...")
         transcript = transcribe_video(video_path)
     else:
-        print("🎬 [Thumbnail] Using pre-computed transcript (Whisper already done)...")
+        print("🎙️ Utilizando transcrição existente...")
 
     client = genai.Client(api_key=api_key)
     frames = _frame_parts(video_path)

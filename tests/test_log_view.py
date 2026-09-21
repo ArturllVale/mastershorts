@@ -25,14 +25,37 @@ RAW_JOB = [
 
 def test_real_job_produces_clean_user_view():
     assert friendly_logs(RAW_JOB) == [
-        "Job started by worker.",
-        "🎙️ Transcribing audio…",
-        "🎙️ Transcribing… 25% (3s)",
-        "🎙️ Transcribing… 100% (7s)",
-        "🔥 Found 2 viral clips!",
-        "🎬 Creating clip 1…",
-        "✅ Clip 1 ready",
-        "Process finished successfully.",
+        "🚀 Iniciando processamento do vídeo...",
+        "🎙️ Iniciando transcrição do áudio...",
+        "🎙️ Transcrição em andamento: 25%",
+        "🎙️ Transcrição em andamento: 100%",
+        "🔥 2 momentos virais identificados!",
+        "🎬 Gerando corte 1…",
+        "✅ Corte 1 pronto!",
+        "🎉 Processamento concluído com sucesso!",
+    ]
+
+
+def test_download_and_transcription_logs():
+    raw = [
+        "📥 Downloading video from YouTube...",
+        "[download]  25.0% of ~50.00MiB at 5.00MiB/s",
+        "📥 Baixando vídeo: 50%",
+        "✅ Download succeeded (direct).",
+        "🎙️ Iniciando transcrição do áudio...",
+        "🎙️ Transcrição iniciada com sucesso!",
+        "🎙️ Transcrição em andamento: 75% (5s)",
+        "Detected language 'pt', 12 segments",
+    ]
+    assert friendly_logs(raw) == [
+        "📥 Iniciando download do vídeo...",
+        "📥 Baixando vídeo: 25.0%",
+        "📥 Baixando vídeo: 50%",
+        "✅ Download concluído com sucesso!",
+        "🎙️ Iniciando transcrição do áudio...",
+        "🎙️ Transcrição iniciada com sucesso!",
+        "🎙️ Transcrição em andamento: 75%",
+        "✅ Transcrição concluída com sucesso!",
     ]
 
 
@@ -51,11 +74,11 @@ def test_technical_lines_are_hidden():
 
 def test_errors_kept_without_paths():
     assert friendly_log_line("Process failed with exit code 1") == \
-        "Process failed with exit code 1"
+        "❌ Ocorreu uma falha no processamento."
     out = friendly_log_line("❌ Could not read output/abc/clip.mp4")
     assert out is not None and "output/" not in out
 
 
 def test_consecutive_duplicates_collapse():
     logs = ["🎙️  Transcribing video...", "🎙️  Transcribing audio from: x.mp4"]
-    assert friendly_logs(logs) == ["🎙️ Transcribing audio…"]
+    assert friendly_logs(logs) == ["🎙️ Iniciando transcrição do áudio..."]

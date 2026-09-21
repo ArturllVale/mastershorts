@@ -17,7 +17,7 @@ export default function HistoryTab({ onReopenProject }) {
   useEffect(() => {
     apiJson('/api/history')
       .then((d) => setVideos(d.videos || []))
-      .catch(() => setError('Could not load your library.'));
+      .catch(() => setError('Não foi possível carregar sua biblioteca.'));
     apiJson('/api/projects')
       .then((d) => {
         const map = {};
@@ -45,7 +45,7 @@ export default function HistoryTab({ onReopenProject }) {
     try {
       await onReopenProject(jobId);
     } catch (e) {
-      setReopenError('Could not reopen this project. Please try again.');
+      setReopenError('Não foi possível reabrir este projeto. Tente novamente.');
       setReopening(null);
     }
   };
@@ -58,10 +58,10 @@ export default function HistoryTab({ onReopenProject }) {
 
   return (
     <div className="h-full overflow-y-auto p-6 md:p-8 max-w-5xl mx-auto animate-fade">
-      <p className="eyebrow mb-1.5">06 · HISTORY</p>
-      <h1 className="font-display text-2xl md:text-3xl text-text-primary tracking-tight mb-2">Your Library</h1>
+      <p className="eyebrow mb-1.5">06 · HISTÓRICO</p>
+      <h1 className="font-display text-2xl md:text-3xl text-text-primary tracking-tight mb-2">Sua Biblioteca</h1>
       <p className="text-text-secondary text-sm mb-8 leading-relaxed">
-        All the shorts you've generated, saved while your plan is active. Kept for 7 days after your plan ends. Reopen a project to keep editing its clips.
+        Todos os shorts que você gerou, salvos enquanto seu plano estiver ativo. Mantidos por 7 dias após o término do plano. Reabra um projeto para continuar editando seus cortes.
       </p>
 
       {error && <p className="text-danger text-sm mb-4">{error}</p>}
@@ -70,8 +70,8 @@ export default function HistoryTab({ onReopenProject }) {
       {videos && videos.length === 0 && (
         <EmptyState
           icon={Film}
-          title="No videos generated yet"
-          description="Generate your first short from the Clip Generator to start building your video library."
+          title="Nenhum vídeo gerado ainda"
+          description="Gere seu primeiro corte a partir do Gerador de Cortes para começar a construir sua biblioteca de vídeos."
         />
       )}
 
@@ -83,10 +83,10 @@ export default function HistoryTab({ onReopenProject }) {
               <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border">
                 <div className="min-w-0">
                   <p className="text-sm text-text-primary font-medium truncate" title={project?.title || vids[0]?.title}>
-                    {project?.title || vids[0]?.title || 'Project'}
+                    {project?.title || vids[0]?.title || 'Projeto'}
                   </p>
                   <p className="font-mono text-xs text-text-tertiary mt-0.5">
-                    {fmtDate(vids[0]?.created_at)} · {vids.length} clip{vids.length === 1 ? '' : 's'}
+                    {fmtDate(vids[0]?.created_at)} · {vids.length} corte{vids.length === 1 ? '' : 's'}
                   </p>
                 </div>
                 {project && onReopenProject && (
@@ -97,9 +97,9 @@ export default function HistoryTab({ onReopenProject }) {
                     disabled={!!reopening}
                     isLoading={reopening === jobId}
                     leftIcon={!reopening && <FolderOpen size={14} />}
-                    title="Restore this project in the Clip Generator to keep editing subtitles, hooks, effects and dubbing"
+                    title="Restaura este projeto no Gerador de Cortes para continuar editando legendas, ganchos e efeitos"
                   >
-                    {reopening === jobId ? 'Reopening…' : 'Reopen Project'}
+                    {reopening === jobId ? 'Reabrindo…' : 'Reabrir Projeto'}
                   </Button>
                 )}
               </div>
@@ -110,13 +110,13 @@ export default function HistoryTab({ onReopenProject }) {
                       <video src={v.view_url} controls preload="metadata" className="w-full h-full object-contain" />
                     </div>
                     <div className="p-3 flex-1 flex flex-col justify-between">
-                      <p className="text-xs text-text-primary font-medium line-clamp-2 mb-2" title={v.title}>{v.title || 'Short'}</p>
+                      <p className="text-xs text-text-primary font-medium line-clamp-2 mb-2" title={v.title}>{v.title || 'Corte'}</p>
                       <div className="flex items-center justify-between pt-2 border-t border-border/50">
                         <span className="font-mono text-[10px] text-text-tertiary">{fmtDate(v.created_at)}</span>
                         <a
                           href={v.download_url}
                           className="font-mono text-[11px] text-accent hover:text-text-primary flex items-center gap-1 transition-colors"
-                          title="Download"
+                          title="Baixar"
                         >
                           <Download size={12} /> MP4
                         </a>

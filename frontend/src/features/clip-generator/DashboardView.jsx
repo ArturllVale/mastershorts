@@ -134,7 +134,7 @@ export default function DashboardView({
                   <div className="min-w-0 flex-1 flex items-center gap-2">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-brass font-semibold shrink-0">Status:</span>
                     <span className="min-w-0 truncate font-mono text-ink text-xs">
-                      {logs.length ? logs[logs.length - 1] : 'Iniciando pipeline…'}
+                      {logs.length ? logs[logs.length - 1] : 'Iniciando processamento…'}
                     </span>
                   </div>
                 </div>
@@ -142,7 +142,7 @@ export default function DashboardView({
 
               {status === 'processing' && (
                 <div className="my-3">
-                  <StarBanner message="Got a minute while this renders?" />
+                  <StarBanner message="Dica enquanto seus cortes estão sendo gerados:" />
                 </div>
               )}
 
@@ -154,7 +154,7 @@ export default function DashboardView({
                   className="w-full px-3.5 sm:px-4 py-2.5 border-b border-rule flex items-center justify-between gap-2 bg-paper2 shrink-0 text-left select-none"
                 >
                   <span className="readout flex items-center gap-2">
-                    <Terminal size={12} /> System Logs
+                    <Terminal size={12} /> Logs do Sistema
                     <span className="text-[10px] text-muted normal-case font-normal">(mais recentes no topo)</span>
                   </span>
                   <span className="flex items-center gap-2 text-muted">

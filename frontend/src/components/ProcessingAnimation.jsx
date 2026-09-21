@@ -146,12 +146,12 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
               {isComplete
                 ? <CheckCircle size={14} className="shrink-0" />
                 : <Scan size={14} className="shrink-0" />}
-              <span className="truncate">{isComplete ? 'ANALYSIS COMPLETE' : 'SCANNING CONTENT...'}</span>
+              <span className="truncate">{isComplete ? 'ANÁLISE CONCLUÍDA' : 'ANALISANDO VÍDEO...'}</span>
             </div>
             {!isComplete && (
               <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-surface-1/90 backdrop-blur-md border border-border rounded-full font-mono text-xs tracking-wide text-text-tertiary shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
-                VIRAL_DETECTION: ACTIVE
+                DETECÇÃO DE VIRAIS: ATIVA
               </div>
             )}
           </div>
@@ -174,7 +174,7 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
        {/* Synced Playing Indicator */}
        {isSyncedPlaying && (
            <div className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 z-30 badge-brass bg-surface-1/90 backdrop-blur-md animate-pulse shadow-lg">
-               <Activity size={12} /> Live Sync
+               <Activity size={12} /> Sincronização ao Vivo
            </div>
        )}
 
@@ -182,8 +182,8 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
       {!isSyncedPlaying && !isComplete && (
           <div className="hidden sm:flex absolute bottom-0 left-0 right-0 p-3.5 bg-surface-1/90 backdrop-blur-md z-30 justify-between items-end border-t border-border">
               <div className="font-mono text-xs text-accent space-y-1">
-                 <div className="flex items-center gap-2"><Activity size={11} className="animate-pulse" /> {'>'} ANALYSIS_THREAD_01: ACTIVE</div>
-                 <div className="flex items-center gap-2"><Radio size={11} /> {'>'} AUDIO_TRANSCRIPT: PROCESSING</div>
+                 <div className="flex items-center gap-2"><Activity size={11} className="animate-pulse" /> {'>'} ANÁLISE_IA: EM ANDAMENTO</div>
+                 <div className="flex items-center gap-2"><Radio size={11} /> {'>'} TRANSCRIÇÃO_DE_ÁUDIO: EM ANDAMENTO</div>
               </div>
               <div className="flex gap-1 items-end h-5">
                  <div className="w-1 h-3 bg-accent opacity-40 animate-[pulse_0.5s_infinite]"></div>

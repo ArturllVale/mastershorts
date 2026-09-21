@@ -18,7 +18,6 @@ O projeto é organizado no formato monorepo modular:
 ├── frontend/           # Interface web em React + Vite + TailwindCSS
 ├── remotion/           # Composição e renderização de vídeo programática
 ├── render-service/     # Microsserviço de renderização
-├── docker-compose.yml  # Orquestração de containers para produção/desenvolvimento
 └── package.json        # Scripts de conveniência na raiz do projeto
 ```
 
@@ -67,36 +66,24 @@ pip install -r backend/requirements.txt
 
 ## Executando o Projeto
 
-### Opção 1: Via Docker Compose (Recomendado para Produção)
-
-Para subir todos os serviços (backend, frontend e renderer):
-
-```bash
-docker compose up --build
-```
-
-- **Frontend**: `http://localhost:5175`
-- **Backend API**: `http://localhost:8000`
-- **Documentação Swagger**: `http://localhost:8000/docs`
-
-### Opção 2: Desenvolvimento Local
-
 Para rodar o backend e o frontend simultaneamente:
 
 ```bash
 npm run dev
 ```
 
-Ou execute individualmente em terminais separados:
+- **Frontend**: `http://localhost:5173`
+- **Backend API**: `http://localhost:8000`
+- **Documentação Swagger**: `http://localhost:8000/docs`
+
+Você também pode executar os serviços individualmente em terminais separados:
 
 ```bash
 # Terminal 1 - Backend (FastAPI)
 npm run dev:backend
-# ou: uvicorn app:app --app-dir backend --port 8000 --reload
 
 # Terminal 2 - Frontend (Vite)
 npm run dev:frontend
-# ou: npm --prefix frontend run dev
 ```
 
 ---

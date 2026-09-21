@@ -49,7 +49,7 @@ export default function ReframeEditor({ jobId, clipIndex, clipTitle, onClose, on
                     Object.entries(salvos).map(([k, v]) => [Number(k), v])
                 ));
             } catch (e) {
-                if (alive) setError(e?.message || 'Could not read the scenes of this clip.');
+                if (alive) setError(e?.message || 'Não foi possível carregar as cenas deste corte.');
             } finally {
                 if (alive) setLoading(false);
             }
@@ -128,7 +128,7 @@ export default function ReframeEditor({ jobId, clipIndex, clipTitle, onClose, on
             if (onReframed) onReframed(clipIndex, res);
             onClose();
         } catch (e) {
-            setError(e?.message || 'The re-render failed.');
+            setError(e?.message || 'Falha ao renderizar novamente.');
         } finally {
             setSaving(false);
         }
@@ -143,7 +143,7 @@ export default function ReframeEditor({ jobId, clipIndex, clipTitle, onClose, on
                     <div className="flex items-center gap-2.5 min-w-0">
                         <Crosshair size={18} className="text-brass shrink-0" />
                         <div className="min-w-0">
-                            <h2 className="text-base font-medium text-ink truncate">Reframing</h2>
+                            <h2 className="text-base font-medium text-ink truncate">Reenquadramento</h2>
                             {clipTitle && <p className="text-xs text-muted truncate">{clipTitle}</p>}
                         </div>
                     </div>
@@ -154,15 +154,15 @@ export default function ReframeEditor({ jobId, clipIndex, clipTitle, onClose, on
 
                 <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-4 space-y-5">
                     <p className="text-xs text-muted leading-relaxed">
-                        Play a scene to hear who is talking, then drag the rectangle over
-                        the person you want. Each scene is one camera. Scenes you leave
-                        alone keep the automatic camera.
+                        Reproduza uma cena para ouvir quem está falando e arraste o retângulo sobre
+                        a pessoa desejada. Cada cena representa uma câmera. As cenas não alteradas
+                        manterão o enquadramento automático.
                     </p>
 
                     {loading && (
                         <div className="flex items-center gap-2 text-sm text-muted py-8 justify-center">
                             <Loader2 size={18} className="animate-spin text-brass" />
-                            Reading scenes…
+                            Carregando cenas…
                         </div>
                     )}
 
@@ -194,18 +194,18 @@ export default function ReframeEditor({ jobId, clipIndex, clipTitle, onClose, on
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-t border-rule">
                     <span className="text-xs text-muted">
                         {adjusted === 0
-                            ? 'No adjustments yet'
-                            : `${adjusted} scene${adjusted > 1 ? 's' : ''} reframed`}
+                            ? 'Nenhum ajuste feito ainda'
+                            : `${adjusted} cena${adjusted > 1 ? 's' : ''} ajustada${adjusted > 1 ? 's' : ''}`}
                     </span>
                     <div className="flex items-center gap-2 [&>button]:flex-1 sm:[&>button]:flex-none">
-                        <button onClick={onClose} className="btn-quiet py-2 px-4 text-sm">Cancel</button>
+                        <button onClick={onClose} className="btn-quiet py-2 px-4 text-sm">Cancelar</button>
                         <button
                             onClick={handleSave}
                             disabled={!adjusted || saving}
                             className="btn-primary py-2 px-4 text-sm disabled:opacity-40"
                         >
                             {saving ? <Loader2 size={16} className="animate-spin" /> : null}
-                            {saving ? 'Re-rendering…' : 'Apply Reframing'}
+                            {saving ? 'Renderizando novamente…' : 'Aplicar Reenquadramento'}
                         </button>
                     </div>
                 </div>

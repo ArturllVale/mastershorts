@@ -28,16 +28,16 @@ export default function ApiKeysCard() {
       setCopied(false);
       setName('');
       load();
-    } catch (e) { alert(e?.detail || 'Could not create the key.'); }
+    } catch (e) { alert(e?.detail || 'Não foi possível criar a chave.'); }
     setBusy(false);
   }, [name, load]);
 
   const revoke = useCallback(async (k) => {
-    if (!window.confirm(`Revoke "${k.name}"? Anything using it stops working immediately.`)) return;
+    if (!window.confirm(`Revogar "${k.name}"? Qualquer aplicativo usando esta chave parará de funcionar imediatamente.`)) return;
     try {
       await apiJson(`/api/keys/${k.id}`, { method: 'DELETE' });
       load();
-    } catch (e) { alert(e?.detail || 'Could not revoke the key.'); }
+    } catch (e) { alert(e?.detail || 'Não foi possível revogar a chave.'); }
   }, [load]);
 
   const copyKey = useCallback(() => {
@@ -49,22 +49,22 @@ export default function ApiKeysCard() {
   return (
     <div className="card p-6">
       <h3 className="font-display text-lg text-text-primary mb-1 flex items-center gap-2">
-        <KeyRound size={16} className="text-accent" /> API Keys
+        <KeyRound size={16} className="text-accent" /> Chaves de API
       </h3>
       <p className="text-text-secondary text-sm mb-4 leading-relaxed">
-        Keys for CLI clients, scripts and the REST API. Apps connected through Claude or ChatGPT
-        appear here as well. Revoking a key disconnects that app immediately.
+        Chaves para clientes CLI, scripts e API REST. Aplicativos conectados através de Claude ou ChatGPT
+        também aparecem aqui. Revogar uma chave desconecta o app imediatamente.
       </p>
 
       {freshKey && (
         <div className="mb-4 rounded-lg border border-accent/40 bg-accent/5 p-3.5 text-sm">
           <p className="text-text-primary mb-2">
-            <b>Copy your new key now.</b> For security reasons it will never be displayed again.
+            <b>Copie sua nova chave agora.</b> Por motivos de segurança ela não será exibida novamente.
           </p>
           <div className="flex items-center gap-2">
             <code className="font-mono text-xs text-accent bg-surface-1 px-2.5 py-1.5 rounded border border-border flex-1 break-all select-all">{freshKey.key}</code>
             <button onClick={copyKey} className="btn-ghost px-3 py-1.5 shrink-0 text-xs">
-              {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy'}
+              {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />} {copied ? 'Copiado' : 'Copiar'}
             </button>
           </div>
         </div>
@@ -79,14 +79,14 @@ export default function ApiKeysCard() {
               {active.map((k) => (
                 <div key={k.id} className="flex items-center justify-between gap-3 border border-border bg-surface-2/30 rounded-lg px-3 py-2 text-sm">
                   <div className="min-w-0">
-                    <span className="text-text-primary font-medium">{k.name || 'Unnamed Key'}</span>{' '}
+                    <span className="text-text-primary font-medium">{k.name || 'Chave Sem Nome'}</span>{' '}
                     <code className="font-mono text-xs text-text-tertiary ml-2">{k.prefix}…</code>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="font-mono text-xs text-text-tertiary">
-                      {k.last_used_at ? `Used ${new Date(k.last_used_at).toLocaleDateString()}` : 'Never used'}
+                      {k.last_used_at ? `Usada em ${new Date(k.last_used_at).toLocaleDateString()}` : 'Nunca usada'}
                     </span>
-                    <button onClick={() => revoke(k)} title="Revoke key"
+                    <button onClick={() => revoke(k)} title="Revogar chave"
                             className="text-text-tertiary hover:text-danger transition-colors p-1">
                       <Trash2 size={14} />
                     </button>
@@ -100,12 +100,12 @@ export default function ApiKeysCard() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') createKey(); }}
-              placeholder="Key name (e.g. n8n, claude)"
+              placeholder="Nome da chave (ex: n8n, claude)"
               className="input-field flex-1 text-sm"
               maxLength={60}
             />
             <button onClick={createKey} disabled={busy} className="btn-ghost px-4 py-2 shrink-0 text-xs">
-              {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Create Key
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Criar Chave
             </button>
           </div>
         </>

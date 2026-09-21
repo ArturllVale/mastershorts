@@ -32,7 +32,7 @@ export default function PlanChoiceModal({ onClose }) {
         body: JSON.stringify({ price_id }),
       });
       window.location.href = url;
-    } catch (e) { setBusy(null); alert(e?.detail || 'Could not start checkout. Please try again.'); }
+    } catch (e) { setBusy(null); alert(e?.detail || 'Não foi possível iniciar o checkout. Tente novamente.'); }
   };
 
   const startFree = () => {
@@ -41,7 +41,7 @@ export default function PlanChoiceModal({ onClose }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} eyebrow="WELCOME" title="Pick how you want to start" size="lg">
+    <Modal isOpen onClose={onClose} eyebrow="BEM-VINDO" title="Escolha como deseja começar" size="lg">
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-brass" /></div>
       ) : (
@@ -49,28 +49,28 @@ export default function PlanChoiceModal({ onClose }) {
           {/* Free — the default */}
           <div className="card p-5 flex flex-col border-brass">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-display text-lg text-ink">Free</h3>
-              <span className="badge-ok">$0</span>
+              <h3 className="font-display text-lg text-ink">Gratuito</h3>
+              <span className="badge-ok">R$ 0</span>
             </div>
-            <p className="text-muted text-xs mb-3">Try it on your own videos</p>
+            <p className="text-muted text-xs mb-3">Experimente em seus próprios vídeos</p>
             <ul className="space-y-1.5 text-sm text-ink2 mb-4 flex-1">
-              <li className="flex items-start gap-2"><Check size={15} className="text-ok shrink-0 mt-0.5" /> <span><b>{FREE_MINUTES} min</b> / month</span></li>
-              <li className="flex items-start gap-2"><Check size={15} className="text-ok shrink-0 mt-0.5" /> <span>No credit card</span></li>
-              <li className="flex items-start gap-2"><Check size={15} className="text-muted shrink-0 mt-0.5" /> <span className="text-muted">Watermark · clips kept 7 days</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="text-ok shrink-0 mt-0.5" /> <span><b>{FREE_MINUTES} min</b> / mês</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="text-ok shrink-0 mt-0.5" /> <span>Sem cartão de crédito</span></li>
+              <li className="flex items-start gap-2"><Check size={15} className="text-muted shrink-0 mt-0.5" /> <span className="text-muted">Marca d'água · cortes salvos por 7 dias</span></li>
             </ul>
             <button onClick={startFree} className="w-full btn-primary text-sm">
-              Start free <ArrowRight size={15} />
+              Começar grátis <ArrowRight size={15} />
             </button>
-            <p className="text-center text-[11px] text-muted mt-2">No card required · Start clipping now</p>
+            <p className="text-center text-[11px] text-muted mt-2">Sem cartão · Crie seus cortes agora</p>
           </div>
 
           {/* Paid — compact list */}
           <div className="card p-5 flex flex-col">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-display text-lg text-ink">Paid Plans</h3>
+              <h3 className="font-display text-lg text-ink">Planos Pagos</h3>
               <Zap size={16} className="text-brass" />
             </div>
-            <p className="text-muted text-xs mb-3">No watermark · More minutes · Permanent library</p>
+            <p className="text-muted text-xs mb-3">Sem marca d'água · Mais minutos · Biblioteca permanente</p>
             <div className="space-y-2 flex-1">
               {PLAN_ORDER.map((p) => {
                 const e = byPlan(p);
@@ -79,14 +79,14 @@ export default function PlanChoiceModal({ onClose }) {
                   <button key={p} onClick={() => checkout(e.price_id)} disabled={busy === e.price_id}
                     className="w-full flex items-center justify-between border border-rule hover:border-brass rounded-input px-3 py-2 text-left transition-colors disabled:opacity-50">
                     <span className="text-sm text-ink capitalize">{p} <span className="text-muted">· {e.minutes} min</span></span>
-                    <span className="readout">{busy === e.price_id ? '…' : `${fmt(e.amount, e.currency)}/mo`}</span>
+                    <span className="readout">{busy === e.price_id ? '…' : `${fmt(e.amount, e.currency)}/mês`}</span>
                   </button>
                 );
               })}
             </div>
             <button onClick={() => { onClose(); window.location.hash = '#/pricing'; }}
               className="text-center text-[11px] text-muted mt-3 hover:text-ink transition-colors">
-              See full pricing & yearly →
+              Ver todos os planos e opções anuais →
             </button>
           </div>
         </div>

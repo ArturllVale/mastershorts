@@ -159,14 +159,14 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} size="xl" eyebrow="EDITOR · SUBTITLES" title="Subtitles">
+        <Modal isOpen={isOpen} onClose={onClose} size="xl" eyebrow="EDITOR · LEGENDAS" title="Legendas">
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Left: Preview */}
                 <div className="flex-1 flex flex-col items-center justify-center bg-black rounded-card border border-rule overflow-hidden relative aspect-[9/16] max-h-[600px]">
                     {captionsLoading ? (
                         <div className="flex items-center gap-2 text-muted">
                             <Loader2 size={16} className="animate-spin" />
-                            <span className="text-sm lowercase">Loading preview...</span>
+                            <span className="text-sm lowercase">Carregando prévia...</span>
                         </div>
                     ) : useRemotionPreview ? (
                         <RemotionPreview
@@ -184,7 +184,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                 ${position === 'bottom' ? 'bottom-20' : ''}
                             `}>
                                 <span style={fallbackPreviewStyle}>
-                                    This is how your subtitles<br/>will appear on the video
+                                    É assim que suas legendas<br/>aparecerão no vídeo
                                 </span>
                             </div>
                         </>
@@ -196,7 +196,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                     <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar pr-1">
                         {/* Caption presets (server-side karaoke burn) */}
                         <div>
-                            <p className="eyebrow mb-2">Preset</p>
+                            <p className="eyebrow mb-2">Predefinições</p>
                             <div className="grid grid-cols-3 gap-1.5">
                                 {CAPTION_PRESETS.map((p) => (
                                     <button
@@ -216,7 +216,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                             {style === 'karaoke' && (
                                 <div className="mt-3 space-y-3 animate-fade">
                                     <div className="flex items-center justify-between">
-                                        <span className="readout">UPPERCASE</span>
+                                        <span className="readout">MAIÚSCULAS</span>
                                         <label className="relative inline-flex items-center cursor-pointer">
                                             <input type="checkbox" checked={uppercase} onChange={(e) => setUppercase(e.target.checked)} className="sr-only peer" />
                                             <div className="w-8 h-4 rounded-full bg-paper3 peer-checked:bg-brass transition-colors after:content-[''] after:absolute after:top-0 after:left-0 after:h-4 after:w-4 after:rounded-full after:bg-ink after:transition-all peer-checked:after:translate-x-full"></div>
@@ -224,7 +224,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                     </div>
                                     <div>
                                         <div className="flex justify-between mb-1">
-                                            <span className="readout">Dim inactive words</span>
+                                            <span className="readout">Atenuar palavras inativas</span>
                                             <span className="readout">{Math.round(baseOpacity * 100)}%</span>
                                         </div>
                                         <input
@@ -242,7 +242,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
 
                         {/* Position Selector */}
                         <div>
-                            <p className="eyebrow mb-2">Position</p>
+                            <p className="eyebrow mb-2">Posição</p>
                             <SegmentedControl
                                 options={POSITION_OPTIONS}
                                 value={position}
@@ -253,7 +253,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
 
                         {/* Animation Style (new) */}
                         <div>
-                            <p className="eyebrow mb-2">Animation</p>
+                            <p className="eyebrow mb-2">Animação</p>
                             <SegmentedControl
                                 options={ANIMATION_OPTIONS}
                                 value={animation}
@@ -271,7 +271,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                     onClick={() => setShowTextEditor(!showTextEditor)}
                                     className="w-full flex items-center justify-between mb-2"
                                 >
-                                    <span className="eyebrow">Edit text ({captions.length} words)</span>
+                                    <span className="eyebrow">Editar texto ({captions.length} palavras)</span>
                                     <span className={`text-muted transition-transform ${showTextEditor ? 'rotate-180' : ''}`}>▾</span>
                                 </button>
                                 {showTextEditor && (
@@ -280,7 +280,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                         onChange={(e) => handleTextEdit(e.target.value)}
                                         rows={5}
                                         className="input-field resize-none leading-relaxed animate-fade"
-                                        placeholder="Edit subtitle text..."
+                                        placeholder="Editar texto das legendas..."
                                     />
                                 )}
                             </div>
@@ -288,7 +288,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
 
                         {/* Font Family */}
                         <div>
-                            <p className="eyebrow mb-2">Font</p>
+                            <p className="eyebrow mb-2">Fonte</p>
                             <select
                                 value={fontName}
                                 onChange={(e) => setFontName(e.target.value)}
@@ -303,7 +303,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                         {/* Font Size */}
                         <div>
                             <div className="flex justify-between items-center mb-1">
-                                <p className="eyebrow">Font size</p>
+                                <p className="eyebrow">Tamanho da fonte</p>
                                 <span className="readout">{fontSize}px</span>
                             </div>
                             <input
@@ -316,15 +316,15 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                 className="w-full accent-[var(--color-accent)]"
                             />
                             <div className="flex justify-between">
-                                <span className="readout">Small</span>
-                                <span className="readout">Default (24px)</span>
-                                <span className="readout">Large</span>
+                                <span className="readout">Pequeno</span>
+                                <span className="readout">Padrão (24px)</span>
+                                <span className="readout">Grande</span>
                             </div>
                         </div>
 
                         {/* Text Color */}
                         <div>
-                            <p className="eyebrow mb-2">Text color</p>
+                            <p className="eyebrow mb-2">Cor do texto</p>
                             <div className="flex flex-wrap items-center gap-2.5">
                                 {COLOR_PRESETS.map((c) => (
                                     <button
@@ -335,7 +335,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                         title={c.label}
                                     />
                                 ))}
-                                <label className="w-6 h-6 rounded-full border border-dashed border-rule2 cursor-pointer flex items-center justify-center hover:border-brass transition-colors overflow-hidden relative" title="Custom color">
+                                <label className="w-6 h-6 rounded-full border border-dashed border-rule2 cursor-pointer flex items-center justify-center hover:border-brass transition-colors overflow-hidden relative" title="Cor personalizada">
                                     <span className="text-xs text-muted leading-none">+</span>
                                     <input type="color" value={fontColor} onChange={(e) => setFontColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
                                 </label>
@@ -344,7 +344,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
 
                         {/* Highlight Color (new) */}
                         <div>
-                            <p className="eyebrow mb-2">Highlight</p>
+                            <p className="eyebrow mb-2">Destaque</p>
                             <div className="flex flex-wrap items-center gap-2.5">
                                 {HIGHLIGHT_PRESETS.map((c) => (
                                     <button
@@ -360,9 +360,9 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
 
                         {/* Border / Outline */}
                         <div>
-                            <p className="eyebrow mb-2">Border</p>
+                            <p className="eyebrow mb-2">Borda / Contorno</p>
                             <div className="flex items-center gap-3">
-                                <label className="relative w-8 h-8 rounded-input border border-rule2 cursor-pointer overflow-hidden shrink-0" title="Border color">
+                                <label className="relative w-8 h-8 rounded-input border border-rule2 cursor-pointer overflow-hidden shrink-0" title="Cor da borda">
                                     <div className="w-full h-full" style={{ backgroundColor: borderColor }} />
                                     <input type="color" value={borderColor} onChange={(e) => setBorderColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
                                 </label>
@@ -376,8 +376,8 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                         className="w-full accent-[var(--color-accent)]"
                                     />
                                     <div className="flex justify-between">
-                                        <span className="readout">None</span>
-                                        <span className="readout">Thick</span>
+                                        <span className="readout">Nenhuma</span>
+                                        <span className="readout">Espessa</span>
                                     </div>
                                 </div>
                             </div>
@@ -386,7 +386,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                         {/* Background Box */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <p className="eyebrow">Background</p>
+                                <p className="eyebrow">Fundo</p>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" checked={bgOpacity > 0} onChange={(e) => setBgOpacity(e.target.checked ? 0.5 : 0)} className="sr-only peer" />
                                     <div className="w-8 h-4 rounded-full bg-paper3 peer-checked:bg-brass transition-colors after:content-[''] after:absolute after:top-0 after:left-0 after:h-4 after:w-4 after:rounded-full after:bg-ink after:transition-all peer-checked:after:translate-x-full"></div>
@@ -395,7 +395,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                             {bgOpacity > 0 && (
                                 <div className="space-y-3 animate-fade">
                                     <div className="flex items-center gap-3">
-                                        <label className="relative w-8 h-8 rounded-input border border-rule2 cursor-pointer overflow-hidden shrink-0" title="Background color">
+                                        <label className="relative w-8 h-8 rounded-input border border-rule2 cursor-pointer overflow-hidden shrink-0" title="Cor de fundo">
                                             <div className="w-full h-full" style={{ backgroundColor: bgColor }} />
                                             <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
                                         </label>
@@ -409,7 +409,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                                 className="w-full accent-[var(--color-accent)]"
                                             />
                                             <div className="flex justify-between">
-                                                <span className="readout">Transparent</span>
+                                                <span className="readout">Transparente</span>
                                                 <span className="readout">{Math.round(bgOpacity * 100)}%</span>
                                             </div>
                                         </div>
@@ -439,7 +439,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                 <>
                                     <div className="flex gap-2">
                                         <button onClick={onClose} className="btn-ghost">
-                                            Cancel
+                                            Cancelar
                                         </button>
                                         <button
                                             onClick={() => onGenerate(styleOptions)}
@@ -447,7 +447,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                             className="btn-primary flex-1"
                                         >
                                             {(isProcessing && !bulkRunning) && <Loader2 size={16} className="animate-spin text-brassink" />}
-                                            {(isProcessing && !bulkRunning) ? 'Generating...' : 'Apply to This Clip'}
+                                            {(isProcessing && !bulkRunning) ? 'Gerando...' : 'Aplicar neste Corte'}
                                         </button>
                                     </div>
                                     {onApplyAll && bulkCount > 1 && (
@@ -457,8 +457,8 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                             className="btn-ghost w-full flex items-center justify-center gap-2 text-xs"
                                         >
                                             {bulkRunning
-                                                ? <><Loader2 size={14} className="animate-spin" /> Applying to all… {bulkProgress.current}/{bulkProgress.total}</>
-                                                : `Apply this style to all ${bulkCount} clips`}
+                                                ? <><Loader2 size={14} className="animate-spin" /> Aplicando em todos… {bulkProgress.current}/{bulkProgress.total}</>
+                                                : `Aplicar este estilo em todos os ${bulkCount} cortes`}
                                         </button>
                                     )}
                                     {onRemove && (
@@ -467,7 +467,7 @@ export default function SubtitleModal({ isOpen, onClose, onGenerate, onApplyAll,
                                             disabled={isProcessing}
                                             className="text-xs text-danger/80 hover:text-danger underline underline-offset-2 transition-colors disabled:opacity-50 text-center w-full block py-1"
                                         >
-                                            Remove captions from this clip
+                                            Remover legendas deste corte
                                         </button>
                                     )}
                                 </>

@@ -26,13 +26,13 @@ export default function StepInput({
                         <Video size={16} className="text-accent" />
                     </div>
                     <div>
-                        <p className="eyebrow">A · ANALYZE VIDEO</p>
-                        <p className="text-xs text-text-tertiary mt-0.5">AI suggests viral titles from your content</p>
+                        <p className="eyebrow">A · ANALISAR VÍDEO</p>
+                        <p className="text-xs text-text-tertiary mt-0.5">A IA sugere títulos virais a partir do seu conteúdo</p>
                     </div>
                 </div>
 
                 <DragDropZone
-                    label="Upload video file"
+                    label="Enviar arquivo de vídeo"
                     accept="video/*"
                     onFile={(f) => { setVideoFile(f); setMode('video'); handlePreUpload(f); }}
                     file={videoFile}
@@ -43,13 +43,13 @@ export default function StepInput({
                 {isPreprocessing && (
                     <div className="flex items-center gap-2 text-xs text-text-secondary bg-surface-2 border border-border rounded-lg px-3 py-2">
                         <Loader2 size={12} className="animate-spin text-accent" />
-                        Pre-processing video (Whisper transcription starting)...
+                        Pré-processando vídeo (iniciando transcrição)...
                     </div>
                 )}
                 {preprocessSessionId && !isPreprocessing && (
                     <div className="flex items-center gap-2 text-xs text-success bg-success/10 border border-success/30 rounded-lg px-3 py-2">
                         <Check size={12} />
-                        Video uploaded — transcription running in background
+                        Vídeo enviado — transcrição em segundo plano
                     </div>
                 )}
 
@@ -61,12 +61,12 @@ export default function StepInput({
                     {isAnalyzing ? (
                         <>
                             <Loader2 size={16} className="animate-spin" />
-                            Analyzing video...
+                            Analisando vídeo...
                         </>
                     ) : (
                         <>
                             <Sparkles size={16} className="hidden sm:block" />
-                            <span className="whitespace-nowrap">Analyze & Get Titles</span>
+                            <span className="whitespace-nowrap">Analisar e Obter Títulos</span>
                         </>
                     )}
                 </button>
@@ -79,8 +79,8 @@ export default function StepInput({
                         <Type size={16} className="text-accent" />
                     </div>
                     <div>
-                        <p className="eyebrow">B · WRITE YOUR OWN</p>
-                        <p className="text-xs text-text-tertiary mt-0.5">Skip analysis, enter your title directly</p>
+                        <p className="eyebrow">B · DIGITAR MANUALMENTE</p>
+                        <p className="text-xs text-text-tertiary mt-0.5">Pule a análise e digite seu título diretamente</p>
                     </div>
                 </div>
 
@@ -89,7 +89,7 @@ export default function StepInput({
                         type="text"
                         value={manualTitle}
                         onChange={(e) => setManualTitle(e.target.value)}
-                        placeholder="Enter your YouTube title..."
+                        placeholder="Digite o título do seu vídeo..."
                         className="input-field text-sm mb-4"
                         maxLength={70}
                     />
@@ -99,7 +99,7 @@ export default function StepInput({
                         disabled={!manualTitle.trim()}
                         className="w-full btn-secondary"
                     >
-                        Skip Analysis →
+                        Pular Análise →
                     </button>
                 </div>
             </div>

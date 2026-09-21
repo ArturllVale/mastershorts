@@ -49,8 +49,7 @@ async def google_login(request: Request):
     if oauth is None:
         raise HTTPException(status_code=404, detail="Google login not configured")
     # Explicit override for setups where the Host header doesn't match a
-    # Google-registered URI (e.g. local dev through the Vite proxy, where the
-    # backend sees the internal Docker host "backend:8000").
+    # Google-registered URI (e.g. local dev through the Vite proxy).
     redirect_uri = os.environ.get("OAUTH_REDIRECT_URI", "").strip()
     if not redirect_uri:
         redirect_uri = str(request.url_for("google_callback"))

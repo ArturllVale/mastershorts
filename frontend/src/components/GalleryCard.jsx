@@ -111,12 +111,12 @@ export default function GalleryCard({ clip }) {
                 <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar max-h-[140px] pr-1 mb-3">
                     {/* YouTube Title */}
                     <div className="bg-surface-2 rounded-lg p-2 relative group/item border border-border">
-                        <p className="eyebrow mb-1">YouTube Title</p>
+                        <p className="eyebrow mb-1">Título para YouTube</p>
                         <p className="text-xs text-text-secondary select-all line-clamp-2 hover:line-clamp-none transition-all">{clip.title}</p>
                         <button
                             onClick={() => handleCopy(clip.title, 'yt')}
                             className="absolute top-2 right-2 p-1 text-text-tertiary hover:text-accent transition-colors opacity-0 group-hover/item:opacity-100"
-                            title="Copy Title"
+                            title="Copiar título"
                         >
                             {copied === 'yt' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
                         </button>
@@ -124,14 +124,14 @@ export default function GalleryCard({ clip }) {
 
                     {/* TikTok / IG Caption */}
                     <div className="bg-surface-2 rounded-lg p-2 relative group/item border border-border">
-                        <p className="eyebrow mb-1">TikTok · IG Caption</p>
+                        <p className="eyebrow mb-1">Legenda TikTok · Instagram</p>
                         <p className="text-xs text-text-secondary select-all line-clamp-3 hover:line-clamp-none transition-all cursor-pointer">
                             {clip.tiktok_desc || clip.insta_desc}
                         </p>
                         <button
                             onClick={() => handleCopy(clip.tiktok_desc || clip.insta_desc, 'caption')}
                             className="absolute top-2 right-2 p-1 text-text-tertiary hover:text-accent transition-colors opacity-0 group-hover/item:opacity-100"
-                            title="Copy Caption"
+                            title="Copiar legenda"
                         >
                             {copied === 'caption' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
                         </button>
@@ -143,7 +143,7 @@ export default function GalleryCard({ clip }) {
                     onClick={handleDownload}
                     className="btn-ghost w-full text-xs justify-center py-2"
                 >
-                    <Download size={14} className="shrink-0" /> Download MP4
+                    <Download size={14} className="shrink-0" /> Baixar MP4
                 </button>
             </div>
         </div>

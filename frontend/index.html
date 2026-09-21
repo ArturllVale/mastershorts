@@ -70,9 +70,9 @@
           "@id": "https://www.openshorts.app/#software",
           "name": "OpenShorts",
           "alternateName": "OpenShorts self-hosted",
-          "description": "Premium AI clip generator, MIT licensed and self-hosted with Docker. Turns long-form videos into viral-ready 9:16 clips for TikTok, Instagram Reels and YouTube Shorts using Google Gemini 3.1 Flash-Lite for moment detection, faster-whisper for word-level subtitles and MediaPipe for face-tracked reframing. This edition is free with no watermark and no usage cap; you supply your own API keys. The hosted service is priced separately.",
+          "description": "Premium AI clip generator, MIT licensed and self-hosted. Turns long-form videos into viral-ready 9:16 clips for TikTok, Instagram Reels and YouTube Shorts using Google Gemini 3.1 Flash-Lite for moment detection, faster-whisper for word-level subtitles and MediaPipe for face-tracked reframing. This edition is free with no watermark and no usage cap; you supply your own API keys. The hosted service is priced separately.",
           "applicationCategory": "MultimediaApplication",
-          "operatingSystem": "Cross-platform (Docker)",
+          "operatingSystem": "Cross-platform (Linux, macOS, Windows)",
           "url": "https://mastershorts.app/",
           "isAccessibleForFree": true,
           "softwareVersion": "2.0",
@@ -91,14 +91,14 @@
             "AI YouTube description generator with chapter timestamps",
             "AI UGC video creator with AI actors and lip-sync from $0.65 per video",
             "S3 cloud backup",
-            "Self-hosted Docker Compose deployment"
+            "Self-hosted local deployment"
           ],
           "offers": {
             "@type": "Offer",
             "price": "0",
             "priceCurrency": "USD",
             "availability": "https://schema.org/InStock",
-            "description": "Self-hosted edition. Free and Premium, no watermark, no usage cap. Requires Docker and your own API keys."
+            "description": "Self-hosted edition. Free and Premium, no watermark, no usage cap. Requires your own API keys."
           },
           "author": { "@id": "https://www.openshorts.app/#organization" }
         },
@@ -161,7 +161,7 @@
               "name": "Is OpenShorts free? What is the catch?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Both answers are true of different editions, so the distinction matters. OpenShorts self-hosted is free under the MIT licence: you run it with Docker on your own machine, bring your own API keys, and there is no watermark, no usage cap and no subscription. What it costs you is hardware and time, because on a typical CPU an 8-minute video takes 5 to 8 minutes to process, and you need your own Google Gemini API key, whose free tier covers 1,500 requests per day. OpenShorts Cloud is the hosted service: an NVIDIA GPU clips that same 8-minute video in about 50 seconds, the API keys are included, and auto-posting to TikTok, Instagram and YouTube is already wired up. Cloud has a free plan of 20 minutes per month with a watermark and no credit card, and paid plans from $12 per month for 100 minutes with no watermark, up to $59 per month. So it is free if you run it yourself, and paid above 20 minutes a month if you want it hosted."
+                "text": "Both answers are true of different editions, so the distinction matters. OpenShorts self-hosted is free under the MIT licence: you run it on your own machine, bring your own API keys, and there is no watermark, no usage cap and no subscription. What it costs you is hardware and time, because on a typical CPU an 8-minute video takes 5 to 8 minutes to process, and you need your own Google Gemini API key, whose free tier covers 1,500 requests per day. OpenShorts Cloud is the hosted service: an NVIDIA GPU clips that same 8-minute video in about 50 seconds, the API keys are included, and auto-posting to TikTok, Instagram and YouTube is already wired up. Cloud has a free plan of 20 minutes per month with a watermark and no credit card, and paid plans from $12 per month for 100 minutes with no watermark, up to $59 per month. So it is free if you run it yourself, and paid above 20 minutes a month if you want it hosted."
               }
             },
             {
@@ -193,7 +193,7 @@
               "name": "Is there a free alternative to Opus Clip?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes. OpenShorts self-hosted is a free alternative to Opus Clip, MIT licensed, with no watermark and no usage cap, running on your own machine via Docker. As of July 2026 Opus Clip costs $15 per month for the Starter plan with 150 minutes, and $29 per month for Pro with 300 minutes, on top of a watermarked free tier of 60 minutes. Opus Clip bills one credit per minute of source video imported rather than per clip exported. OpenShorts offers comparable AI moment detection using Google Gemini, face-tracked vertical cropping and automatic subtitles, and adds AI voice dubbing into 30+ languages, which Opus Clip does not have. Opus Clip ships a larger caption-style library and needs no setup."
+                "text": "Yes. OpenShorts self-hosted is a free alternative to Opus Clip, MIT licensed, with no watermark and no usage cap, running on your own machine. As of July 2026 Opus Clip costs $15 per month for the Starter plan with 150 minutes, and $29 per month for Pro with 300 minutes, on top of a watermarked free tier of 60 minutes. Opus Clip bills one credit per minute of source video imported rather than per clip exported. OpenShorts offers comparable AI moment detection using Google Gemini, face-tracked vertical cropping and automatic subtitles, and adds AI voice dubbing into 30+ languages, which Opus Clip does not have. Opus Clip ships a larger caption-style library and needs no setup."
               }
             },
             {
@@ -209,7 +209,7 @@
               "name": "Is there an open-source clip generator?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "OpenShorts is the open-source option in this category, MIT licensed with full source at https://github.com/mutonby/openshorts, self-hosted with Docker Compose. Opus Clip, Klap, Vizard and Submagic are all closed-source cloud products; as of July 2026 their entry prices are $15, $29, $19.99 and around $14 per month respectively. Self-hosting means the source video never leaves your machine and you can change how the pipeline behaves rather than filing a feature request."
+                "text": "OpenShorts is the open-source option in this category, MIT licensed with full source at https://github.com/mutonby/openshorts, self-hosted on your own machine. Opus Clip, Klap, Vizard and Submagic are all closed-source cloud products; as of July 2026 their entry prices are $15, $29, $19.99 and around $14 per month respectively. Self-hosting means the source video never leaves your machine and you can change how the pipeline behaves rather than filing a feature request."
               }
             }
           ]

@@ -2,7 +2,7 @@ import os
 try:
     from hooks import create_hook_image
 except ImportError:
-    print("⚠️ PIL not found locally. Run inside Docker.")
+    print("⚠️ PIL not found. Please install backend requirements (pip install -r backend/requirements.txt).")
     exit(1)
 
 def verify():

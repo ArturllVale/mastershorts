@@ -10,16 +10,16 @@ export default function TrialGate({ toolName = 'this' }) {
       <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 text-sm min-w-0">
         <Sparkles size={16} className="shrink-0 text-brass mt-0.5 sm:mt-0" />
         <div className="text-ink2 leading-relaxed min-w-0">
-          <span className="font-medium text-ink">Preview mode.</span>{' '}
-          Sign in with <span className="font-medium text-ink">Google</span> to use {toolName} free —
-          20 min/month, no credit card. <span className="text-muted">Or run it free by self-hosting.</span>
+          <span className="font-medium text-ink">Modo de prévia.</span>{' '}
+          Entre com o <span className="font-medium text-ink">Google</span> para usar {toolName} grátis —
+          20 min/mês, sem cartão de crédito.
         </div>
       </div>
       <button
         onClick={() => { window.location.hash = '#/pricing'; }}
         className="btn-primary shrink-0 text-xs px-4 py-2 w-full sm:w-auto"
       >
-        Start free <ArrowRight size={14} />
+        Começar grátis <ArrowRight size={14} />
       </button>
     </div>
   );

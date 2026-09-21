@@ -93,12 +93,12 @@ export default function SceneRow({ scene, value, widthFraction, previewUrl, touc
                     <button
                         onClick={onPlayToggle}
                         className="flex items-center gap-1 text-ink2 hover:text-brass transition-colors"
-                        title="Play this scene with sound"
+                        title="Reproduzir esta cena com áudio"
                     >
                         {playing ? <Pause size={13} /> : <Play size={13} />}
                     </button>
                     <span className="readout text-muted truncate">
-                        Scene {scene.index + 1} · {fmt(scene.start)}–{fmt(scene.end)}
+                        Cena {scene.index + 1} · {fmt(scene.start)}–{fmt(scene.end)}
                     </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
@@ -106,16 +106,16 @@ export default function SceneRow({ scene, value, widthFraction, previewUrl, touc
                         onClick={onToggleSplit}
                         className={`flex items-center gap-1 transition-colors ${
                             isSplit ? 'text-brass font-medium' : 'text-muted hover:text-ink2'}`}
-                        title="Stack two regions instead of one window"
+                        title="Empilhar duas regiões em vez de uma janela"
                     >
-                        <Columns2 size={12} /> Split
+                        <Columns2 size={12} /> Dividir
                     </button>
                     {touched ? (
                         <button onClick={onReset} className="flex items-center gap-1 text-brass hover:underline">
-                            <RotateCcw size={12} /> Reset to Auto
+                            <RotateCcw size={12} /> Redefinir para Automático
                         </button>
                     ) : (
-                        <span className="text-muted">Auto</span>
+                        <span className="text-muted">Automático</span>
                     )}
                 </div>
             </div>
@@ -155,14 +155,14 @@ export default function SceneRow({ scene, value, widthFraction, previewUrl, touc
                 )}
 
                 {isSplit
-                    ? [win(value.top.x, 'top', 'top'), win(value.bottom.x, 'bottom', 'bottom')]
+                    ? [win(value.top.x, 'superior', 'top'), win(value.bottom.x, 'inferior', 'bottom')]
                     : win(value, null, 'single')}
             </div>
 
             {isSplit && (
                 <p className="text-[11px] text-muted leading-snug">
-                    Two regions stacked in the vertical frame: <strong>top</strong> above,
-                    <strong> bottom</strong> below. Drag each one onto the person it should hold.
+                    Duas regiões empilhadas no formato vertical: <strong>superior</strong> acima,
+                    <strong> inferior</strong> abaixo. Arraste cada uma sobre a pessoa correspondente.
                 </p>
             )}
         </div>

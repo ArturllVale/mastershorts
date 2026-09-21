@@ -91,10 +91,10 @@ class _TranscribeProgress:
         while pct >= self.next_pct and self.next_pct <= 100:
             elapsed = int(time.time() - self.started)
             try:
-                print(f"🎙️ Transcribing… {self.next_pct}% ({elapsed}s)", flush=True)
+                print(f"🎙️ Transcrição em andamento: {self.next_pct}% ({elapsed}s)", flush=True)
             except Exception:
                 try:
-                    print(f"[ASR] Transcribing... {self.next_pct}% ({elapsed}s)", flush=True)
+                    print(f"🎙️ Transcrição em andamento: {self.next_pct}% ({elapsed}s)", flush=True)
                 except Exception:
                     pass
             self.next_pct += 25
@@ -166,10 +166,10 @@ def run_whisper_transcription(media_path, **params):
     global _whisper_model, _whisper_force_cpu
     try:
         return _run_whisper_once(media_path, **params)
-    except RuntimeError as e:
-        if _whisper_force_cpu or "cuda" not in str(e).lower():
+    except Exception as e:
+        if _whisper_force_cpu:
             raise
-        print(f"⚠️ [ASR] whisper GPU failed ({e}) — retrying on CPU", flush=True)
+        print(f"⚠️ [ASR] whisper GPU failed ({type(e).__name__}: {e}) — retrying on CPU", flush=True)
         _whisper_force_cpu = True
         with _whisper_lock:
             _whisper_model = None  # drop the GPU model to release its VRAM

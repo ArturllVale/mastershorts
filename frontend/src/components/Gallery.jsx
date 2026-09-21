@@ -23,7 +23,7 @@ export default function Gallery() {
             const res = await fetch(
                 getApiUrl(`/api/gallery/clips?limit=${CLIPS_PER_PAGE}&offset=${currentOffset}`)
             );
-            if (!res.ok) throw new Error('Failed to fetch clips');
+            if (!res.ok) throw new Error('Falha ao carregar cortes');
             const data = await res.json();
 
             const newClips = data.clips || [];
@@ -78,7 +78,7 @@ export default function Gallery() {
         return (
             <div className="h-full flex flex-col items-center justify-center text-muted animate-fade">
                 <Loader2 size={32} className="animate-spin mb-4 text-brass" />
-                <p className="lowercase">Loading your viral history...</p>
+                <p className="lowercase">Carregando seu histórico de cortes...</p>
             </div>
         );
     }
@@ -87,7 +87,7 @@ export default function Gallery() {
         return (
             <div className="h-full flex flex-col items-center justify-center text-danger p-6">
                 <AlertCircle size={32} className="mb-4" />
-                <p>Error loading gallery: {error}</p>
+                <p>Erro ao carregar a galeria: {error}</p>
                 <button
                     onClick={() => {
                         setError(null);
@@ -96,7 +96,7 @@ export default function Gallery() {
                     }}
                     className="btn-quiet mt-4"
                 >
-                    Retry
+                    Tentar novamente
                 </button>
             </div>
         );
@@ -106,18 +106,18 @@ export default function Gallery() {
         <div className="h-full overflow-y-auto p-6 md:p-8 animate-fade">
             <div className="flex items-end justify-between mb-8">
                 <div>
-                    <p className="eyebrow mb-1.5">Library</p>
-                    <h1 className="font-display lowercase text-2xl text-ink">Clip Gallery</h1>
+                    <p className="eyebrow mb-1.5">Biblioteca</p>
+                    <h1 className="font-display lowercase text-2xl text-ink">Galeria de Cortes</h1>
                 </div>
                 <span className="readout">
-                    {clips.length} {clips.length === 1 ? 'Clip' : 'Clips'}{hasMore ? '+' : ''}
+                    {clips.length} {clips.length === 1 ? 'Corte' : 'Cortes'}{hasMore ? '+' : ''}
                 </span>
             </div>
 
             {clips.length === 0 ? (
                 <div className="text-center py-20 text-muted">
-                    <p className="text-lg mb-2 lowercase">No clips found yet.</p>
-                    <p className="text-sm lowercase">Process some videos to populate your gallery!</p>
+                    <p className="text-lg mb-2 lowercase">Nenhum corte encontrado ainda.</p>
+                    <p className="text-sm lowercase">Processe alguns vídeos para preencher sua galeria!</p>
                 </div>
             ) : (
                 <>
@@ -136,7 +136,7 @@ export default function Gallery() {
                             {loadingMore && (
                                 <div className="flex items-center gap-2 text-muted">
                                     <Loader2 size={20} className="animate-spin" />
-                                    <span className="text-sm lowercase">Loading more clips...</span>
+                                    <span className="text-sm lowercase">Carregando mais cortes...</span>
                                 </div>
                             )}
                         </div>

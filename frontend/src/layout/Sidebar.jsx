@@ -72,7 +72,7 @@ export default function Sidebar({ navItems, activeTab, goToTab, tabLocked, billi
               key={item.id}
               data-tutorial={item.id === 'dashboard' ? 'nav-clips' : undefined}
               onClick={() => goToTab(item.id)}
-              title={tabLocked(item.id) ? 'Finish your first clips to unlock' : item.label}
+              title={tabLocked(item.id) ? 'Conclua seus primeiros cortes para desbloquear' : item.label}
               disabled={tabLocked(item.id)}
               className={`relative w-full flex items-center ${
                 isCollapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3.5 py-2.5'

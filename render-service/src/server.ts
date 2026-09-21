@@ -84,7 +84,7 @@ app.post("/render", (req, res) => {
   );
 
   // Resolve video URL: convert frontend/backend URLs to renderer's own static server
-  // The renderer serves /output/* from the shared Docker volume
+  // The renderer serves /output/* from the shared output directory
   let resolvedVideoUrl = props.videoUrl;
   const videoPathMatch = props.videoUrl.match(/\/videos\/([^/]+)\/(.+)$/);
   if (videoPathMatch) {

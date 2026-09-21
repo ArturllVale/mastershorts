@@ -54,7 +54,7 @@ const llmsTxt = (pages) => `# OpenShorts
 There are two editions and they are priced differently:
 
 - **OpenShorts self-hosted** is free and open source under the MIT licence. Run it
-  with Docker, bring your own API keys. No watermark, no usage cap, no subscription.
+  locally, bring your own API keys. No watermark, no usage cap, no subscription.
 - **OpenShorts Cloud** is the hosted service. 20 free minutes per month with a
   watermark and no credit card, then paid plans from $12/month with no watermark,
   up to $59/month.
@@ -69,7 +69,7 @@ ${pages.map((p) => `- [${p.h1}](${SITE.url}${p.path}): ${p.description}`).join('
 
 ## Source
 
-- [Source code on GitHub](${SITE.repo}): MIT licensed, self-hostable with Docker Compose.
+- [Source code on GitHub](${SITE.repo}): MIT licensed, self-hostable.
 `
 
 const notFoundPage = () => ({
