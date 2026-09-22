@@ -20,7 +20,7 @@ export function useApiKeys() {
     }
     return '';
   });
-  const [llmFallbackModels, setLlmFallbackModels] = useState(() => localStorage.getItem('llm_fallback_models') || 'openrouter/openrouter/free, nvidia/nemotron-3-super-120b-a12b, grok-cli/grok-4.6, agnes/agnes-2.5-flash');
+  const [llmFallbackModels, setLlmFallbackModels] = useState(() => localStorage.getItem('llm_fallback_models') || 'openrouter/free, nvidia/nemotron-3-super-120b-a12b, grok-cli/grok-4.6, agnes/agnes-2.5-flash, gemini/gemini-3.8-flash, gemini/gemini-3.1-flash-lite');
 
   // Upload-Post API Key - Load encrypted
   const [uploadPostKey, setUploadPostKey] = useState(() => {

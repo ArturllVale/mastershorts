@@ -8,19 +8,14 @@ const PRESETS = [
     model: 'auto',
     fallbackModels: '',
   },
-  { name: 'Ollama', url: 'http://localhost:11434/v1', model: 'llama3.1:8b', fallbackModels: '' },
-  { name: 'LM Studio', url: 'http://localhost:1234/v1', model: 'local-model', fallbackModels: '' },
-  { name: 'vLLM', url: 'http://localhost:8000/v1', model: 'meta-llama/Meta-Llama-3.1-8B-Instruct', fallbackModels: '' },
-  { name: 'OpenAI', url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', fallbackModels: '' },
-  { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1', model: 'meta-llama/llama-3.1-8b-instruct', fallbackModels: '' },
-  { name: 'Groq', url: 'https://api.groq.com/openai/v1', model: 'llama-3.1-8b-instant', fallbackModels: '' },
 ];
 
 const RECOMMENDED_FALLBACKS = [
-  { label: 'OpenRouter Free', id: 'openrouter/openrouter/free' },
-  { label: 'NVIDIA Nemotron 120B', id: 'nvidia/nemotron-3-super-120b-a12b' },
-  { label: 'Grok 4.6', id: 'grok-cli/grok-4.6' },
-  { label: 'Agnes 2.5 Flash', id: 'agnes/agnes-2.5-flash' },
+  { label: 'openrouter', id: 'openrouter/openrouter/free' },
+  { label: 'nvidia', id: 'nvidia/nvidia/nemotron-3-super-120b-a12b' },
+  { label: 'grok', id: 'grok-cli/grok-4.6' },
+  { label: 'agnes', id: 'agnes/agnes-2.5-flash' },
+  { label: 'gemini-3.1-flash-lite', id: 'gemini/gemini-3.1-flash-lite' },
 ];
 
 export default function OpenAiEndpointInput({
@@ -31,7 +26,7 @@ export default function OpenAiEndpointInput({
   onSave
 }) {
   const [baseUrl, setBaseUrl] = useState(savedBaseUrl);
-  const [model, setModel] = useState(savedModel || 'llama3.1:8b');
+  const [model, setModel] = useState(savedModel || 'auto');
   const [apiKey, setApiKey] = useState(savedApiKey);
   const [fallbackModels, setFallbackModels] = useState(
     savedFallbackModels || ''
@@ -53,7 +48,7 @@ export default function OpenAiEndpointInput({
     if (baseUrl.trim()) {
       onSave({
         baseUrl: baseUrl.trim(),
-        model: model.trim() || 'llama3.1:8b',
+        model: model.trim() || 'auto',
         apiKey: apiKey.trim(),
         fallbackModels: fallbackModels.trim(),
       });
@@ -129,7 +124,7 @@ export default function OpenAiEndpointInput({
             setAvailableModels(ids);
             count = ids.length;
           }
-        } catch (_) {}
+        } catch (_) { }
         setTestStatus('ok');
         setTestMessage(count > 0 ? `Conexão bem-sucedida! (${count} modelos detectados)` : 'Endpoint acessível!');
       } else if (res) {
@@ -256,7 +251,7 @@ export default function OpenAiEndpointInput({
               setFallbackModels(e.target.value);
               setIsSaved(false);
             }}
-            placeholder="openrouter/openrouter/free, nvidia/nvidia/nemotron-3-super-120b-a12b, grok-cli/grok-4.6"
+            placeholder="openrouter/free, nvidia/nemotron-3-super-120b-a12b, grok-cli/grok-4.6, gemini/gemini-3.8-flash, gemini/gemini-3.1-flash-lite"
             className="input-field font-mono text-xs w-full"
           />
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -309,11 +304,10 @@ export default function OpenAiEndpointInput({
       {/* Status & Feedback */}
       {testStatus && (
         <div
-          className={`px-3 py-2 rounded-input text-xs flex items-center gap-2 ${
-            testStatus === 'ok'
-              ? 'bg-ok/10 text-ok border border-ok/30'
-              : 'bg-danger/10 text-danger border border-danger/30'
-          }`}
+          className={`px-3 py-2 rounded-input text-xs flex items-center gap-2 ${testStatus === 'ok'
+            ? 'bg-ok/10 text-ok border border-ok/30'
+            : 'bg-danger/10 text-danger border border-danger/30'
+            }`}
         >
           {testStatus === 'ok' ? <Check size={14} /> : <AlertCircle size={14} />}
           <span>{testMessage}</span>
