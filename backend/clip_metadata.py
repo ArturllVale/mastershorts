@@ -110,9 +110,14 @@ def generate_fallback_description(clip_text: str, video_title: Optional[str] = N
     cta = "Assista até o final! O que você acha disso? Deixe sua opinião nos comentários! 👇"
     summary = ""
     if clip_text:
-        words = clip_text.split()
-        if len(words) > 10:
-            summary = " ".join(words[:18]) + "…"
+        sentences = re.split(r"[.?!]\s+", clip_text)
+        if sentences and len(sentences[0].split()) > 3:
+            summary_text = sentences[0].strip()
+            summary = f'"{summary_text}..."'
+        else:
+            words = clip_text.split()
+            if len(words) > 10:
+                summary = '"' + " ".join(words[:18]) + '..."'
 
     parts = []
     if summary:

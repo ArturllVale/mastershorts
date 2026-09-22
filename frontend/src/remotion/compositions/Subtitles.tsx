@@ -162,26 +162,23 @@ const WordSpan: React.FC<WordSpanProps> = ({
     ((wordStartMs - blockStartMs) / 1000) * fps
   );
 
-  let transform = "";
-  let color = style.fontColor;
-  let extraStyle: React.CSSProperties = {};
-
-  // Dim inactive words toward the backend's opaque scaled color (matches the
-  // burned ASS look; not CSS opacity).
-  if (!isActive && style.baseOpacity != null && style.baseOpacity < 1) {
+  let inactiveColor = style.fontColor;
+  if (style.baseOpacity != null && style.baseOpacity < 1) {
     const m = /^#?([0-9a-fA-F]{6})$/.exec(style.fontColor || "#FFFFFF");
     if (m) {
       const scale = 0.35 + 0.65 * style.baseOpacity;
       const [r, g, b] = [0, 2, 4].map((i) =>
         Math.round(parseInt(m[1].slice(i, i + 2), 16) * scale)
       );
-      color = `rgb(${r}, ${g}, ${b})`;
+      inactiveColor = `rgb(${r}, ${g}, ${b})`;
     }
   }
 
-  if (isActive) {
-    color = style.highlightColor;
+  let color = isActive ? style.highlightColor : inactiveColor;
+  let transform = "";
+  let extraStyle: React.CSSProperties = {};
 
+  if (isActive) {
     switch (animation) {
       case "pop": {
         const scale = spring({
@@ -195,11 +192,20 @@ const WordSpan: React.FC<WordSpanProps> = ({
         break;
       }
       case "karaoke": {
+        const bgScale = spring({
+          frame: frame - wordStartFrame,
+          fps,
+          config: { mass: 0.4, stiffness: 400, damping: 15 },
+          durationInFrames: 8,
+        });
+        const scaleVal = interpolate(bgScale, [0, 1], [1, 1.15]);
+        transform = `scale(${scaleVal})`;
         extraStyle = {
           backgroundColor: style.highlightColor,
-          color: style.bgColor || "#000000",
-          borderRadius: 4,
-          padding: "2px 6px",
+          color: style.activeTextColor || style.bgColor || "#000000",
+          borderRadius: 6,
+          padding: "4px 8px",
+          margin: "0 2px",
         };
         break;
       }

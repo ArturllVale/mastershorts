@@ -600,7 +600,7 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
                             {copied === 'caption' ? <Check size={14} className="text-ok" /> : <Copy size={14} />}
                         </button>
                     </div>
-
+                    
                     <button
                         onClick={() => setShowDescModal(true)}
                         className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-input border border-dashed border-rule text-xs text-muted hover:text-ink hover:border-rule2 hover:bg-paper3/40 transition-colors"

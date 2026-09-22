@@ -72,7 +72,15 @@ const SubtitleBlock: React.FC<SubtitleBlockProps> = ({
   const currentTimeMs = blockStartMs + (frame / fps) * 1000;
   const activeIndex = getActiveWordIndex(block.words, currentTimeMs);
 
-  const positionStyle = POSITION_MAP[position] ?? POSITION_MAP.bottom;
+  const marginPercent = ((style.marginV ?? 43) / 288) * 100;
+  let positionStyle: React.CSSProperties;
+  if (position === "top") {
+    positionStyle = { top: `${marginPercent}%`, bottom: "auto" };
+  } else if (position === "middle" || position === "center") {
+    positionStyle = { top: "50%", transform: "translateY(-50%)" };
+  } else {
+    positionStyle = { bottom: `${marginPercent}%`, top: "auto" };
+  }
   const fontStack = getFontStack(style.fontFamily);
 
   // Background box style
@@ -154,13 +162,23 @@ const WordSpan: React.FC<WordSpanProps> = ({
     ((wordStartMs - blockStartMs) / 1000) * fps
   );
 
+  let inactiveColor = style.fontColor;
+  if (style.baseOpacity != null && style.baseOpacity < 1) {
+    const m = /^#?([0-9a-fA-F]{6})$/.exec(style.fontColor || "#FFFFFF");
+    if (m) {
+      const scale = 0.35 + 0.65 * style.baseOpacity;
+      const [r, g, b] = [0, 2, 4].map((i) =>
+        Math.round(parseInt(m[1].slice(i, i + 2), 16) * scale)
+      );
+      inactiveColor = `rgb(${r}, ${g}, ${b})`;
+    }
+  }
+
+  let color = isActive ? style.highlightColor : inactiveColor;
   let transform = "";
-  let color = style.fontColor;
   let extraStyle: React.CSSProperties = {};
 
   if (isActive) {
-    color = style.highlightColor;
-
     switch (animation) {
       case "pop": {
         const scale = spring({
@@ -174,11 +192,20 @@ const WordSpan: React.FC<WordSpanProps> = ({
         break;
       }
       case "karaoke": {
+        const bgScale = spring({
+          frame: frame - wordStartFrame,
+          fps,
+          config: { mass: 0.4, stiffness: 400, damping: 15 },
+          durationInFrames: 8,
+        });
+        const scaleVal = interpolate(bgScale, [0, 1], [1, 1.15]);
+        transform = `scale(${scaleVal})`;
         extraStyle = {
           backgroundColor: style.highlightColor,
-          color: style.bgColor || "#000000",
-          borderRadius: 4,
-          padding: "2px 6px",
+          color: style.activeTextColor || style.bgColor || "#000000",
+          borderRadius: 6,
+          padding: "4px 8px",
+          margin: "0 2px",
         };
         break;
       }
@@ -209,7 +236,7 @@ const WordSpan: React.FC<WordSpanProps> = ({
       style={{
         fontFamily: fontStack,
         fontSize: style.fontSize,
-        fontWeight: 700,
+        fontWeight: /anton/i.test(style.fontFamily || "") ? 400 : 800,
         color: animation === "karaoke" && isActive ? undefined : color,
         textShadow:
           animation !== "karaoke"
@@ -218,6 +245,7 @@ const WordSpan: React.FC<WordSpanProps> = ({
         transform,
         display: "inline-block",
         transition: "none",
+        textTransform: style.uppercase ? "uppercase" : "none",
         ...extraStyle,
       }}
     >

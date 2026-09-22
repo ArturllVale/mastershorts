@@ -16,6 +16,7 @@ import llm_backend
 
 @pytest.fixture
 def local(monkeypatch):
+    llm_backend._capability_cache.clear()
     monkeypatch.setenv("LLM_BASE_URL", "http://llm.test/v1")
     monkeypatch.setenv("LLM_MODEL", "qwen2.5:14b")
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
@@ -150,5 +151,78 @@ def test_score_batch_shrinks_for_local_models(local, monkeypatch):
     monkeypatch.delenv("LLM_BASE_URL")
     monkeypatch.delenv("LLM_SCORE_BATCH")
     assert viral_analysis.score_batch_size() == 8
+
+
+# --- combo provider & fallback tests ---------------------------------------
+
+def test_combo_activation(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "combo")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    assert llm_backend.provider() == "combo"
+    assert llm_backend.active() is False
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    assert llm_backend.active() is True
+    desc = llm_backend.describe()
+    assert desc["provider"] == "combo"
+    assert "openrouter/free" in desc["models"]
+    assert desc["hasOpenRouterKey"] is True
+    assert desc["hasGeminiKey"] is False
+
+
+def test_combo_fallback_gemini_to_openrouter(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "combo")
+    monkeypatch.setenv("GEMINI_API_KEY", "ai-gemini-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-openrouter-key")
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+
+    seen = []
+
+    def handler(request):
+        seen.append((str(request.url), json.loads(request.content)))
+        if "generativelanguage.googleapis.com" in str(request.url):
+            # Simulate Gemini rate limited
+            return httpx.Response(429, json={"error": {"message": "Resource has been exhausted (rate limit)"}})
+        if "openrouter.ai" in str(request.url):
+            # OpenRouter receives openrouter/free
+            return _completion({"windows": [{"id": "w_or", "start": 10, "end": 40, "score": 95, "reason": "viral"}]})
+        return httpx.Response(500)
+
+    _serve(handler, monkeypatch)
+    parsed, cost = llm_backend.generate_json("prompt", gemini_worker.ScoreResponse)
+
+    assert len(seen) >= 2
+    # Ensure OpenRouter received openrouter/free
+    or_call = next(c for c in seen if "openrouter.ai" in c[0])
+    assert or_call[1]["model"] == "openrouter/free"
+    assert parsed["windows"][0]["score"] == 95
+
+
+def test_combo_fallback_openrouter_to_mistral(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "combo")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-openrouter-key")
+    monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-key")
+
+    seen = []
+
+    def handler(request):
+        seen.append((str(request.url), json.loads(request.content)))
+        if "openrouter.ai" in str(request.url):
+            # OpenRouter is down
+            return httpx.Response(503, text="Service Temporarily Unavailable")
+        if "api.mistral.ai" in str(request.url):
+            return _completion({"windows": [{"id": "w_mis", "start": 0, "end": 30, "score": 90, "reason": "hook"}]})
+        return httpx.Response(500)
+
+    _serve(handler, monkeypatch)
+    parsed, cost = llm_backend.generate_json("prompt", gemini_worker.ScoreResponse)
+
+    assert any("openrouter.ai" in c[0] for c in seen)
+    mis_call = next(c for c in seen if "api.mistral.ai" in c[0])
+    assert mis_call[1]["model"] == "mistral-small-latest"
+    assert parsed["windows"][0]["score"] == 90
 
 

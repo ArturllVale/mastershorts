@@ -41,19 +41,21 @@ def _run_gemini_stage(client, model_name, prompt, schema):
 
     With an OpenAI-compatible server configured (``llm_backend.active()``)
     the call goes there instead of Gemini and ``client`` is unused; the
-    retry policy is shared because a local server has the same failure
-    shapes (connection refused while the model loads, a truncated body,
-    a 5xx from a busy vLLM)."""
+    retry policy is handled natively by llm_backend.py.
+    """
     use_local = llm_backend.active()
     config = None if use_local else genai_types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=schema,
     )
-    max_attempts = 6
+    
+    max_attempts = int(os.environ.get("LLM_MAX_RETRIES", "2")) + 1
+    
     for attempt in range(1, max_attempts + 1):
         try:
             if use_local:
                 return llm_backend.generate_json(prompt, schema, model=model_name)
+
             response = client.models.generate_content(model=model_name, contents=prompt, config=config)
             # Policy blocks are deterministic — retrying only burns quota and
             # time, and the user deserves the real reason instead of a generic
@@ -75,21 +77,21 @@ def _run_gemini_stage(client, model_name, prompt, schema):
             raise  # deterministic policy block — never retry
         except Exception as e:
             msg = str(e)
-            transient = any(tok in msg for tok in (
-                '503', 'UNAVAILABLE', '429', 'RESOURCE_EXHAUSTED',
-                '500', 'INTERNAL', 'overloaded', 'Deadline',
-                'empty response body', 'did not contain a JSON object',
-                'Failed to parse Gemini JSON response',
-                # OpenAI-compatible servers: model still loading, busy, or a
-                # small model that skipped a required field this time.
-                'ConnectError', 'ReadTimeout', 'RemoteProtocolError', '502', '504',
-                'validation error'))
+            transient = any(tok in msg.lower() for tok in (
+                '503', 'unavailable', '429', 'resource_exhausted',
+                '500', 'internal', 'overloaded', 'deadline',
+                'empty response body', 'did not contain a json object',
+                'failed to parse gemini json response',
+                'validation error', 'connect', 'timeout', 'reset', 'refused'))
             if attempt == max_attempts or not transient:
+                print(f"[LLM] stage=score model={model_name} attempt={attempt} error={type(e).__name__} details={msg[:100]}")
                 raise
-            wait = 5 * (2 ** (attempt - 1))
-            who = "LLM server" if use_local else "Gemini"
-            print(f"⚠️ {who} transient error (attempt {attempt}/{max_attempts}), retrying in {wait}s: {msg[:150]}")
+            
+            # Use smaller backoff for Gemini to avoid blocking for dozens of seconds
+            wait = 2 * attempt 
+            print(f"[LLM] stage=score model={model_name} attempt={attempt} error=transient_error retrying_in={wait}s details={msg[:100]}")
             time.sleep(wait)
+
 
 
 def _run_stage_split(client, model_name, items, build_prompt, schema, key, costs, label):
@@ -145,163 +147,165 @@ def detail_batch_size():
 
 
 def get_viral_clips(transcript_result, video_duration, video_title=None):
-    """Two-pass clip selection: score transcript windows, then detail the best.
-
-    Windowing gives even coverage on long videos (a single call over the whole
-    transcript clusters picks near the start), and the cheap scoring pass keeps
-    the expensive detail reasoning focused on the shortlist. Cuts are snapped to
-    word boundaries so clips don't start/end mid-word.
-    """
+    """Two-pass clip selection with adaptive batching."""
     language = str(transcript_result.get('language') or 'unknown')
     if llm_backend.active():
-        # Self-hosted text model: no Google key needed for this stage.
         client = None
         model_name = llm_backend.model_name()
-        print(f"🤖  Analyzing with local LLM at {llm_backend.base_url()} (2-pass: score → detail)...")
-        print("⏳ This usually takes 1-3 minutes depending on your hardware.")
+        if llm_backend.provider() == "combo":
+            print("🤖  Analyzing with Combo (Gemini + OpenRouter + Mistral)...")
+        else:
+            print(f"🤖  Analyzing with local LLM at {llm_backend.base_url()}...")
     else:
-        print("🤖  Analyzing with Gemini (2-pass: score → detail)...")
-        print("⏳ This usually takes 1-3 minutes.")
+        print("🤖  Analyzing with Gemini...")
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("❌ Error: GEMINI_API_KEY not found in environment variables "
-                  "(set it, or point LLM_BASE_URL at an OpenAI-compatible server).")
+            print("❌ Error: GEMINI_API_KEY not found")
             return None
         client = genai.Client(api_key=api_key)
         model_name = os.environ.get("GEMINI_MODEL") or 'gemini-3.1-flash-lite'
-    print(f"🤖  Model: {model_name} | language: {language}")
 
-    # Full word list — ground truth for snapping cut points.
     words = []
     for segment in transcript_result['segments']:
         for word in segment.get('words', []):
             words.append({'w': word['word'], 's': word['start'], 'e': word['end']})
 
     try:
-        # Scoring windows must be able to CONTAIN a max-length clip (the detail
-        # prompt keeps clips inside their candidate window), so scale them with
-        # the requested band — a user asking for 60-90s clips on the default
-        # 90s windows would get clips squeezed against the window walls.
         min_secs, max_secs = clip_duration_bounds()
-        windows = build_transcript_windows(
-            transcript_result, video_duration,
-            window_seconds=max(90, int(max_secs * 1.5)))
-        print(f"   Built {len(windows)} scoring window(s).")
         costs = []
+        shorts = []
+        
+        # Token estimation
+        total_words = sum(len(w['w'].split()) for w in words)
+        estimated_tokens = total_words * 1.5
+        
+        use_single_pass = False
+        if video_duration <= 600:
+            token_limit = 6000 if llm_backend.active() else 50000
+            if estimated_tokens < token_limit:
+                use_single_pass = True
 
-        # --- Pass 1: score windows in batches, keep the highest-scoring ---
-        scored = []
-        # Local models usually run with a 4-8k context (Ollama defaults to
-        # 4096 unless OLLAMA_CONTEXT_LENGTH says otherwise) and 8 windows of
-        # transcript do not fit; a silently truncated prompt scores garbage.
-        SCORE_BATCH = score_batch_size()
         def _payload(ws):
             return [{"id": w["id"], "start": w["start"], "end": w["end"], "text": w["text"]} for w in ws]
 
-        def _score_prompt(ws):
-            return gemini_worker.SCORE_PROMPT_TEMPLATE.format(
-                video_duration=video_duration, language=language,
-                windows_json=json.dumps(_payload(ws), ensure_ascii=False))
+        min_clips, max_clips = clip_count_targets(1 if use_single_pass else int(video_duration // 90))
 
-        total_batches = (len(windows) + SCORE_BATCH - 1) // SCORE_BATCH
-        for batch_idx, b in enumerate(range(0, len(windows), SCORE_BATCH), 1):
-            batch_windows = windows[b:b + SCORE_BATCH]
-            w_start = b + 1
-            w_end = min(b + SCORE_BATCH, len(windows))
-            print(f"📊 [Passo 1/2] Avaliando lote {batch_idx}/{total_batches} (janelas {w_start} a {w_end} de {len(windows)})...", flush=True)
-            batch_scored = _run_stage_split(
-                client, model_name, batch_windows, _score_prompt,
-                gemini_worker.ScoreResponse, "windows", costs, "score")
-            scored.extend(batch_scored)
-            print(f"✅ [Passo 1/2] Lote {batch_idx}/{total_batches} concluído ({len(batch_scored)} momentos pontuados).", flush=True)
-
-        # Shortlist the top windows; scale with duration so long videos surface
-        # more candidates without exploding the detail call.
-        scored.sort(key=lambda w: w.get("score", 0), reverse=True)
-        target = max(3, min(10, int(video_duration // 90) + 2))
-        by_id = {w["id"]: w for w in windows}
-        shortlist = [by_id[w["id"]] for w in scored[:target] if w.get("id") in by_id]
-        if not shortlist:
-            shortlist = windows[:target]  # scoring returned nothing usable
-        print(f"✨ [Passo 1/2] Selecionadas {len(shortlist)} melhores janelas para geração detalhada.")
-
-        # --- Pass 2: detailed clip extraction on the shortlist in batches ---
-        min_clips, max_clips = clip_count_targets(len(shortlist))
-        DETAIL_BATCH = detail_batch_size()
-        shorts = []
-        detail_batches = (len(shortlist) + DETAIL_BATCH - 1) // DETAIL_BATCH
-
-        for b_idx, b in enumerate(range(0, len(shortlist), DETAIL_BATCH), 1):
-            batch_windows = shortlist[b:b + DETAIL_BATCH]
-            b_min = max(1, int(round(min_clips * len(batch_windows) / len(shortlist))))
-            b_max = max(b_min, int(round(max_clips * len(batch_windows) / len(shortlist))) + 1)
-
+        if use_single_pass:
+            print("⚡ Usando Single-Pass para vídeo curto/leve...")
+            full_text = " ".join(w['w'] for w in words)
+            win = [{"id": "full_video", "start": 0, "end": video_duration, "text": full_text}]
+            
             def _detail_prompt(ws):
                 return gemini_worker.DETAIL_PROMPT_TEMPLATE.format(
                     video_duration=video_duration, language=language,
-                    min_clips=b_min, max_clips=b_max,
+                    min_clips=min_clips, max_clips=max_clips,
                     min_secs=min_secs, max_secs=max_secs,
                     windows_json=json.dumps(_payload(ws), ensure_ascii=False))
 
-            print(f"🎯 [Passo 2/2] Criando ganchos virais e títulos (lote {b_idx}/{detail_batches}) com '{model_name}'...", flush=True)
-            batch_shorts = _run_stage_split(client, model_name, batch_windows, _detail_prompt,
-                                           gemini_worker.DetailResponse, "shorts", costs, "detail")
-            shorts.extend(batch_shorts)
-            print(f"✅ [Passo 2/2] Lote {b_idx}/{detail_batches} concluído ({len(batch_shorts)} shorts gerados).", flush=True)
+            shorts = _run_stage_split(client, model_name, win, _detail_prompt,
+                                     gemini_worker.DetailResponse, "shorts", costs, "detail")
+        else:
+            print("📊 Usando Two-Pass para vídeo longo...")
+            windows = build_transcript_windows(
+                transcript_result, video_duration,
+                window_seconds=max(90, int(max_secs * 1.5)))
+                
+            scored = []
+            SCORE_BATCH = score_batch_size()
+            if 600 < video_duration <= 1800 and not llm_backend.active():
+                SCORE_BATCH = 15 
+            
+            def _score_prompt(ws):
+                return gemini_worker.SCORE_PROMPT_TEMPLATE.format(
+                    video_duration=video_duration, language=language,
+                    windows_json=json.dumps(_payload(ws), ensure_ascii=False))
 
-        # If the LLM returned fewer clips than the required minimum, recover clips
-        # from the highest-scoring candidate windows not yet represented in shorts.
-        if len(shorts) < min_clips:
-            print(f"ℹ️ IA gerou {len(shorts)} shorts (meta mínima: {min_clips}). Preenchendo com as melhores janelas identificadas...", flush=True)
-            for win in shortlist:
-                if len(shorts) >= min_clips:
-                    break
-                w_start = float(win.get("start") or 0.0)
-                w_end = float(win.get("end") or 0.0)
-                overlaps = any(
-                    not (s.get("end", 0) <= w_start or s.get("start", 0) >= w_end)
-                    for s in shorts
-                )
-                if not overlaps:
-                    clip_len = min(45.0, max_secs)
-                    c_start = w_start
-                    c_end = min(w_end, c_start + clip_len)
-                    if c_end - c_start >= min_secs:
-                        shorts.append({
-                            "start": c_start,
-                            "end": c_end,
-                            "source_window_id": win.get("id", "window_fallback"),
-                            "predicted_score": win.get("score", 75),
-                            "explanation": "Momento de alta relevância destacado na pontuação inicial.",
-                            "video_description_for_tiktok": "",
-                            "video_description_for_instagram": "",
-                            "video_title_for_youtube_short": "",
-                            "viral_hook_text": "",
-                        })
+            total_batches = (len(windows) + SCORE_BATCH - 1) // SCORE_BATCH
+            for batch_idx, b in enumerate(range(0, len(windows), SCORE_BATCH), 1):
+                batch_windows = windows[b:b + SCORE_BATCH]
+                print(f"📊 [Passo 1/2] Lote {batch_idx}/{total_batches}...")
+                batch_scored = _run_stage_split(
+                    client, model_name, batch_windows, _score_prompt,
+                    gemini_worker.ScoreResponse, "windows", costs, "score")
+                scored.extend(batch_scored)
 
-        print(f"🔥 [Passo 2/2] {len(shorts)} shorts virais identificados!", flush=True)
+            scored.sort(key=lambda w: w.get("score", 0), reverse=True)
+            target = max(3, min(10, int(video_duration // 90) + 2))
+            by_id = {w["id"]: w for w in windows}
+            shortlist = [by_id[w["id"]] for w in scored[:target] if w.get("id") in by_id]
+            if not shortlist: shortlist = windows[:target]
+
+            DETAIL_BATCH = detail_batch_size()
+            if 600 < video_duration <= 1800 and not llm_backend.active():
+                DETAIL_BATCH = 8
+                
+            detail_batches = (len(shortlist) + DETAIL_BATCH - 1) // DETAIL_BATCH
+
+            for b_idx, b in enumerate(range(0, len(shortlist), DETAIL_BATCH), 1):
+                batch_windows = shortlist[b:b + DETAIL_BATCH]
+                b_min = max(1, int(round(min_clips * len(batch_windows) / len(shortlist))))
+                b_max = max(b_min, int(round(max_clips * len(batch_windows) / len(shortlist))) + 1)
+
+                def _detail_prompt(ws):
+                    return gemini_worker.DETAIL_PROMPT_TEMPLATE.format(
+                        video_duration=video_duration, language=language,
+                        min_clips=b_min, max_clips=b_max,
+                        min_secs=min_secs, max_secs=max_secs,
+                        windows_json=json.dumps(_payload(ws), ensure_ascii=False))
+
+                print(f"🎯 [Passo 2/2] Lote {b_idx}/{detail_batches}...")
+                batch_shorts = _run_stage_split(client, model_name, batch_windows, _detail_prompt,
+                                               gemini_worker.DetailResponse, "shorts", costs, "detail")
+                shorts.extend(batch_shorts)
+                
+            if len(shorts) < min_clips:
+                print(f"ℹ️ Completando {len(shorts)} -> {min_clips}...")
+                for win in shortlist:
+                    if len(shorts) >= min_clips: break
+                    w_start, w_end = float(win.get("start") or 0.0), float(win.get("end") or 0.0)
+                    overlaps = any(not (s.get("end", 0) <= w_start or s.get("start", 0) >= w_end) for s in shorts)
+                    if not overlaps:
+                        clip_len = min(45.0, max_secs)
+                        c_start = w_start
+                        c_end = min(w_end, c_start + clip_len)
+                        if c_end - c_start >= min_secs:
+                            shorts.append({
+                                "start": c_start, "end": c_end,
+                                "source_window_id": win.get("id", "window_fallback"),
+                                "predicted_score": win.get("score", 75),
+                                "explanation": "Fallback clip.",
+                            })
+
+        print(f"🔥 Encontrados {len(shorts)} shorts!")
         if len(shorts) > max_clips:
-            # By score, never by position: the results arrive in transcript
-            # order, so slicing kept the earliest clips and silently dropped
-            # the back half of the video. See trim_to_best.
             dropped = len(shorts) - max_clips
             shorts = trim_to_best(shorts, max_clips)
-            print(f"   Mantidos os {max_clips} melhores clips de "
-                  f"{max_clips + dropped}.")
-        # Snap each proposed clip onto real word boundaries (+ a bit of silence).
+
+        # Pre-fill empty metadata (generated later in parallel)
+        for s in shorts:
+            s["video_description_for_tiktok"] = ""
+            s["video_description_for_instagram"] = ""
+            s["video_title_for_youtube_short"] = ""
+            s["viral_hook_text"] = ""
+
         for s in shorts:
             ns, ne = snap_clip_to_words(s.get("start", 0), s.get("end", 0), words, video_duration,
                                         min_duration=min_secs, max_duration=max_secs)
             s["start"], s["end"] = ns, ne
 
-        # Sanitize and ensure every clip has valid, non-placeholder metadata
         from clip_metadata import clean_or_generate_clip_metadata
-        for s in shorts:
+        import concurrent.futures
+
+        def generate_meta(s):
             clean_or_generate_clip_metadata(
                 s, transcript=transcript_result, start=s["start"], end=s["end"],
                 video_title=video_title, language=language)
 
-        # Aggregate cost across both passes.
+        print(f"⚡ Gerando metadados textuais de {len(shorts)} shorts em paralelo...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(shorts) or 1)) as executor:
+            executor.map(generate_meta, shorts)
+        print("⚡ Metadados textuais concluídos.")
+
         cost_analysis = None
         if costs:
             cost_analysis = {
@@ -310,25 +314,20 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
                 "total_cost": sum(c.get("total_cost", 0) for c in costs),
                 "model": model_name,
             }
-            print(f"\U0001f4b0 Total cost ({model_name}, 2-pass, {len(costs)} calls): ${cost_analysis['total_cost']:.6f}")
+            print(f"💰 Total cost: ${cost_analysis['total_cost']:.6f}")
 
         if not shorts:
-            print("⚠️ 2-pass returned no clips.")
             return None
 
         result = {"shorts": shorts}
-        if cost_analysis:
-            result["cost_analysis"] = cost_analysis
+        if cost_analysis: result["cost_analysis"] = cost_analysis
         return result
     except gemini_worker.GeminiBlockedError as e:
-        # Content-policy rejection: propagate so the job fails with the real
-        # reason instead of a generic "no clips found".
         print(f"🚫 {e}")
         raise
     except Exception as e:
-        print(f"❌ Gemini Error: {e}")
+        print(f"❌ Error: {e}")
         return None
-
 
 # --- Speech too sparse to clip by transcript -------------------------------
 # The vision path used to fire only on a missing audio TRACK. A nursery-rhyme

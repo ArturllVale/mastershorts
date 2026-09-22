@@ -22,7 +22,7 @@ export default function ClipActionBar({
         <div className="mt-auto pt-3 border-t border-rule space-y-2.5">
             {/* Studio Tools Bar */}
             <div>
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
                     {onEditClip && (
                         <button
                             onClick={() => onEditClip(index)}

@@ -31,6 +31,8 @@ export function useAppController() {
     llmModel, setLlmModel,
     llmApiKey, setLlmApiKey,
     llmFallbackModels, setLlmFallbackModels,
+    openrouterApiKey, setOpenrouterApiKey,
+    mistralApiKey, setMistralApiKey,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey
   } = useApiKeys();
@@ -226,7 +228,11 @@ export function useAppController() {
     }
   };
 
-  const llmOk = (llmProvider === 'openai' ? !!llmBaseUrl : !!apiKey) || !!localLlm;
+  const llmOk = (
+    llmProvider === 'openai' ? !!llmBaseUrl :
+    llmProvider === 'combo' ? (!!apiKey || !!openrouterApiKey || !!mistralApiKey) :
+    !!apiKey
+  ) || !!localLlm;
   const keysMissing = !billingEnabled && !llmOk;
 
   const { tutorialLock, finishTutorial, startTutorial } = useClipTutorial({
@@ -258,7 +264,12 @@ export function useAppController() {
     try {
       let body;
       const headers = {};
-      if (llmProvider === 'openai' && llmBaseUrl) {
+      if (llmProvider === 'combo') {
+        headers['X-LLM-Provider'] = 'combo';
+        if (apiKey) headers['X-Gemini-Key'] = apiKey;
+        if (openrouterApiKey) headers['X-OpenRouter-Key'] = openrouterApiKey;
+        if (mistralApiKey) headers['X-Mistral-Key'] = mistralApiKey;
+      } else if (llmProvider === 'openai' && llmBaseUrl) {
         headers['X-LLM-Base-URL'] = llmBaseUrl;
         headers['X-LLM-Model'] = llmModel || 'llama3.1:8b';
         if (llmApiKey) {
@@ -278,6 +289,9 @@ export function useAppController() {
         auto_hook_style: data.autoHook ? (data.autoHookStyle || 'classic') : null,
         layouts: data.layout && data.layout !== 'auto' ? data.layout : null,
         max_minutes: data.maxMinutes || null,
+        llm_provider: llmProvider,
+        openrouter_key: (llmProvider === 'combo' && openrouterApiKey) ? openrouterApiKey : null,
+        mistral_key: (llmProvider === 'combo' && mistralApiKey) ? mistralApiKey : null,
         llm_fallback_models: (llmProvider === 'openai' && llmFallbackModels) ? llmFallbackModels : null,
       };
 
@@ -445,6 +459,8 @@ export function useAppController() {
     llmModel, setLlmModel,
     llmApiKey, setLlmApiKey,
     llmFallbackModels, setLlmFallbackModels,
+    openrouterApiKey, setOpenrouterApiKey,
+    mistralApiKey, setMistralApiKey,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey,
     handleClipStateChange, handleClipRerendered, flushClipState

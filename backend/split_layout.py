@@ -18,7 +18,7 @@ import os
 
 import numpy as np
 
-ENABLED = os.environ.get("SPLIT_LAYOUT", "0") == "1"
+ENABLED = os.environ.get("SPLIT_LAYOUT", "1") == "1"
 
 # Fraction of sampled frames that must show BOTH faces at once.
 #
@@ -239,7 +239,7 @@ def detect_split_scenes(video_path, scenes, strategies, samples=None):
 
     try:
         for i, (start, end) in enumerate(scenes):
-            if i < len(strategies) and strategies[i] != 'GENERAL':
+            if i < len(strategies) and strategies[i] not in ('GENERAL', 'TRACK'):
                 continue
             s_f, e_f = start.get_frames(), end.get_frames()
             duration = (e_f - s_f) / fps

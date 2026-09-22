@@ -44,7 +44,7 @@ class SubtitleRequest(BaseModel):
     # instead of regenerating from the stored transcript — without this, text
     # edits in the modal were silently discarded on the server render path.
     words: Optional[List[CaptionWordIn]] = None
-
+    remotion: Optional[Dict[str, Any]] = None
 
 class RerenderSegment(BaseModel):
     start: float

@@ -89,7 +89,7 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
-  const containerClasses = `relative w-full aspect-[2/1] sm:aspect-video rounded-xl overflow-hidden bg-surface-1 border border-border mb-4 sm:mb-8 group animate-fade transition-all duration-500 shadow-2xl
+  const containerClasses = `relative w-full shrink-0 aspect-video min-h-[180px] sm:min-h-[220px] max-h-[300px] xl:max-h-[340px] rounded-xl overflow-hidden bg-surface-1 border border-border mb-3 sm:mb-4 group animate-fade transition-all duration-500 shadow-2xl
     ${isComplete && !isSyncedPlaying ? 'grayscale brightness-50' : ''}
     ${isSyncedPlaying ? 'ring-2 ring-accent ring-offset-2 ring-offset-canvas' : ''}`;
 
@@ -141,17 +141,17 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
 
       {/* Top HUD bar */}
       {!isSyncedPlaying && (
-          <div className="absolute top-2.5 left-2.5 right-2.5 sm:top-4 sm:left-4 sm:right-4 z-30 flex items-start justify-between gap-2 pointer-events-none">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-1/90 backdrop-blur-md border border-border font-mono text-xs tracking-wide min-w-0 transition-colors duration-500 ${isComplete ? 'text-success border-success/30' : 'text-accent border-accent/30 animate-pulse'}`}>
+          <div className="absolute top-2 left-2 right-2 sm:top-2.5 sm:left-2.5 sm:right-2.5 z-30 flex items-center justify-between gap-2 pointer-events-none">
+            <div className={`flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-surface-1/90 backdrop-blur-md border border-border font-mono text-[11px] sm:text-xs tracking-wide min-w-0 transition-colors duration-500 ${isComplete ? 'text-success border-success/30' : 'text-accent border-accent/30 animate-pulse'}`}>
               {isComplete
-                ? <CheckCircle size={14} className="shrink-0" />
-                : <Scan size={14} className="shrink-0" />}
+                ? <CheckCircle size={13} className="shrink-0" />
+                : <Scan size={13} className="shrink-0" />}
               <span className="truncate">{isComplete ? 'ANÁLISE CONCLUÍDA' : 'ANALISANDO VÍDEO...'}</span>
             </div>
             {!isComplete && (
-              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-surface-1/90 backdrop-blur-md border border-border rounded-full font-mono text-xs tracking-wide text-text-tertiary shrink-0">
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-surface-1/90 backdrop-blur-md border border-border rounded-full font-mono text-[10px] sm:text-xs tracking-wide text-text-tertiary shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
-                DETECÇÃO DE VIRAIS: ATIVA
+                <span className="truncate">DETECÇÃO DE VIRAIS: ATIVA</span>
               </div>
             )}
           </div>
@@ -159,14 +159,14 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
 
       {/* Visual Flair */}
       {!isSyncedPlaying && !isComplete && (
-          <div className="hidden sm:block absolute inset-0 pointer-events-none z-20 overflow-hidden">
-             <div className="absolute top-0 bottom-0 left-[35%] w-px border-r border-dashed border-accent/30"></div>
-             <div className="absolute top-0 bottom-0 right-[35%] w-px border-l border-dashed border-accent/30"></div>
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 border border-border rounded-full flex items-center justify-center">
+          <div className="hidden md:block absolute inset-0 pointer-events-none z-20 overflow-hidden">
+             <div className="absolute top-0 bottom-0 left-[35%] w-px border-r border-dashed border-accent/25"></div>
+             <div className="absolute top-0 bottom-0 right-[35%] w-px border-l border-dashed border-accent/25"></div>
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 border border-border/80 rounded-full flex items-center justify-center">
                 <div className="w-1.5 h-1.5 bg-accent rounded-full animate-ping"></div>
              </div>
-             <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center gap-2 opacity-60">
-                 <Scissors size={20} className="text-white/20" />
+             <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 flex flex-col items-center justify-center gap-1 opacity-50">
+                 <Scissors size={16} className="text-white/30" />
              </div>
           </div>
       )}
@@ -180,17 +180,17 @@ const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, s
 
        {/* Bottom Info Bar */}
       {!isSyncedPlaying && !isComplete && (
-          <div className="hidden sm:flex absolute bottom-0 left-0 right-0 p-3.5 bg-surface-1/90 backdrop-blur-md z-30 justify-between items-end border-t border-border">
-              <div className="font-mono text-xs text-accent space-y-1">
-                 <div className="flex items-center gap-2"><Activity size={11} className="animate-pulse" /> {'>'} ANÁLISE_IA: EM ANDAMENTO</div>
-                 <div className="flex items-center gap-2"><Radio size={11} /> {'>'} TRANSCRIÇÃO_DE_ÁUDIO: EM ANDAMENTO</div>
+          <div className="hidden sm:flex absolute bottom-0 left-0 right-0 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-surface-1/95 backdrop-blur-md z-30 justify-between items-center border-t border-border">
+              <div className="font-mono text-[10px] sm:text-[11px] text-accent space-y-0.5 min-w-0">
+                 <div className="flex items-center gap-1.5 truncate"><Activity size={10} className="animate-pulse shrink-0" /> <span>{'>'} ANÁLISE_IA: EM ANDAMENTO</span></div>
+                 <div className="flex items-center gap-1.5 truncate"><Radio size={10} className="shrink-0" /> <span>{'>'} TRANSCRIÇÃO_DE_ÁUDIO: EM ANDAMENTO</span></div>
               </div>
-              <div className="flex gap-1 items-end h-5">
-                 <div className="w-1 h-3 bg-accent opacity-40 animate-[pulse_0.5s_infinite]"></div>
-                 <div className="w-1 h-5 bg-accent opacity-70 animate-[pulse_0.7s_infinite]"></div>
-                 <div className="w-1 h-2 bg-accent opacity-30 animate-[pulse_0.4s_infinite]"></div>
-                 <div className="w-1 h-4 bg-accent opacity-90 animate-[pulse_0.6s_infinite]"></div>
-                 <div className="w-1 h-3 bg-accent opacity-50 animate-[pulse_0.5s_infinite]"></div>
+              <div className="flex gap-1 items-end h-3.5 shrink-0 ml-2">
+                 <div className="w-1 h-2 bg-accent opacity-40 animate-[pulse_0.5s_infinite]"></div>
+                 <div className="w-1 h-3.5 bg-accent opacity-70 animate-[pulse_0.7s_infinite]"></div>
+                 <div className="w-1 h-1.5 bg-accent opacity-30 animate-[pulse_0.4s_infinite]"></div>
+                 <div className="w-1 h-3 bg-accent opacity-90 animate-[pulse_0.6s_infinite]"></div>
+                 <div className="w-1 h-2 bg-accent opacity-50 animate-[pulse_0.5s_infinite]"></div>
               </div>
           </div>
       )}

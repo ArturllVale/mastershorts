@@ -16,10 +16,13 @@ more. The restorer is awaited on the request, so a player that arrives while
 a restore is in flight simply waits for it (the per-job lock lives in the
 restorer) instead of failing.
 """
+import os
 from typing import Awaitable, Callable, Optional
+from urllib.parse import unquote
 
 from starlette.exceptions import HTTPException
 from starlette.staticfiles import StaticFiles
+from core.path_utils import to_long_path
 
 Restorer = Callable[[str], Awaitable[bool]]
 Guard = Callable[[str], bool]
@@ -48,6 +51,39 @@ class RestoringStaticFiles(StaticFiles):
         super().__init__(*args, **kwargs)
         self.restorer = restorer
         self.guard = guard
+
+    def lookup_path(self, path: str) -> tuple[str, Optional[os.stat_result]]:
+        candidates = [path]
+        uq = unquote(path)
+        if uq != path:
+            candidates.append(uq)
+
+        for directory in self.all_directories:
+            if self.follow_symlink:
+                base_dir = os.path.abspath(directory)
+            else:
+                base_dir = os.path.realpath(directory)
+
+            for cand in candidates:
+                joined = os.path.join(directory, cand)
+                if self.follow_symlink:
+                    full = os.path.abspath(joined)
+                else:
+                    full = os.path.realpath(joined)
+
+                try:
+                    if os.path.commonpath([full, base_dir]) != str(base_dir):
+                        continue
+                except ValueError:
+                    continue
+
+                long_p = to_long_path(full)
+                try:
+                    return long_p, os.stat(long_p)
+                except (FileNotFoundError, NotADirectoryError, OSError):
+                    pass
+
+        return "", None
 
     async def get_response(self, path: str, scope):
         # Before the filesystem: a refused path must look exactly like a

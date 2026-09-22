@@ -30,6 +30,10 @@ class NotASingleVideo(ValueError):
     download alike."""
 
 
+class NoVideoFormat(Exception):
+    """Raised when no usable video format is found for the URL."""
+
+
 def youtube_non_video_reason(url):
     """Why this YouTube URL is not a single video, or None if it is one.
 

@@ -87,6 +87,8 @@ function App() {
     llmModel, setLlmModel,
     llmApiKey, setLlmApiKey,
     llmFallbackModels, setLlmFallbackModels,
+    openrouterApiKey, setOpenrouterApiKey,
+    mistralApiKey, setMistralApiKey,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey,
     handleClipStateChange, handleClipRerendered, flushClipState,
@@ -178,6 +180,8 @@ function App() {
                 <span className="text-muted">
                   {llmProvider === 'openai'
                     ? 'Configure seu endpoint compatível com OpenAI nas Configurações para processar vídeos.'
+                    : llmProvider === 'combo'
+                    ? 'Configure ao menos uma chave da API (Gemini, OpenRouter ou Mistral) nas Configurações para o Combo.'
                     : 'Configure sua chave gratuita da API do Google Gemini para habilitar a análise e criação de cortes.'}
                 </span>
               </div>
@@ -232,6 +236,10 @@ function App() {
               setLlmApiKey={setLlmApiKey}
               llmFallbackModels={llmFallbackModels}
               setLlmFallbackModels={setLlmFallbackModels}
+              openrouterApiKey={openrouterApiKey}
+              setOpenrouterApiKey={setOpenrouterApiKey}
+              mistralApiKey={mistralApiKey}
+              setMistralApiKey={setMistralApiKey}
             />
           )}
 

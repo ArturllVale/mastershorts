@@ -45,6 +45,8 @@ async def _ensure_tables(prisma):
             """CREATE TABLE IF NOT EXISTS "Job" (
                 "id" TEXT NOT NULL PRIMARY KEY,
                 "status" TEXT NOT NULL DEFAULT 'queued',
+                "source_hash" TEXT,
+                "config_hash" TEXT,
                 "cmd" TEXT,
                 "env" TEXT,
                 "output_dir" TEXT,
@@ -95,6 +97,16 @@ async def _ensure_tables(prisma):
                 await prisma.execute_raw(stmt)
             except Exception:
                 pass
+
+    # Ensure backward-compatible migrations on existing sqlite databases
+    for col_stmt in [
+        'ALTER TABLE "Job" ADD COLUMN "source_hash" TEXT;',
+        'ALTER TABLE "Job" ADD COLUMN "config_hash" TEXT;',
+    ]:
+        try:
+            await prisma.execute_raw(col_stmt)
+        except Exception:
+            pass
 
 async def _get_bg_prisma():
     global _bg_prisma

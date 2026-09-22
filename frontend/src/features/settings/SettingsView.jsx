@@ -1,7 +1,8 @@
 import React from 'react';
-import { Shield, Sparkles, Cpu, Server } from 'lucide-react';
+import { Shield, Sparkles, Cpu, Server, Layers } from 'lucide-react';
 import KeyInput from '../../components/KeyInput';
 import OpenAiEndpointInput from '../../components/OpenAiEndpointInput';
+import ComboEndpointInput from '../../components/ComboEndpointInput';
 
 export default function SettingsView({
   isManaged,
@@ -19,6 +20,10 @@ export default function SettingsView({
   setLlmApiKey,
   llmFallbackModels = '',
   setLlmFallbackModels,
+  openrouterApiKey = '',
+  setOpenrouterApiKey,
+  mistralApiKey = '',
+  setMistralApiKey,
 }) {
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-8 max-w-2xl mx-auto animate-fade">
@@ -69,48 +74,104 @@ export default function SettingsView({
       ) : (
         <div className="space-y-6">
           {/* Provider Selector Switch */}
-          <div className="card p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-0.5">Modelo de IA</p>
-                <p className="text-xs text-ink2">
-                  Escolha qual provedor analisa o conteúdo do vídeo para encontrar momentos virais.
-                </p>
-              </div>
+          <div className="card p-4 sm:p-5 space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">Modelo de IA</p>
+              <p className="text-xs text-ink2">
+                Escolha qual provedor analisa o conteúdo do vídeo para encontrar momentos virais.
+              </p>
+            </div>
 
-              {/* Pill Switch */}
-              <div className="flex bg-paper3 p-1 rounded-btn border border-rule shrink-0 self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setLlmProvider && setLlmProvider('gemini')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-input transition-all ${
-                    llmProvider === 'gemini'
-                      ? 'bg-paper text-ink shadow-sm border border-rule2 font-semibold'
-                      : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  <Sparkles size={13} className={llmProvider === 'gemini' ? 'text-brass' : 'text-muted'} />
-                  Google Gemini
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLlmProvider && setLlmProvider('openai')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-input transition-all ${
-                    llmProvider === 'openai'
-                      ? 'bg-paper text-ink shadow-sm border border-rule2 font-semibold'
-                      : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  <Server size={13} className={llmProvider === 'openai' ? 'text-brass' : 'text-muted'} />
-                  Endpoint OpenAI
-                </button>
-              </div>
+            {/* Responsive 3-Card Option Selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* Option 1: Google Gemini */}
+              <button
+                type="button"
+                onClick={() => setLlmProvider && setLlmProvider('gemini')}
+                className={`p-3 rounded-card border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
+                  llmProvider === 'gemini'
+                    ? 'border-brass bg-paper3/90 shadow-sm'
+                    : 'border-rule bg-paper2/50 hover:border-rule2 hover:bg-paper3/40'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Sparkles size={14} className={llmProvider === 'gemini' ? 'text-brass shrink-0' : 'text-muted shrink-0'} />
+                    <span className="text-xs font-semibold text-ink truncate">Google Gemini</span>
+                  </div>
+                  {llmProvider === 'gemini' && (
+                    <span className="w-2 h-2 rounded-full bg-brass shrink-0" />
+                  )}
+                </div>
+                <p className="text-[11px] text-muted leading-relaxed line-clamp-2">
+                  Chave individual do Google AI Studio (Free Tier).
+                </p>
+              </button>
+
+              {/* Option 2: Endpoint OpenAI */}
+              <button
+                type="button"
+                onClick={() => setLlmProvider && setLlmProvider('openai')}
+                className={`p-3 rounded-card border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
+                  llmProvider === 'openai'
+                    ? 'border-brass bg-paper3/90 shadow-sm'
+                    : 'border-rule bg-paper2/50 hover:border-rule2 hover:bg-paper3/40'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Server size={14} className={llmProvider === 'openai' ? 'text-brass shrink-0' : 'text-muted shrink-0'} />
+                    <span className="text-xs font-semibold text-ink truncate">Endpoint OpenAI</span>
+                  </div>
+                  {llmProvider === 'openai' && (
+                    <span className="w-2 h-2 rounded-full bg-brass shrink-0" />
+                  )}
+                </div>
+                <p className="text-[11px] text-muted leading-relaxed line-clamp-2">
+                  Ollama, LM Studio, vLLM ou servidor compatível.
+                </p>
+              </button>
+
+              {/* Option 3: Combo Free */}
+              <button
+                type="button"
+                onClick={() => setLlmProvider && setLlmProvider('combo')}
+                className={`p-3 rounded-card border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
+                  llmProvider === 'combo'
+                    ? 'border-brass bg-paper3/90 shadow-sm'
+                    : 'border-rule bg-paper2/50 hover:border-rule2 hover:bg-paper3/40'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Layers size={14} className={llmProvider === 'combo' ? 'text-brass shrink-0' : 'text-muted shrink-0'} />
+                    <span className="text-xs font-semibold text-ink truncate">Combo 3-em-1</span>
+                  </div>
+                  <span className="text-[9px] uppercase px-1.5 py-0.5 font-mono bg-paper3 border border-rule text-brass rounded font-semibold shrink-0">
+                    Free
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted leading-relaxed line-clamp-2">
+                  Gemini + OpenRouter + Mistral com fallback.
+                </p>
+              </button>
             </div>
           </div>
 
           {/* Active Provider Configuration */}
           {llmProvider === 'gemini' ? (
             <KeyInput onKeySet={setApiKey} savedKey={apiKey} />
+          ) : llmProvider === 'combo' ? (
+            <ComboEndpointInput
+              savedGeminiKey={apiKey}
+              savedOpenrouterKey={openrouterApiKey}
+              savedMistralKey={mistralApiKey}
+              onSave={({ geminiKey, openrouterKey, mistralKey }) => {
+                if (setApiKey) setApiKey(geminiKey);
+                if (setOpenrouterApiKey) setOpenrouterApiKey(openrouterKey);
+                if (setMistralApiKey) setMistralApiKey(mistralKey);
+              }}
+            />
           ) : (
             <OpenAiEndpointInput
               savedBaseUrl={llmBaseUrl}

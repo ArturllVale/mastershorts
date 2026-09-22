@@ -24,6 +24,7 @@ from core.config import (
     THUMBNAILS_DIR, BILLING_ENABLED, DEBUG_LOGS
 )
 from core.state import MAX_CONCURRENT_JOBS
+from core.path_utils import to_long_path, safe_exists, safe_getsize, safe_getmtime
 from s3_uploader import upload_job_artifacts
 
 if BILLING_ENABLED:
@@ -90,18 +91,23 @@ def _relocate_root_job_artifacts(job_id: str, job_output_dir: str) -> bool:
 def _canonical_clip_file(output_dir, base_name, index):
     """The file to serve for clip ``index``, preferring a derived version."""
     clean = f"{base_name}_clip_{index + 1}.mp4"
+    suffix = f"_clip_{index + 1}.mp4"
     derived = []
     try:
-        if os.path.isdir(output_dir):
-            for f in os.listdir(output_dir):
-                if f.endswith(clean) and (f.startswith("subtitled_") or f.startswith("recut_") or f.startswith("hooked_") or f.startswith("hook_")):
-                    derived.append(os.path.join(output_dir, f))
+        long_out = to_long_path(output_dir)
+        if os.path.isdir(long_out):
+            for f in os.listdir(long_out):
+                if f.endswith(suffix):
+                    if f.startswith("subtitled_") or f.startswith("recut_") or f.startswith("hooked_") or f.startswith("hook_"):
+                        derived.append(os.path.join(output_dir, f))
+                    elif f == clean or f.endswith(clean):
+                        clean = f
     except Exception:
         pass
     if not derived:
         return clean
     # Highest timestamp wins — that's the most recent styling.
-    return os.path.basename(max(derived, key=os.path.getmtime))
+    return os.path.basename(max(derived, key=safe_getmtime))
 
 
 def _clips_actually_rendered(job_id, output_dir, base_name, clips):
@@ -110,12 +116,10 @@ def _clips_actually_rendered(job_id, output_dir, base_name, clips):
     kept = []
     for i, clip in enumerate(clips):
         clip_filename = (ready_files.get(i)
+                         or ready_files.get(str(i))
                          or _canonical_clip_file(output_dir, base_name, i))
         clip_path = os.path.join(output_dir, clip_filename)
-        try:
-            present = os.path.getsize(clip_path) > 0
-        except OSError:
-            present = False
+        present = safe_getsize(clip_path) > 0
         if not present:
             print(f"⚠️  Clip {i + 1} of {job_id} never rendered "
                   f"({clip_filename}) — dropping it from the result.")
@@ -156,6 +160,14 @@ def _reapply_captions(job_id, clip_index, video_path):
         import main as _main
         import recut
         recipe_segments = (clip.get('recipe') or {}).get('segments')
+        # Use single source of truth if edited
+        if clip.get('edited_transcript'):
+            # The edited transcript is already clipped and shifted
+            return _main.auto_caption_clip(
+                video_path, clip['edited_transcript'], 0.0,
+                clip['edited_transcript']['segments'][-1]['end'] if clip['edited_transcript'].get('segments') else clip['end']
+            )
+            
         if recipe_segments:
             v_transcript = recut.virtual_transcript(transcript, recipe_segments)
             return _main.auto_caption_clip(
@@ -176,33 +188,43 @@ def _recover_jobs_from_disk():
         return
     for job_id in entries:
         job_path = os.path.join(OUTPUT_DIR, job_id)
-        if not os.path.isdir(job_path) or job_id in jobs:
+        if not os.path.isdir(to_long_path(job_path)):
+            continue
+        existing_job = jobs.get(job_id)
+        if existing_job and existing_job.get('status') == 'completed' and (existing_job.get('result') or {}).get('clips'):
             continue
         json_files = glob.glob(os.path.join(job_path, "*_metadata.json"))
         if not json_files:
             continue
         try:
-            with open(json_files[0], 'r') as f:
+            with open(to_long_path(json_files[0]), 'r', encoding='utf-8') as f:
                 data = json.load(f)
             base_name = os.path.basename(json_files[0]).replace('_metadata.json', '')
             clips = data.get('shorts', [])
+            recovered_clips = []
             for i, clip in enumerate(clips):
-                if not clip.get('video_url'):
-                    clip['video_url'] = (
-                        f"/videos/{job_id}/"
-                        f"{_canonical_clip_file(job_path, base_name, i)}")
+                cfile = _canonical_clip_file(job_path, base_name, i)
+                cpath = os.path.join(job_path, cfile)
+                if safe_exists(cpath) and safe_getsize(cpath) > 0:
+                    clip_copy = dict(clip)
+                    clip_copy['video_url'] = f"/videos/{job_id}/{cfile}"
+                    recovered_clips.append(clip_copy)
+            if not recovered_clips:
+                continue
             owner = None
             owner_path = os.path.join(job_path, ".owner")
-            if os.path.exists(owner_path):
-                with open(owner_path) as f:
+            if safe_exists(owner_path):
+                with open(to_long_path(owner_path), 'r', encoding='utf-8') as f:
                     raw = f.read().strip()
                 owner = int(raw) if raw.isdigit() else (raw or None)
+            
+            existing_logs = (existing_job or {}).get('logs') or []
             jobs[job_id] = {
                 'status': 'completed',
-                'logs': ["♻️ Job recovered from disk after server restart."],
+                'logs': existing_logs + ["♻️ Job recovered from disk with completed clips."],
                 'output_dir': job_path,
                 'user_id': owner,
-                'result': {'clips': clips, 'cost_analysis': data.get('cost_analysis')},
+                'result': {'clips': recovered_clips, 'cost_analysis': data.get('cost_analysis')},
             }
             recovered += 1
         except Exception as e:
@@ -459,9 +481,32 @@ def retry_job(job_id: str, overrides: dict = None) -> dict:
 
     job['status'] = 'queued'
     job['logs'].append("🔄 Retomando processamento do vídeo...")
-    job.pop('result', None)
-    job.pop('clip_states', None)
-    job.pop('ready_files', None)
+    
+    # Preserve and recover any already rendered clips from disk
+    output_dir = job.get('output_dir') or os.path.join(OUTPUT_DIR, job_id)
+    ready_files = dict(job.get('ready_files') or {})
+    try:
+        json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
+        if json_files:
+            with open(to_long_path(json_files[0]), 'r', encoding='utf-8') as mf:
+                mdata = json.load(mf)
+            base_name = os.path.basename(json_files[0]).replace('_metadata.json', '')
+            clips = mdata.get('shorts', [])
+            recovered_clips = []
+            for i, clip in enumerate(clips):
+                cfile = ready_files.get(i) or ready_files.get(str(i)) or _canonical_clip_file(output_dir, base_name, i)
+                cpath = os.path.join(output_dir, cfile)
+                if safe_exists(cpath) and safe_getsize(cpath) > 0:
+                    ready_files[i] = cfile
+                    ready_files[str(i)] = cfile
+                    clip_copy = dict(clip)
+                    clip_copy['video_url'] = f"/videos/{job_id}/{cfile}"
+                    recovered_clips.append(clip_copy)
+            if recovered_clips:
+                job['ready_files'] = ready_files
+                job['result'] = {'clips': recovered_clips, 'cost_analysis': mdata.get('cost_analysis')}
+    except Exception as e:
+        print(f"⚠️ Notice: Could not inspect existing clips on retry: {e}")
 
     priority = job.get('priority', 0)
     _write_resume_manifest(
@@ -1031,7 +1076,9 @@ def enqueue_output(out, job_id):
                     try:
                         _, index, filename = decoded_line.split(" ", 2)
                         if job_id in jobs:
-                            jobs[job_id].setdefault('ready_files', {})[int(index)] = filename
+                            rf = jobs[job_id].setdefault('ready_files', {})
+                            rf[int(index)] = filename
+                            rf[str(index)] = filename
                     except ValueError:
                         pass
                     # clip_states: separate try, uses module-level cache only.
@@ -1150,11 +1197,11 @@ async def run_job(job_id, job_data):
                         ready_files = (jobs.get(job_id) or {}).get('ready_files') or {}
                         ready_clips = []
                         for i, clip in enumerate(clips):
-                             clip_filename = ready_files.get(i)
+                             clip_filename = ready_files.get(i) or ready_files.get(str(i))
                              if not clip_filename:
                                  continue
                              clip_path = os.path.join(output_dir, clip_filename)
-                             if os.path.exists(clip_path) and os.path.getsize(clip_path) > 0:
+                             if safe_exists(clip_path) and safe_getsize(clip_path) > 0:
                                  clip['video_url'] = f"/videos/{job_id}/{clip_filename}"
                                  ready_clips.append(clip)
                         
@@ -1199,7 +1246,12 @@ async def run_job(job_id, job_data):
                 # to the filesystem check when no clip-state markers arrived
                 # (e.g. main.py from an older deploy or a skip-analysis run).
                 from services.clip_state import compute_job_status as _compute_job_status
+                cached_states = _clip_state_cache.get(job_id) or {}
                 clip_states_map = (jobs.get(job_id) or {}).get('clip_states') or {}
+                if cached_states:
+                    clip_states_map = {**clip_states_map, **cached_states}
+                    jobs[job_id]['clip_states'] = clip_states_map
+
                 if clip_states_map:
                     clip_statuses = list(clip_states_map.values())
                     final_status = _compute_job_status(clip_statuses)
@@ -1207,7 +1259,13 @@ async def run_job(job_id, job_data):
                     # Legacy fallback: no markers → derive from filesystem
                     final_status = 'completed' if rendered else 'failed'
 
+                if rendered and final_status == 'failed':
+                    final_status = 'completed' if len(rendered) == len(clips) else 'partial'
+
                 jobs[job_id]['status'] = final_status
+
+                if rendered:
+                    jobs[job_id]['result'] = {'clips': rendered, 'cost_analysis': cost_analysis}
 
                 if final_status == 'failed' and not rendered:
                     jobs[job_id]['logs'].append(
@@ -1221,7 +1279,6 @@ async def run_job(job_id, job_data):
                         jobs[job_id]['logs'].append(
                             f"⚠️ Job finished partially: {len(rendered)} clips ready, "
                             f"{n_failed} failed.")
-                    jobs[job_id]['result'] = {'clips': rendered, 'cost_analysis': cost_analysis}
             else:
                 jobs[job_id]['status'] = 'failed'
                 jobs[job_id]['logs'].append("No metadata file generated.")

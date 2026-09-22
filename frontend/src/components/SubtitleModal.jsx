@@ -45,6 +45,7 @@ export default function SubtitleModal({
     );
     const [fontName, setFontName] = useState(initStyle.fontFamily || 'Anton');
     const [fontColor, setFontColor] = useState(initStyle.fontColor || '#FFFFFF');
+    const [activeTextColor, setActiveTextColor] = useState(initStyle.activeTextColor || '#FFFFFF');
     const [highlightColor, setHighlightColor] = useState(initStyle.highlightColor || '#FFE500');
     const [borderColor, setBorderColor] = useState(initStyle.borderColor || '#000000');
     const [borderWidth, setBorderWidth] = useState(
@@ -76,8 +77,9 @@ export default function SubtitleModal({
         if (p.fontSize) setFontSize(p.fontSize);
         if (p.marginV != null) setMarginV(p.marginV);
         setFontColor(p.fontColor || '#FFFFFF');
+        if (p.activeTextColor) setActiveTextColor(p.activeTextColor);
+        if (p.bgColor) setBgColor(p.bgColor);
         setBgOpacity(p.bgOpacity || 0);
-        // Keep the Remotion preview in sync with the burned look
         setAnimation(p.style === 'karaoke' ? (p.effect === 'pop' ? 'pop' : p.effect === 'glow' ? 'word-highlight' : 'karaoke') : 'none');
     };
 
@@ -119,16 +121,72 @@ export default function SubtitleModal({
             return;
         }
 
-        // Distribute new words across the time span of original captions
-        const totalDurationMs = originalCaptions[originalCaptions.length - 1].endMs - originalCaptions[0].startMs;
-        const startMs = originalCaptions[0].startMs;
-        const wordDurationMs = totalDurationMs / newWords.length;
-
-        const newCaptions = newWords.map((word, i) => ({
-            text: word,
-            startMs: Math.round(startMs + i * wordDurationMs),
-            endMs: Math.round(startMs + (i + 1) * wordDurationMs),
-        }));
+        const newCaptions = [];
+        const numNew = newWords.length;
+        const numOld = originalCaptions.length;
+        
+        if (numNew === numOld) {
+            // 1:1 mapping: keep exact original timestamps
+            for (let i = 0; i < numNew; i++) {
+                newCaptions.push({
+                    text: newWords[i],
+                    startMs: originalCaptions[i].startMs,
+                    endMs: originalCaptions[i].endMs,
+                });
+            }
+        } else if (numNew > numOld) {
+            // More words than original: distribute new words inside original intervals
+            const ratio = numNew / numOld;
+            let newIndex = 0;
+            for (let i = 0; i < numOld; i++) {
+                const oldCap = originalCaptions[i];
+                const targetEndIndex = Math.min(Math.round((i + 1) * ratio), numNew);
+                const count = targetEndIndex - newIndex;
+                
+                if (count > 0) {
+                    const duration = oldCap.endMs - oldCap.startMs;
+                    const chunkDur = duration / count;
+                    for (let j = 0; j < count; j++) {
+                        newCaptions.push({
+                            text: newWords[newIndex],
+                            startMs: Math.round(oldCap.startMs + j * chunkDur),
+                            endMs: Math.round(oldCap.startMs + (j + 1) * chunkDur),
+                        });
+                        newIndex++;
+                    }
+                }
+            }
+            while (newIndex < numNew) {
+                 const oldCap = originalCaptions[numOld - 1];
+                 newCaptions.push({
+                     text: newWords[newIndex],
+                     startMs: oldCap.startMs,
+                     endMs: oldCap.endMs,
+                 });
+                 newIndex++;
+            }
+        } else {
+            // Fewer words than original: combine old intervals
+            const ratio = numOld / numNew;
+            let oldIndex = 0;
+            for (let i = 0; i < numNew; i++) {
+                const targetEndIndex = Math.min(Math.round((i + 1) * ratio), numOld);
+                if (targetEndIndex > oldIndex) {
+                     newCaptions.push({
+                         text: newWords[i],
+                         startMs: originalCaptions[oldIndex].startMs,
+                         endMs: originalCaptions[targetEndIndex - 1].endMs,
+                     });
+                     oldIndex = targetEndIndex;
+                } else {
+                     newCaptions.push({
+                         text: newWords[i],
+                         startMs: originalCaptions[oldIndex].startMs,
+                         endMs: originalCaptions[oldIndex].endMs,
+                     });
+                }
+            }
+        }
         setCaptions(newCaptions);
     };
 
@@ -142,6 +200,7 @@ export default function SubtitleModal({
             fontFamily: fontName,
             fontSize: fontSize * 1.8, // Scale up for 1080p preview
             fontColor,
+            activeTextColor,
             highlightColor,
             borderColor,
             borderWidth: borderWidth * 1.5,
@@ -454,6 +513,31 @@ export default function SubtitleModal({
                             </div>
                         </div>
 
+                        {/* Active Text Color (Only for Karaoke/Fundo) */}
+                        {animation === 'karaoke' && (
+                            <div className="animate-fade mt-4">
+                                <p className="eyebrow mb-2">Cor do texto destacado</p>
+                                <div className="flex flex-wrap items-center gap-2.5" style={{ paddingLeft: '1em' }}>
+                                    {COLOR_PRESETS.map((c) => {
+                                        const col = c.color || c.value;
+                                        return (
+                                            <button
+                                                key={`atc-${col}`}
+                                                onClick={() => setActiveTextColor(col)}
+                                                className={swatchClass(activeTextColor === col)}
+                                                style={{ backgroundColor: col }}
+                                                title={c.label}
+                                            />
+                                        );
+                                    })}
+                                    <label className="w-6 h-6 rounded-full border border-dashed border-rule2 cursor-pointer flex items-center justify-center hover:border-brass transition-colors overflow-hidden relative" title="Cor personalizada">
+                                        <span className="text-xs text-muted leading-none">+</span>
+                                        <input type="color" value={activeTextColor} onChange={(e) => setActiveTextColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Border / Outline */}
                         <div>
                             <p className="eyebrow mb-2">Borda / Contorno</p>
@@ -540,6 +624,7 @@ export default function SubtitleModal({
                                 baseOpacity,
                                 uppercase,
                                 highlightColor,
+                                activeTextColor,
                                 max_chars: 16,
                                 max_duration: 1.4,
                                 // Remotion data

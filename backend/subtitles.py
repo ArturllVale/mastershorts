@@ -412,6 +412,12 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
         # frame caught mid-animation read as a sizing bug rather than a beat.
         active_prefix = (f"{{\\c{highlight_inline}"
                          f"\\fscx90\\fscy90\\t(0,110,\\fscx108\\fscy108)}}")
+    elif effect == "karaoke":
+        # In ASS, drawing a box around a single word inline is extremely complex.
+        # We approximate the 'fundo' by giving the active word a thick, opaque outline.
+        karaoke_bord = max(6, int(outline_width) + 4)
+        active_prefix = (f"{{\\c{_hex_to_ass_inline_color(bg_color, fallback='000000')}"
+                         f"\\3c{highlight_inline}\\bord{karaoke_bord}\\blur0}}")
     else:
         active_prefix = f"{{\\c{highlight_inline}}}"
 

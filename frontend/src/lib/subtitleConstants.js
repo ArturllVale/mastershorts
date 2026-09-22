@@ -36,87 +36,75 @@ export const POSITION_OPTIONS = [
 
 export const CAPTION_PRESETS = [
   {
-    id: 'auto',
-    label: 'Auto (Anton)',
+    id: 'viral-beast',
+    label: 'Viral Beast',
     style: 'karaoke',
     effect: 'pop',
-    highlightColor: '#FFE500',
+    highlightColor: '#FFE500', // Yellow
     fontColor: '#FFFFFF',
     baseOpacity: 1.0,
     uppercase: true,
     fontName: 'Anton',
-    borderWidth: 4,
-    fontSize: 44,
+    borderWidth: 6,
+    fontSize: 92,
     marginV: 43
   },
   {
-    id: 'montserrat',
-    label: 'Montserrat',
+    id: 'tiktok-box',
+    label: 'TikTok Box',
     style: 'karaoke',
-    effect: 'pop',
-    highlightColor: '#00FF66',
-    fontColor: '#FFFFFF',
+    effect: 'karaoke', // Fundo
+    highlightColor: '#0066FF', // Blue bg for active like the user requested
+    fontColor: '#FFFFFF', // White text for inactive
+    activeTextColor: '#FFFFFF', // White text for active word
+    bgColor: '#FFFFFF', 
     baseOpacity: 1.0,
+    uppercase: false,
+    fontName: 'Inter Black',
+    borderWidth: 0,
+    fontSize: 82,
+    marginV: 50
+  },
+  {
+    id: 'neon-glow',
+    label: 'Neon Glow',
+    style: 'karaoke',
+    effect: 'glow',
+    highlightColor: '#00FF66', // Neon Green
+    fontColor: '#FFFFFF',
+    baseOpacity: 0.65,
     uppercase: true,
     fontName: 'Montserrat',
-    borderWidth: 4,
-    fontSize: 42,
-    marginV: 43
+    borderWidth: 2,
+    fontSize: 86,
+    marginV: 45
   },
   {
-    id: 'inter',
-    label: 'Inter Black',
+    id: 'impact-cyan',
+    label: 'Impacto Ciano',
     style: 'karaoke',
     effect: 'pop',
     highlightColor: '#00E5FF',
     fontColor: '#FFFFFF',
     baseOpacity: 1.0,
     uppercase: true,
-    fontName: 'Inter Black',
-    borderWidth: 4,
-    fontSize: 42,
-    marginV: 43
-  },
-  {
-    id: 'neon',
-    label: 'Neon Glow',
-    style: 'karaoke',
-    effect: 'glow',
-    highlightColor: '#FF3366',
-    fontColor: '#FFFFFF',
-    baseOpacity: 0.75,
-    uppercase: true,
     fontName: 'Anton',
-    borderWidth: 3,
-    fontSize: 44,
+    borderWidth: 5,
+    fontSize: 90,
     marginV: 43
   },
   {
     id: 'elegante',
-    label: 'Elegante',
+    label: 'Elegante (Podcast)',
     style: 'karaoke',
-    effect: 'pop',
+    effect: 'none',
     highlightColor: '#FFD700',
     fontColor: '#FFFFFF',
-    baseOpacity: 1.0,
+    baseOpacity: 0.9,
     uppercase: false,
     fontName: 'Noto Serif',
-    borderWidth: 3,
-    fontSize: 40,
-    marginV: 43
-  },
-  {
-    id: 'classico',
-    label: 'Clássico',
-    style: 'classic',
-    effect: 'none',
-    highlightColor: '#FFFFFF',
-    fontColor: '#FFFFFF',
-    baseOpacity: 1.0,
-    uppercase: false,
-    fontName: 'Montserrat',
-    borderWidth: 3,
-    fontSize: 36,
+    borderWidth: 2,
+    fontSize: 78,
     marginV: 43
   }
 ];

@@ -9,7 +9,40 @@ import time
 import glob
 import shutil
 import re
+import requests
 from typing import Optional, List, Dict, Any
+
+async def call_render_service(job_id: str, clip_index: int, video_url: str, duration_frames: int, fps: float, width: int, height: int, subtitles: dict, hook: dict = None):
+    url = "http://localhost:3100/render"
+    payload = {
+        "jobId": job_id,
+        "clipIndex": clip_index,
+        "props": {
+            "videoUrl": video_url,
+            "durationInFrames": duration_frames,
+            "fps": fps,
+            "width": width,
+            "height": height,
+            "subtitles": subtitles,
+            "hook": hook
+        }
+    }
+    # Fire the request
+    res = requests.post(url, json=payload, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+    render_id = data["renderId"]
+
+    # Poll
+    while True:
+        status_res = requests.get(f"http://localhost:3100/render/{render_id}", timeout=10)
+        status_res.raise_for_status()
+        sdata = status_res.json()
+        if sdata["status"] == "done":
+            return sdata["outputUrl"]
+        elif sdata["status"] == "error":
+            raise Exception(sdata.get("error", "Render failed"))
+        await asyncio.sleep(1.0)
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Body, Form, File, UploadFile
 from pydantic import BaseModel
@@ -257,16 +290,20 @@ async def get_clip_transcript(job_id: str, clip_index: int, request: Request):
         clip_start = clip_data.get('start', 0)
         clip_end = clip_data.get('end', 0)
 
-    # Extract words within clip range and convert to CaptionWord format
-    captions = []
-    for segment in transcript.get('segments', []):
-        for word_info in segment.get('words', []):
-            if word_info['end'] > clip_start and word_info['start'] < clip_end:
-                captions.append({
-                    "text": word_info.get('word', '').strip(),
-                    "startMs": int((max(0, word_info['start'] - clip_start)) * 1000),
-                    "endMs": int((max(0, word_info['end'] - clip_start)) * 1000),
-                })
+    # Use edited captions if they exist, to provide a single source of truth
+    if clip_data.get('edited_captions'):
+        captions = clip_data['edited_captions']
+    else:
+        # Extract words within clip range and convert to CaptionWord format
+        captions = []
+        for segment in transcript.get('segments', []):
+            for word_info in segment.get('words', []):
+                if word_info['end'] > clip_start and word_info['start'] < clip_end:
+                    captions.append({
+                        "text": word_info.get('word', '').strip(),
+                        "startMs": int((max(0, word_info['start'] - clip_start)) * 1000),
+                        "endMs": int((max(0, word_info['end'] - clip_start)) * 1000),
+                    })
 
     duration_sec = clip_end - clip_start
 
@@ -1195,19 +1232,57 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
         if not success:
              raise HTTPException(status_code=400, detail="No words found for this clip range.")
 
-        # 2. Burn Subtitles
-        # Run in thread pool
-        def run_burn():
-             burn_subtitles(input_path, srt_path, output_path,
-                           alignment=req.position, fontsize=req.font_size,
-                           font_name=req.font_name, font_color=req.font_color,
-                           border_color=req.border_color, border_width=req.border_width,
-                           bg_color=req.bg_color, bg_opacity=req.bg_opacity,
-                           margin_v=getattr(req, 'margin_v', 43))
-        
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, run_burn)
-        
+        # 2. Burn Subtitles via Remotion
+        import cv2
+        cap = cv2.VideoCapture(input_path)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1080
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1920
+        cap.release()
+
+        async def run_remotion():
+            if req.remotion:
+                remotion_payload = req.remotion
+            else:
+                remotion_payload = {
+                    "captions": clip_data.get('edited_captions') or [],
+                    "position": req.position,
+                    "style": {
+                        "fontFamily": req.font_name,
+                        "fontSize": req.font_size * 1.8,
+                        "fontColor": req.font_color,
+                        "highlightColor": req.highlight_color,
+                        "borderColor": req.border_color,
+                        "borderWidth": req.border_width * 1.5,
+                        "bgColor": req.bg_color,
+                        "bgOpacity": req.bg_opacity,
+                        "animation": req.effect,
+                        "marginV": getattr(req, 'margin_v', 43),
+                        "baseOpacity": getattr(req, 'base_opacity', 1.0),
+                        "uppercase": getattr(req, 'uppercase', True),
+                    }
+                }
+            # Remotion handles videoUrl internally in the render-worker using output path routing
+            # It expects something like "/videos/job_id/filename.mp4"
+            video_url = f"/videos/{req.job_id}/{filename}"
+            output_url = await call_render_service(
+                job_id=req.job_id,
+                clip_index=req.clip_index,
+                video_url=video_url,
+                duration_frames=frame_count,
+                fps=fps,
+                width=width,
+                height=height,
+                subtitles=remotion_payload,
+                hook=clip_data.get('auto_hook')
+            )
+            # Copy or rename the result to the expected output_path
+            import shutil
+            shutil.move(output_url, output_path)
+
+        await run_remotion()
+
     except Exception as e:
         print(f"❌ Subtitle Error: {e}")
         if reservation_id:
@@ -1226,6 +1301,15 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
     try:
         if req.clip_index < len(clips):
             clips[req.clip_index]['video_url'] = f"/videos/{req.job_id}/{output_filename}"
+            
+            # Save single source of truth for subtitles
+            if req.words:
+                clips[req.clip_index]['edited_captions'] = [
+                    {"text": w.text, "startMs": w.startMs, "endMs": w.endMs}
+                    for w in req.words if w.text.strip()
+                ]
+                clips[req.clip_index]['edited_transcript'] = sub_transcript
+            
             # Update the main data structure
             data['shorts'] = clips
             
@@ -1370,12 +1454,39 @@ async def add_hook(req: HookRequest, request: Request):
             request, hook_minutes, req.job_id, "hook")
 
         try:
-            # Run in thread pool
-            def run_hook():
-                add_hook_to_video(input_path, req.text, output_path, position=req.position, font_scale=font_scale, duration=req.duration_seconds, style=req.style)
+            # Run via Remotion
+            import cv2
+            cap = cv2.VideoCapture(input_path)
+            fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1080
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 1920
+            cap.release()
 
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, run_hook)
+            async def run_remotion():
+                hook_payload = {
+                    "text": req.text,
+                    "style": req.style,
+                    "position": req.position,
+                    "duration_seconds": req.duration_seconds
+                }
+                video_url = f"/videos/{req.job_id}/{filename}"
+                output_url = await call_render_service(
+                    job_id=req.job_id,
+                    clip_index=req.clip_index,
+                    video_url=video_url,
+                    duration_frames=frame_count,
+                    fps=fps,
+                    width=width,
+                    height=height,
+                    subtitles=None, # _reapply_captions handles subtitles layer later
+                    hook=hook_payload
+                )
+                import shutil
+                shutil.move(output_url, output_path)
+
+            await run_remotion()
+
 
         except Exception as e:
             print(f"❌ Hook Error: {e}")

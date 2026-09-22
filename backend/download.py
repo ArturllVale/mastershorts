@@ -1,11 +1,26 @@
 import os
 import re
+import sys
 import time
 import unicodedata
 import yt_dlp
 from urllib.parse import urlparse
+import json
+import glob
+from core.path_utils import to_long_path, safe_exists, safe_getsize
 
-MAX_TITLE_BYTES = 150
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
+MAX_TITLE_BYTES = 50
 
 def truncate_bytes(s, max_bytes):
     b = s.encode('utf-8')
@@ -73,6 +88,45 @@ def download_youtube_video(url, output_dir="."):
     if reason:
         raise NotASingleVideo(f"This link is {reason}.")
 
+    # Fast reuse: if output_dir already has the source video from an earlier run, skip download
+    try:
+        # 1. Check metadata.json
+        meta_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
+        if meta_files:
+            try:
+                with open(to_long_path(meta_files[0]), 'r', encoding='utf-8') as mf:
+                    mdata = json.load(mf)
+                src_name = mdata.get('source_video')
+                if src_name:
+                    src_path = os.path.join(output_dir, os.path.basename(src_name))
+                    if safe_exists(src_path) and safe_getsize(src_path) > 1024 * 512:
+                        base_name = os.path.splitext(os.path.basename(src_path))[0]
+                        print(f"♻️ Vídeo fonte já baixado encontrado (metadata): {src_path} — pulando download.", flush=True)
+                        return src_path, base_name
+            except Exception:
+                pass
+
+        # 2. Check output_dir directly for any existing source video
+        long_out = to_long_path(output_dir)
+        if os.path.isdir(long_out):
+            for f in os.listdir(long_out):
+                if f.endswith(('.mp4', '.mkv', '.webm')) and not any(p in f for p in ('_clip_', 'subtitled_', 'hooked_', 'temp_', 'recut_')):
+                    cand_path = os.path.join(output_dir, f)
+                    if safe_getsize(cand_path) > 1024 * 512:
+                        try:
+                            import cv2
+                            probe = cv2.VideoCapture(to_long_path(cand_path))
+                            is_valid = probe.isOpened() and int(probe.get(cv2.CAP_PROP_FRAME_COUNT)) > 0
+                            probe.release()
+                            if is_valid:
+                                base_name = os.path.splitext(f)[0]
+                                print(f"♻️ Vídeo fonte já baixado encontrado: {cand_path} — pulando download.", flush=True)
+                                return cand_path, base_name
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+
     print(f"🔍 Debug: yt-dlp version: {yt_dlp.version.__version__}")
     print("📥 Iniciando download do vídeo...", flush=True)
     step_start_time = time.time()
@@ -121,7 +175,7 @@ def download_youtube_video(url, output_dir="."):
                 'best[height<=1080][ext=mp4]/best[ext=mp4]/best')
 
     def _base_opts(extractor_args, proxy, cookies=True):
-        return {
+        opts = {
             'quiet': False, 'verbose': True, 'no_warnings': False,
             'cookiefile': cookies_path if (cookies and cookies_path) else None,
             'proxy': proxy, 'socket_timeout': 30, 'retries': 10, 'fragment_retries': 10,
@@ -133,13 +187,15 @@ def download_youtube_video(url, output_dir="."):
             'retry_sleep_functions': {'file_access': lambda n: 0.5 * (2 ** min(n, 3))},
             'windowsfilenames': True,
             'extractor_args': extractor_args,
-            'http_headers': {
+        }
+        if not is_youtube_url(url):
+            opts['http_headers'] = {
                 'User-Agent': (
                     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                     'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 ),
-            },
-        }
+            }
+        return opts
 
     _dl_bytes = {"total": 0, "partial": 0}
 
@@ -171,10 +227,10 @@ def download_youtube_video(url, output_dir="."):
         # Reuse existing downloaded video if present and valid (e.g. from an interrupted or retried run)
         for ext in ('mp4', 'mkv', 'webm'):
             existing_candidate = os.path.join(output_dir, f'{sanitized}.{ext}')
-            if os.path.isfile(existing_candidate) and os.path.getsize(existing_candidate) > 1024 * 512:
+            if safe_exists(existing_candidate) and safe_getsize(existing_candidate) > 1024 * 512:
                 try:
                     import cv2
-                    probe = cv2.VideoCapture(existing_candidate)
+                    probe = cv2.VideoCapture(to_long_path(existing_candidate))
                     is_valid = probe.isOpened() and int(probe.get(cv2.CAP_PROP_FRAME_COUNT)) > 0
                     probe.release()
                     if is_valid:
@@ -184,14 +240,16 @@ def download_youtube_video(url, output_dir="."):
                     pass
 
         try:
-            for f in os.listdir(output_dir):
-                if f.startswith(sanitized) and not f.endswith(('.json', '.ass')):
-                    target = os.path.join(output_dir, f)
-                    if os.path.isfile(target):
-                        try:
-                            os.remove(target)
-                        except Exception as rm_err:
-                            print(f"⚠️ Notice: Could not remove existing file {target}: {rm_err}")
+            long_out = to_long_path(output_dir)
+            if os.path.isdir(long_out):
+                for f in os.listdir(long_out):
+                    if f.startswith(sanitized) and not f.endswith(('.json', '.ass')) and not any(k in f for k in ('_clip_', 'subtitled_', 'hooked_', 'temp_', 'recut_')):
+                        target = os.path.join(output_dir, f)
+                        if os.path.isfile(to_long_path(target)):
+                            try:
+                                os.remove(to_long_path(target))
+                            except Exception as rm_err:
+                                print(f"⚠️ Notice: Could not remove existing file {target}: {rm_err}")
         except Exception:
             pass
         dl_opts = {
@@ -265,6 +323,23 @@ def download_youtube_video(url, output_dir="."):
         if sanitized_title is not None:
             break
 
+    if sanitized_title is None and is_youtube_url(url):
+        try:
+            print("📥 Download attempt: fallback-android (direct)", flush=True)
+            ea_android = {'youtube': {'player_client': ['android', 'ios']}}
+            sanitized_title = _attempt(ea_android, _hd_fmt_for(False), None, cookies=False)
+            if sanitized_title is not None:
+                attempt_log.append({"label": "fallback-android", "ok": True,
+                                    "bytes": _dl_bytes["total"] + _dl_bytes["partial"],
+                                    "paid": False})
+                print("✅ Download succeeded (fallback-android).", flush=True)
+        except Exception as e_android:
+            last_err = e_android
+            attempt_log.append({"label": "fallback-android", "ok": False,
+                                "bytes": _dl_bytes["total"] + _dl_bytes["partial"],
+                                "paid": False, "error": str(e_android)[:300]})
+            print(f"⚠️  Download attempt 'fallback-android' failed: {str(e_android)[:200]}", flush=True)
+
     if sanitized_title is None:
         if last_err and "Sign in to confirm" in str(last_err):
              raise Exception("YouTube is demanding an account login (age restriction or bot check).")
@@ -280,13 +355,25 @@ def download_youtube_video(url, output_dir="."):
     candidates = []
     for ext in ['mp4', 'mkv', 'webm']:
         path = os.path.join(output_dir, f'{sanitized_title}.{ext}')
-        if os.path.exists(path):
+        if safe_exists(path):
             candidates.append(path)
+
+    if not candidates:
+        try:
+            long_out = to_long_path(output_dir)
+            if os.path.isdir(long_out):
+                for f in os.listdir(long_out):
+                    if f.endswith(('.mp4', '.mkv', '.webm')) and not any(k in f for k in ('_clip_', 'subtitled_', 'hooked_', 'recut_', 'temp_')):
+                        cand = os.path.join(output_dir, f)
+                        if safe_getsize(cand) > 1024 * 512:
+                            candidates.append(cand)
+        except Exception:
+            pass
 
     if not candidates:
         raise Exception(f"Expected to find downloaded file for '{sanitized_title}' in {output_dir}, but found none.")
 
-    video_path = max(candidates, key=os.path.getsize)
+    video_path = max(candidates, key=safe_getsize)
     print(f"✅ Download finalizado em {time.time() - step_start_time:.2f}s: {video_path}", flush=True)
 
     return video_path, sanitized_title

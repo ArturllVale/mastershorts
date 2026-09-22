@@ -171,17 +171,17 @@ export default function DashboardView({
       )}
 
       {(status === 'processing' || status === 'complete' || status === 'error') && (
-        <div className="h-full flex flex-col md:flex-row gap-3 md:gap-4 p-3 md:p-4 overflow-y-auto md:overflow-y-hidden custom-scrollbar animate-fade">
+        <div className="h-full flex flex-col md:flex-row gap-3 md:gap-4 p-2.5 sm:p-3 md:p-4 overflow-y-auto md:overflow-hidden custom-scrollbar animate-fade">
           
           {status !== 'complete' && (
-            <div className="w-full md:w-[55%] lg:w-[60%] md:h-full flex flex-col shrink-0 md:shrink card p-3.5 sm:p-6 md:overflow-y-auto custom-scrollbar transition-all duration-500 ease-out">
-              <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
-                  <Activity className={`text-violet ${status === 'processing' ? 'animate-pulse' : ''}`} size={16} />
-                  Análise de Vídeo em Tempo Real
+            <div className="w-full md:w-[52%] lg:w-[55%] xl:w-[58%] md:h-full flex flex-col shrink-0 md:shrink card p-3 sm:p-4 lg:p-5 overflow-y-auto custom-scrollbar transition-all duration-500 ease-out">
+              <div className="mb-2.5 sm:mb-3 flex items-center justify-between gap-2 shrink-0">
+                <h2 className="text-xs sm:text-sm font-semibold text-ink flex items-center gap-1.5 sm:gap-2 min-w-0 truncate">
+                  <Activity className={`text-violet shrink-0 ${status === 'processing' ? 'animate-pulse' : ''}`} size={15} />
+                  <span className="truncate">Análise de Vídeo em Tempo Real</span>
                 </h2>
-                <div className="flex items-center gap-2">
-                  <span className={status === 'processing' ? 'badge-brass' : 'badge-danger'}>
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 ${status === 'processing' ? 'badge-brass' : 'badge-danger'}`}>
                     {status === 'processing' ? 'PROCESSANDO' : status === 'error' ? 'ERRO' : status.toUpperCase()}
                   </span>
                   {status === 'error' && handleRetry && (
@@ -189,18 +189,18 @@ export default function DashboardView({
                       type="button"
                       onClick={handleRetry}
                       disabled={isRetrying}
-                      className="px-3 py-1 text-xs font-semibold text-white bg-violet hover:bg-violet/90 rounded-input transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      className="px-2.5 py-1 text-xs font-semibold text-white bg-violet hover:bg-violet/90 rounded-input transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50"
                       title="Continuar processamento mantendo o progresso atual"
                     >
                       {isRetrying ? (
                         <>
                           <Loader2 size={12} className="animate-spin" />
-                          <span>Retomando…</span>
+                          <span className="hidden sm:inline">Retomando…</span>
                         </>
                       ) : (
                         <>
                           <RefreshCw size={12} />
-                          <span>Continuar</span>
+                          <span className="hidden sm:inline">Continuar</span>
                         </>
                       )}
                     </button>
@@ -209,11 +209,11 @@ export default function DashboardView({
                     <button
                       type="button"
                       onClick={handleReset}
-                      className="px-2.5 py-1 text-xs font-medium text-ink2 hover:text-ink bg-paper2 hover:bg-paper3 border border-rule rounded-input transition-colors flex items-center gap-1.5"
+                      className="px-2 py-1 text-[11px] sm:text-xs font-medium text-ink2 hover:text-ink bg-paper2 hover:bg-paper3 border border-rule rounded-input transition-colors flex items-center gap-1"
                       title="Cancelar ou iniciar um novo vídeo"
                     >
-                      <RotateCcw size={12} />
-                      <span>Cancelar / Novo</span>
+                      <RotateCcw size={11} />
+                      <span>Cancelar</span>
                     </button>
                   )}
                 </div>
@@ -230,9 +230,9 @@ export default function DashboardView({
               )}
 
               {status === 'processing' && (
-                <div className="mb-3 flex items-center gap-2.5 text-xs text-ink2 min-w-0 bg-paper2/80 px-3 py-2 rounded-input border border-rule">
-                  <Loader2 size={15} className="animate-spin text-brass shrink-0" />
-                  <div className="min-w-0 flex-1 flex items-center gap-2">
+                <div className="mb-2 sm:mb-2.5 flex items-center gap-2 text-xs text-ink2 min-w-0 bg-paper2/80 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-input border border-rule shrink-0">
+                  <Loader2 size={14} className="animate-spin text-brass shrink-0" />
+                  <div className="min-w-0 flex-1 flex items-center gap-1.5">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-brass font-semibold shrink-0">Status:</span>
                     <span className="min-w-0 truncate font-mono text-ink text-xs">
                       {lastLog || 'Iniciando processamento…'}
@@ -293,31 +293,31 @@ export default function DashboardView({
               )}
 
               {status === 'processing' && (
-                <div className="my-3">
-                  <StarBanner message="Dica enquanto seus cortes estão sendo gerados:" />
+                <div className="my-2 sm:my-2.5 shrink-0">
+                  <StarBanner message="Dica:" />
                 </div>
               )}
 
-              <div className={`bg-paper rounded-card border border-rule overflow-hidden flex flex-col transition-all duration-300 flex-1 ${logsVisible ? 'min-h-[160px] sm:min-h-[200px]' : 'min-h-0 flex-none'}`}>
+              <div className={`bg-paper rounded-card border border-rule overflow-hidden flex flex-col transition-all duration-300 ${logsVisible ? 'flex-1 min-h-[130px] sm:min-h-[160px]' : 'min-h-0 shrink-0'}`}>
                 <button
                   type="button"
                   onClick={() => setLogsVisible(!logsVisible)}
                   aria-expanded={logsVisible}
-                  className="w-full px-3.5 sm:px-4 py-2.5 border-b border-rule flex items-center justify-between gap-2 bg-paper2 shrink-0 text-left select-none"
+                  className="w-full px-3 py-2 sm:px-3.5 sm:py-2.5 border-b border-rule flex items-center justify-between gap-2 bg-paper2 shrink-0 text-left select-none"
                 >
-                  <span className="readout flex items-center gap-2">
+                  <span className="readout flex items-center gap-1.5 text-[11px]">
                     <Terminal size={12} /> Logs do Sistema
-                    <span className="text-[10px] text-muted normal-case font-normal">(mais recentes no topo)</span>
+                    <span className="text-[10px] text-muted normal-case font-normal hidden sm:inline">(mais recentes no topo)</span>
                   </span>
                   <span className="flex items-center gap-2 text-muted">
                     {!logsVisible && logs.length > 0 && (
-                      <span className="readout normal-case">{logs.length}</span>
+                      <span className="readout normal-case text-[10px]">{logs.length}</span>
                     )}
-                    <ChevronDown size={16} className={logsVisible ? '' : 'rotate-180'} />
+                    <ChevronDown size={14} className={logsVisible ? '' : 'rotate-180'} />
                   </span>
                 </button>
                 {logsVisible && (
-                  <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto font-mono text-[11px] sm:text-xs space-y-1.5 custom-scrollbar text-muted break-words">
+                  <div className="flex-1 p-2.5 sm:p-3.5 overflow-y-auto font-mono text-[11px] sm:text-xs space-y-1 custom-scrollbar text-muted break-words">
                     {status === 'processing' && (
                       <div className="flex items-center gap-2 text-brass text-[11px] pb-1 border-b border-dotted border-white/20 mb-1">
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-brass animate-ping" />
@@ -352,17 +352,17 @@ export default function DashboardView({
             </div>
           )}
 
-          <div className={`${status === 'complete' ? 'w-full' : 'w-full md:w-[45%] lg:w-[40%]'} md:h-full flex flex-col shrink-0 md:shrink card p-3 sm:p-5 xl:p-6 transition-all duration-500 ease-out`}>
-            <div className="mb-4 sm:mb-5 shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-rule/50">
-              <h2 className="text-base sm:text-lg font-semibold text-ink flex flex-wrap items-center gap-2">
+          <div className={`${status === 'complete' ? 'w-full' : 'w-full md:w-[48%] lg:w-[45%] xl:w-[42%]'} md:h-full flex flex-col shrink-0 md:shrink card p-3 sm:p-4 lg:p-5 transition-all duration-500 ease-out`}>
+            <div className="mb-3 sm:mb-4 shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-rule/50">
+              <h2 className="text-sm sm:text-base font-semibold text-ink flex flex-wrap items-center gap-2">
                 <span>Shorts Gerados</span>
                 {results?.clips?.length > 0 && (
-                  <span className="readout bg-paper3 border border-rule px-2.5 py-0.5 rounded-full text-xs">
+                  <span className="readout bg-paper3 border border-rule px-2 py-0.5 rounded-full text-xs">
                     {results.clips.length} Clipes
                   </span>
                 )}
                 {results?.cost_analysis && !isManaged && (
-                  <span className="readout bg-paper3 border border-rule px-2.5 py-0.5 rounded-full text-xs" title={`Input: ${results.cost_analysis.input_tokens} | Output: ${results.cost_analysis.output_tokens}`}>
+                  <span className="readout bg-paper3 border border-rule px-2 py-0.5 rounded-full text-xs" title={`Input: ${results.cost_analysis.input_tokens} | Output: ${results.cost_analysis.output_tokens}`}>
                     GEMINI · ${results.cost_analysis.total_cost.toFixed(5)}
                   </span>
                 )}

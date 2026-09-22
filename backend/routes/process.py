@@ -22,6 +22,7 @@ from pydantic import BaseModel
 import llm_backend
 import s3_uploader
 from core.json_utils import read_json_async, write_json_async
+from core.path_utils import to_long_path, safe_exists
 from core.models import *
 from core.config import (
     UPLOAD_DIR, OUTPUT_DIR, MAX_FILE_SIZE_MB, QUALITY_GATE_MIN_HEIGHT, MIN_SOURCE_SECONDS,
@@ -263,6 +264,9 @@ async def process_endpoint(
     req_llm_model = request.headers.get("X-LLM-Model") or request.headers.get("x-llm-model")
     req_llm_key = request.headers.get("X-LLM-API-Key") or request.headers.get("x-llm-api-key")
     req_llm_fallback = request.headers.get("X-LLM-Fallback-Models") or request.headers.get("x-llm-fallback-models")
+    req_llm_provider = request.headers.get("X-LLM-Provider") or request.headers.get("x-llm-provider")
+    req_openrouter_key = request.headers.get("X-OpenRouter-Key") or request.headers.get("x-openrouter-key")
+    req_mistral_key = request.headers.get("X-Mistral-Key") or request.headers.get("x-mistral-key")
 
     ack_flag = str(acknowledged).lower() in ("1", "true", "yes")
     # May be lowered by the paid-proxy budget check in the metering block
@@ -290,6 +294,12 @@ async def process_endpoint(
         captions = body.get("captions")
         upload_id = body.get("upload_id")
         max_minutes = body.get("max_minutes")
+        if not req_llm_provider and body.get("llm_provider"):
+            req_llm_provider = body.get("llm_provider")
+        if not req_openrouter_key and body.get("openrouter_key"):
+            req_openrouter_key = body.get("openrouter_key")
+        if not req_mistral_key and body.get("mistral_key"):
+            req_mistral_key = body.get("mistral_key")
         if not req_llm_base and body.get("llm_base_url"):
             req_llm_base = body.get("llm_base_url")
             req_llm_model = req_llm_model or body.get("llm_model")
@@ -299,7 +309,8 @@ async def process_endpoint(
             req_llm_fallback = body.get("llm_fallback_models")
 
     api_key = await resolve_gemini(request)
-    has_local_llm = bool(req_llm_base) or (llm_backend.active() and not BILLING_ENABLED)
+    has_combo_llm = req_llm_provider in ("combo", "combo_free", "free_combo") and bool(api_key or req_openrouter_key or req_mistral_key)
+    has_local_llm = bool(req_llm_base) or has_combo_llm or (llm_backend.active() and not BILLING_ENABLED)
     if not api_key and not has_local_llm:
         # Self-host with an OpenAI-compatible server configured needs no
         # Google key for the core pipeline: the moment picker runs there and
@@ -408,12 +419,20 @@ async def process_endpoint(
     if not paid_allowed:
         # Daily paid-proxy budget hit: this job runs on the free routes only.
         env.pop("PROXY_URL", None)
-    if api_key and not req_llm_base:
-        env["GEMINI_API_KEY"] = api_key # Override with key from request
-    else:
-        env.pop("GEMINI_API_KEY", None)  # local-LLM job: main.py must not find a stale key
-
-    if req_llm_base:
+    if req_llm_provider in ("combo", "combo_free", "free_combo") or (req_openrouter_key or req_mistral_key):
+        env["LLM_PROVIDER"] = "combo"
+        if api_key:
+            env["GEMINI_API_KEY"] = api_key
+        else:
+            env.pop("GEMINI_API_KEY", None)
+        if req_openrouter_key:
+            env["OPENROUTER_API_KEY"] = req_openrouter_key.strip()
+        if req_mistral_key:
+            env["MISTRAL_API_KEY"] = req_mistral_key.strip()
+        print(f"[llm] job={job_id} provider=combo gemini={'yes' if api_key else 'no'} openrouter={'yes' if req_openrouter_key else 'no'} mistral={'yes' if req_mistral_key else 'no'}")
+    elif req_llm_base:
+        if api_key:
+            env.pop("GEMINI_API_KEY", None)
         env["LLM_PROVIDER"] = "openai"
         env["LLM_BASE_URL"] = req_llm_base.strip().rstrip("/")
         if req_llm_model:
@@ -423,8 +442,13 @@ async def process_endpoint(
         if req_llm_fallback:
             env["LLM_FALLBACK_MODELS"] = req_llm_fallback.strip()
         print(f"[llm] job={job_id} provider=openai url={env['LLM_BASE_URL']} model={env.get('LLM_MODEL', 'default')} fallbacks={env.get('LLM_FALLBACK_MODELS', 'none')}")
-    elif req_llm_fallback:
-        env["LLM_FALLBACK_MODELS"] = req_llm_fallback.strip()
+    else:
+        if api_key:
+            env["GEMINI_API_KEY"] = api_key
+        else:
+            env.pop("GEMINI_API_KEY", None)
+        if req_llm_fallback:
+            env["LLM_FALLBACK_MODELS"] = req_llm_fallback.strip()
     # The stdio fix above only covers this process. main.py prints an emoji on
     # its first line and configures nothing, so on a cp1252 console the child
     # still dies before it renders anything -- the server starts and every job
@@ -903,7 +927,7 @@ async def download_all_clips(job_id: str, request: Request):
         filename = (os.path.basename(url.split('/')[-1]) if url
                     else _canonical_clip_file(output_dir, base_name, i))
         path = os.path.join(output_dir, filename)
-        if filename and os.path.exists(path):
+        if filename and safe_exists(path):
             files.append((i, path))
 
     if not files:
@@ -913,18 +937,19 @@ async def download_all_clips(job_id: str, request: Request):
 
     def build_zip():
         # Videos are already compressed; store instead of deflate for speed.
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_STORED) as zf:
-            for i, path in files:
-                zf.write(path, arcname=f"clip_{i + 1:02d}_{os.path.basename(path)}")
+        long_zip = to_long_path(zip_path)
+        with zipfile.ZipFile(long_zip, 'w', zipfile.ZIP_STORED) as zf:
+            for i, p in files:
+                zf.write(to_long_path(p), arcname=f"clip_{i + 1:02d}_{os.path.basename(p)}")
 
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, build_zip)
 
     return FileResponse(
-        zip_path,
+        to_long_path(zip_path),
         media_type="application/zip",
         filename=f"openshorts_clips_{job_id[:8]}.zip",
-        background=BackgroundTask(os.remove, zip_path),
+        background=BackgroundTask(os.remove, to_long_path(zip_path)),
     )
 
 

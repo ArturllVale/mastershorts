@@ -618,6 +618,11 @@ DESCRIPTION STRATEGY
 
 Create platform-specific copy.
 
+CRITICAL RULE: The title (`video_title_for_youtube_short`) and the descriptions (`video_description_for_tiktok`, `video_description_for_instagram`) MUST BE COMPLETELY INDEPENDENT.
+DO NOT split a single sentence in half, putting the first half as the title and the second half as the description.
+- The TITLE must be a standalone, catchy headline.
+- The DESCRIPTION must be a complete, self-contained thought (starting with a capital letter) that stands entirely on its own.
+
 TIKTOK:
 
 - Short
@@ -744,10 +749,10 @@ The JSON must follow EXACTLY this schema:
     {
       "start": 12.340,
       "end": 37.900,
-      "video_description_for_tiktok": "...",
-      "video_description_for_instagram": "...",
-      "video_title_for_youtube_short": "...",
-      "viral_hook_text": "..."
+      "video_description_for_tiktok": "This is an engaging description with a CTA and hashtags.",
+      "video_description_for_instagram": "This is an engaging description tailored for Instagram.",
+      "video_title_for_youtube_short": "Catchy YouTube Title",
+      "viral_hook_text": "Catchy hook"
     }
   ]
 }

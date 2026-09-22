@@ -36,6 +36,24 @@ export function useApiKeys() {
     return '';
   });
 
+  // OpenRouter API Key - Load encrypted
+  const [openrouterApiKey, setOpenrouterApiKey] = useState(() => {
+    const stored = localStorage.getItem('openrouter_api_key');
+    if (stored) {
+      try { return decrypt(stored); } catch { return stored; }
+    }
+    return '';
+  });
+
+  // Mistral API Key - Load encrypted
+  const [mistralApiKey, setMistralApiKey] = useState(() => {
+    const stored = localStorage.getItem('mistral_api_key');
+    if (stored) {
+      try { return decrypt(stored); } catch { return stored; }
+    }
+    return '';
+  });
+
   // Saving methods that persist to localStorage (encrypting as needed)
   const saveApiKey = (key) => {
     setApiKey(key);
@@ -85,6 +103,24 @@ export function useApiKeys() {
     localStorage.setItem('llm_fallback_models', models);
   };
 
+  const saveOpenrouterApiKey = (key) => {
+    setOpenrouterApiKey(key);
+    if (!key) {
+      localStorage.removeItem('openrouter_api_key');
+    } else if (!key.startsWith('ENC:')) {
+      localStorage.setItem('openrouter_api_key', encrypt(key));
+    }
+  };
+
+  const saveMistralApiKey = (key) => {
+    setMistralApiKey(key);
+    if (!key) {
+      localStorage.removeItem('mistral_api_key');
+    } else if (!key.startsWith('ENC:')) {
+      localStorage.setItem('mistral_api_key', encrypt(key));
+    }
+  };
+
   return {
     apiKey,
     setApiKey: saveApiKey,
@@ -103,6 +139,12 @@ export function useApiKeys() {
     llmFallbackModels,
     setLlmFallbackModels: saveLlmFallbackModels,
     saveLlmFallbackModels,
+    openrouterApiKey,
+    setOpenrouterApiKey: saveOpenrouterApiKey,
+    saveOpenrouterApiKey,
+    mistralApiKey,
+    setMistralApiKey: saveMistralApiKey,
+    saveMistralApiKey,
     uploadPostKey,
     setUploadPostKey,
     saveUploadPostKey,

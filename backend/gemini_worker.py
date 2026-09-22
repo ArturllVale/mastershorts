@@ -23,7 +23,6 @@ class ScoredWindowModel(BaseModel):
     start: float
     end: float
     score: int
-    reason: str
 
 
 class ScoreResponse(BaseModel):
@@ -36,10 +35,6 @@ class DetailClipModel(BaseModel):
     source_window_id: str
     predicted_score: int
     explanation: str
-    video_description_for_tiktok: str
-    video_description_for_instagram: str
-    video_title_for_youtube_short: str
-    viral_hook_text: str
 
 
 class DetailResponse(BaseModel):
@@ -271,15 +266,14 @@ Return only:
       "id": "<window id>",
       "start": <number>,
       "end": <number>,
-      "score": <integer 0-100>,
-      "reason": "<very short reason>"
+      "score": <integer 0-100>
     }}
   ]
 }}
 """
 
 DETAIL_PROMPT_TEMPLATE = """
-You are a senior short-form video editor and viral copywriter.
+You are a senior short-form video editor.
 Choose the BEST short clips from these shortlisted candidate windows.
 
 CLIP RULES:
@@ -309,26 +303,9 @@ CLIP RULES:
   stronger one and drop the other. Two clips on the same broad topic are fine
   as long as each lands its own moment.
 
-HOOK PLAYBOOK — pick the strongest fitting pattern for `viral_hook_text` (max 10 words):
-- Open question: "Why does everyone get this wrong?"
-- Hot take / controversy: "Stop doing this. Seriously."
-- Number / fact shock: "97% of people miss this."
-- Story loop: "This one email almost ruined me."
-- POV / pattern interrupt: "POV: you finally understand it."
-(These are English PATTERNS — always write the actual hook in TRANSCRIPT_LANGUAGE.)
-- ABOUT THIS MOMENT, NOT THE VIDEO: the hook and the title name the concrete
-  thing that happens inside this clip — the tool being set up, the action,
-  the number, the claim, the name. A line that could sit on any clip of this
-  video ("I automated my clips with AI") is wrong. If nothing concrete can be
-  named, quote the clip's strongest sentence instead of summarising the topic.
-
-COPY RULES — ALL text fields (descriptions, title, hook, explanation) MUST be written in TRANSCRIPT_LANGUAGE ({language}):
-- STRICT BAN ON PLACEHOLDERS: NEVER use the word "placeholder", empty strings "", or template tokens. Every single clip MUST have real, engaging copy in {language}.
-- `viral_hook_text`: max 10 words, punchy on-screen hook overlay with 1 emoji. NEVER "placeholder".
-- Descriptions (TikTok + Instagram): 1-2 punchy sentences in {language} that tease the payoff without spoiling it, then 3-5 topically relevant hashtags. No generic hashtag spam.
-- `video_title_for_youtube_short`: max 100 chars, curiosity-driven, no fake claims, in {language}.
+COPY RULES:
 - `predicted_score`: honest 0-100 estimate of viral potential.
-- `explanation`: a short 1-2 sentence justification for the score. Why is this specific moment viral? (e.g. "This clip addresses a common pain point with a surprising hot take").
+- `explanation`: a short 1-2 sentence justification for the score in TRANSCRIPT_LANGUAGE ({language}). Why is this specific moment viral?
 
 TRANSCRIPT_LANGUAGE: {language}
 VIDEO_DURATION_SECONDS: {video_duration}
@@ -343,15 +320,12 @@ Return only:
       "end": <number>,
       "source_window_id": "<window id>",
       "predicted_score": <integer 0-100>,
-      "explanation": "<short justification max 20 words>",
-      "video_description_for_tiktok": "<description + hashtags>",
-      "video_description_for_instagram": "<description + hashtags>",
-      "video_title_for_youtube_short": "<title max 100 chars>",
-      "viral_hook_text": "<short overlay max 10 words>"
+      "explanation": "<short justification max 20 words>"
     }}
   ]
 }}
 """
+
 from core.json_utils import parse_json_response_text
 
 class GeminiBlockedError(ValueError):

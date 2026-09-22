@@ -109,6 +109,7 @@ JUMP_CONFIRM_FRAMES = max(int(os.environ.get("JUMP_CONFIRM_FRAMES", "3")), 1)
 from reframe_v1 import process_video_to_vertical, create_general_frame, analyze_scenes_strategy, detect_scenes, get_video_resolution
 from postprocessing import finalize_clip_passthrough, auto_caption_clip, auto_hook_clip, apply_watermark, render_clip
 from checkpointing import TRANSCRIPT_CHECKPOINT, _checkpoint_source_key, save_transcript_checkpoint, load_transcript_checkpoint, clear_transcript_checkpoint
+from core.path_utils import to_long_path, safe_exists, safe_getsize, safe_getmtime
 from viral_analysis import _run_gemini_stage, _run_stage_split, score_batch_size, detail_batch_size, get_viral_clips, speech_is_sparse, get_visual_clips, _compute_visual_clips, transcribe_video
 from download import download_youtube_video
 
@@ -317,107 +318,142 @@ if __name__ == '__main__':
                   f"switching to visual analysis.")
             transcript = None
 
-        # 4. Gemini Analysis (transcript-driven, or vision for silent videos)
-        print("🤖 Analisando momentos virais com Inteligência Artificial...", flush=True)
-        if transcript is not None:
-            clips_data = get_viral_clips(transcript, duration, video_title=video_title)
-        else:
-            clips_data = get_visual_clips(input_video, duration)
+        # Check if metadata already exists from prior run in output_dir
+        clips_data = None
+        existing_meta = glob.glob(os.path.join(output_dir, "*_metadata.json"))
+        if existing_meta:
+            try:
+                with open(to_long_path(existing_meta[0]), 'r', encoding='utf-8') as mf:
+                    cand_data = json.load(mf)
+                if cand_data and cand_data.get('shorts'):
+                    clips_data = cand_data
+                    metadata_file = existing_meta[0]
+                    print(f"♻️ Reutilizando análise e {len(clips_data['shorts'])} momentos virais já identificados!", flush=True)
+            except Exception:
+                clips_data = None
 
-        if not clips_data or 'shorts' not in clips_data:
-            # Deliberately fail instead of reframing the whole video: that path
-            # wrote no metadata.json, so app.py marked the job failed anyway
-            # (app.py:1087) after burning GPU on a render nobody could see.
-            raise RuntimeError(
-                "Clip detection failed — the AI model did not return usable clips for this video.")
-        else:
-            print(f"🔥 {len(clips_data['shorts'])} momentos virais identificados!", flush=True)
-            from clip_metadata import clean_or_generate_clip_metadata
-            for c in clips_data.get('shorts', []):
-                clean_or_generate_clip_metadata(
-                    c, transcript=transcript, start=c.get('start'), end=c.get('end'),
-                    video_title=video_title)
+        if clips_data is None:
+            # 4. Gemini Analysis (transcript-driven, or vision for silent videos)
+            print("🤖 Analisando momentos virais com Inteligência Artificial...", flush=True)
+            if transcript is not None:
+                clips_data = get_viral_clips(transcript, duration, video_title=video_title)
+            else:
+                clips_data = get_visual_clips(input_video, duration)
 
-            # Save metadata. Silent videos have no transcript → no subtitles,
-            # which is correct (there's no speech to caption).
-            clips_data['transcript'] = transcript or {"language": "none", "segments": []}
-            # The clip editor's re-render path needs to find the source video
-            # again and reproduce the render settings, so record both. The
-            # basename is enough — the file sits in the job dir (URL jobs with
-            # --keep-original) or in uploads/ (upload jobs).
-            clips_data['source_video'] = os.path.basename(input_video)
-            clips_data['output_format'] = output_format
-            metadata_file = os.path.join(output_dir, f"{video_title}_metadata.json")
-            with open(metadata_file, 'w') as f:
-                json.dump(clips_data, f, indent=2)
-            print(f"   Saved metadata to {metadata_file}")
+            if not clips_data or 'shorts' not in clips_data:
+                # Deliberately fail instead of reframing the whole video: that path
+                # wrote no metadata.json, so app.py marked the job failed anyway
+                # (app.py:1087) after burning GPU on a render nobody could see.
+                raise RuntimeError(
+                    "Clip detection failed — the AI model did not return usable clips for this video.")
+            else:
+                print(f"🔥 {len(clips_data['shorts'])} momentos virais identificados!", flush=True)
+                from clip_metadata import clean_or_generate_clip_metadata
+                for c in clips_data.get('shorts', []):
+                    clean_or_generate_clip_metadata(
+                        c, transcript=transcript, start=c.get('start'), end=c.get('end'),
+                        video_title=video_title)
 
-            # 5. Process clips in parallel: each worker cuts + renders one
-            # clip. Renders are mostly ffmpeg subprocesses (parallelize well);
-            # detector inference is serialized internally via DETECT_LOCK.
-            import traceback as _traceback
-            import json as _json
+                # Save metadata. Silent videos have no transcript → no subtitles,
+                # which is correct (there's no speech to caption).
+                clips_data['transcript'] = transcript or {"language": "none", "segments": []}
+                # The clip editor's re-render path needs to find the source video
+                # again and reproduce the render settings, so record both. The
+                # basename is enough — the file sits in the job dir (URL jobs with
+                # --keep-original) or in uploads/ (upload jobs).
+                clips_data['source_video'] = os.path.basename(input_video)
+                clips_data['output_format'] = output_format
+                metadata_file = os.path.join(output_dir, f"{video_title}_metadata.json")
+                with open(to_long_path(metadata_file), 'w', encoding='utf-8') as f:
+                    json.dump(clips_data, f, indent=2)
+                print(f"   Saved metadata to {metadata_file}")
 
-            def _process_one_clip(i, clip):
-                # Signal to the parent process that this clip is now being rendered.
-                print(f"CLIP_RENDERING {i}", flush=True)
+        # 5. Process clips in parallel: each worker cuts + renders one
+        # clip. Renders are mostly ffmpeg subprocesses (parallelize well);
+        # detector inference is serialized internally via DETECT_LOCK.
+        import traceback as _traceback
+        import json as _json
 
-                start = clip['start']
-                end = clip['end']
-                print(f"\n🎬 Gerando corte {i+1} de {len(shorts)}…", flush=True)
-                print(f"   Title: {clip.get('video_title_for_youtube_short', 'No Title')}")
+        def _process_one_clip(i, clip):
+            # Check if this clip has already been completely rendered and styled
+            clean_filename = f"{video_title}_clip_{i+1}.mp4"
+            suffix = f"_clip_{i+1}.mp4"
+            existing_ready = None
+            try:
+                long_out = to_long_path(output_dir)
+                if os.path.isdir(long_out):
+                    candidates = []
+                    for f in os.listdir(long_out):
+                        if f.endswith(suffix) and not f.startswith("temp_"):
+                            full_p = os.path.join(output_dir, f)
+                            if safe_getsize(full_p) > 1024 * 50:
+                                candidates.append(f)
+                    if candidates:
+                        def _score(name):
+                            sc = safe_getmtime(os.path.join(output_dir, name))
+                            if name.startswith("subtitled_"): sc += 1e9
+                            elif name.startswith("hooked_"): sc += 5e8
+                            return sc
+                        existing_ready = max(candidates, key=_score)
+            except Exception:
+                existing_ready = None
 
-                clip_filename = f"{video_title}_clip_{i+1}.mp4"
-                clip_temp_path = os.path.join(output_dir, f"temp_{clip_filename}")
-                clip_final_path = os.path.join(output_dir, clip_filename)
+            if existing_ready:
+                print(f"♻️ Corte {i+1} já concluído anteriormente ({existing_ready}) — pulando re-renderização!", flush=True)
+                print(f"CLIP_READY {i} {existing_ready}", flush=True)
+                return True
 
-                try:
-                    # ffmpeg cut — re-encoding for precision on strict seconds
-                    cut_clip(input_video, clip_temp_path, start, end, i + 1)
+            # Signal to the parent process that this clip is now being rendered.
+            print(f"CLIP_RENDERING {i}", flush=True)
 
-                    success = render_clip(clip_temp_path, clip_final_path, output_format)
-                    # Layer order: watermark burns into the canonical (so any
-                    # later hook replacement, which re-derives from it, keeps
-                    # the branding), the hook is a derived hooked_ file, and
-                    # captions go last on top of whichever is current. Each
-                    # worker writes only its own clip dict, so the re-dump
-                    # after the pool is race-free.
-                    if success and os.environ.get("WATERMARK") == "1":
-                        apply_watermark(clip_final_path)
-                    deliver_path = clip_final_path
-                    # Which stretches were stacked (SPLIT): captions go on the
-                    # seam there, and /api/subtitle needs it again later.
-                    import layout_ranges as _layouts
-                    clip['layout_ranges'] = _layouts.read(clip_final_path)
-                    # The hook was written from the transcript alone. When the
-                    # render put this clip's meaning on the screen, rewrite hook
-                    # and title from three of its frames BEFORE burning them.
-                    if success and hook_grounding.wanted(clip['layout_ranges'], end - start):
-                        hook_grounding.reground(clip_final_path, clip, transcript, start, end)
-                    if success and os.environ.get("AUTO_HOOK") == "1":
-                        hooked = auto_hook_clip(clip_final_path, clip)
-                        if hooked:
-                            deliver_path, clip['auto_hook'] = hooked
-                    if success:
-                        print(f"   💬 Aplicando legendas automáticas no corte {i+1}…", flush=True)
-                        captioned = auto_caption_clip(
-                            deliver_path, transcript, start, end,
-                            split_ranges=_layouts.split_ranges(clip['layout_ranges']))
-                        print(f"   ✅ Corte {i+1} pronto!", flush=True)
-                        # Hand the API the file to actually serve for this clip.
-                        # Without it the status poller guesses the clean reframe
-                        # name, so a job in flight showed every clip stripped of
-                        # its hook and captions until the WHOLE job finished and
-                        # the result got rebuilt through _canonical_clip_file.
-                        # Printed only after the full chain (reframe, watermark,
-                        # hook, captions) so the file is complete when it is
-                        # announced, never one that ffmpeg is still writing.
-                        print(f"CLIP_READY {i} "
-                              f"{os.path.basename(captioned or deliver_path)}")
-                    return success
-                finally:
-                    if os.path.exists(clip_temp_path):
-                        os.remove(clip_temp_path)
+            start = clip['start']
+            end = clip['end']
+            print(f"\n🎬 Gerando corte {i+1} de {len(shorts)}…", flush=True)
+            print(f"   Title: {clip.get('video_title_for_youtube_short', 'No Title')}")
+
+            clip_filename = f"{video_title}_clip_{i+1}.mp4"
+            clip_temp_path = os.path.join(output_dir, f"temp_{clip_filename}")
+            clip_final_path = os.path.join(output_dir, clip_filename)
+
+            try:
+                # ffmpeg cut — re-encoding for precision on strict seconds
+                cut_clip(input_video, clip_temp_path, start, end, i + 1)
+
+                success = render_clip(clip_temp_path, clip_final_path, output_format)
+                # Layer order: watermark burns into the canonical (so any
+                # later hook replacement, which re-derives from it, keeps
+                # the branding), the hook is a derived hooked_ file, and
+                # captions go last on top of whichever is current. Each
+                # worker writes only its own clip dict, so the re-dump
+                # after the pool is race-free.
+                if success and os.environ.get("WATERMARK") == "1":
+                    apply_watermark(clip_final_path)
+                deliver_path = clip_final_path
+                # Which stretches were stacked (SPLIT): captions go on the
+                # seam there, and /api/subtitle needs it again later.
+                import layout_ranges as _layouts
+                clip['layout_ranges'] = _layouts.read(clip_final_path)
+                # The hook was written from the transcript alone. When the
+                # render put this clip's meaning on the screen, rewrite hook
+                # and title from three of its frames BEFORE burning them.
+                if success and hook_grounding.wanted(clip['layout_ranges'], end - start):
+                    hook_grounding.reground(clip_final_path, clip, transcript, start, end)
+                if success and os.environ.get("AUTO_HOOK") == "1":
+                    hooked = auto_hook_clip(clip_final_path, clip)
+                    if hooked:
+                        deliver_path, clip['auto_hook'] = hooked
+                if success:
+                    print(f"   💬 Aplicando legendas automáticas no corte {i+1}…", flush=True)
+                    captioned = auto_caption_clip(
+                        deliver_path, transcript, start, end,
+                        split_ranges=_layouts.split_ranges(clip['layout_ranges']))
+                    print(f"   ✅ Corte {i+1} pronto!", flush=True)
+                    print(f"CLIP_READY {i} "
+                          f"{os.path.basename(captioned or deliver_path)}", flush=True)
+                return success
+            finally:
+                if os.path.exists(clip_temp_path):
+                    os.remove(clip_temp_path)
 
             clip_workers = max(int(os.environ.get("CLIP_WORKERS", "3")), 1)
             shorts = clips_data['shorts']
@@ -461,7 +497,7 @@ if __name__ == '__main__':
             # Persist per-clip render results added by the workers (auto_hook)
             # so the editor can see what is already burned into each clip.
             if any('auto_hook' in c or 'hook_grounding' in c for c in shorts):
-                with open(metadata_file, 'w') as f:
+                with open(to_long_path(metadata_file), 'w', encoding='utf-8') as f:
                     json.dump(clips_data, f, indent=2)
 
     # Clean up original if requested
