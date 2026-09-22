@@ -26,8 +26,23 @@ from app import (
     _metering,
     _safe_under,
     _user_from_request,
-    resolve_upload_post,
 )
+
+async def resolve_upload_post(request: Request, body_key: Optional[str] = None):
+    from core.config import BILLING_ENABLED
+    if BILLING_ENABLED:
+        from cloud import managed_keys
+        user = await _user_from_request(request)
+        if managed_keys.has_active_entitlement(user):
+            return managed_keys.get_upload_post_key(), user.id
+        return None, None
+        
+    req_key = request.headers.get("X-Upload-Post-Key") or request.headers.get("x-upload-post-key")
+    if req_key:
+        return req_key, None
+    if body_key:
+        return body_key, None
+    return os.environ.get("UPLOAD_POST_API_KEY"), None
 from thumbnail import analyze_video_for_titles, refine_titles, generate_thumbnail, generate_youtube_description, extract_face_frames
 
 router = APIRouter()

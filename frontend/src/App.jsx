@@ -89,7 +89,8 @@ function App() {
     llmFallbackModels, setLlmFallbackModels,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey,
-    handleClipStateChange, handleClipRerendered, flushClipState
+    handleClipStateChange, handleClipRerendered, flushClipState,
+    handleRetry, isRetrying
   } = useAppController();
 
   // Clip editor overlay: index of the clip being edited, or null.
@@ -298,6 +299,8 @@ function App() {
             handleBulkSubtitles={handleBulkSubtitles}
             bulkSub={bulkSub}
             handleReset={handleReset}
+            handleRetry={handleRetry}
+            isRetrying={isRetrying}
           />
 
         </div>

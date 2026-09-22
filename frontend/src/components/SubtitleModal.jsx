@@ -38,12 +38,20 @@ export default function SubtitleModal({
     const initStyle = existingSubtitles?.style || {};
     const [position, setPosition] = useState(existingSubtitles?.position || 'bottom');
     const [marginV, setMarginV] = useState(initStyle.marginV ?? 43);
-    const [fontSize, setFontSize] = useState(initStyle.fontSize ? Math.round(initStyle.fontSize / 1.8) : 44);
+    const [fontSize, setFontSize] = useState(
+        initStyle.fontSize
+            ? (initStyle.fontSize > 64 ? Math.round(initStyle.fontSize / 1.8) : initStyle.fontSize)
+            : 44
+    );
     const [fontName, setFontName] = useState(initStyle.fontFamily || 'Anton');
     const [fontColor, setFontColor] = useState(initStyle.fontColor || '#FFFFFF');
     const [highlightColor, setHighlightColor] = useState(initStyle.highlightColor || '#FFE500');
     const [borderColor, setBorderColor] = useState(initStyle.borderColor || '#000000');
-    const [borderWidth, setBorderWidth] = useState(initStyle.borderWidth != null ? Math.round(initStyle.borderWidth / 1.5) : 4);
+    const [borderWidth, setBorderWidth] = useState(
+        initStyle.borderWidth != null
+            ? (initStyle.borderWidth > 6 ? Math.round(initStyle.borderWidth / 1.5) : initStyle.borderWidth)
+            : 4
+    );
     const [bgColor, setBgColor] = useState(initStyle.bgColor || '#000000');
     const [bgOpacity, setBgOpacity] = useState(initStyle.bgOpacity ?? 0.0);
     const [animation, setAnimation] = useState(initStyle.animation || 'pop');
@@ -147,8 +155,8 @@ export default function SubtitleModal({
         },
     };
 
-    // Fallback: static CSS preview (same as original)
-    const bw = Math.max(borderWidth, 0);
+    // Fallback: static CSS preview (scaled to the ~600px preview container, 600/1920 = 0.3125)
+    const bw = Math.max(Math.round(borderWidth * 1.5 * 0.3125), 0);
     const bc = borderColor;
     const outlineShadow = bw > 0 ? [
         `-${bw}px -${bw}px 0 ${bc}`, `${bw}px -${bw}px 0 ${bc}`,
@@ -160,7 +168,7 @@ export default function SubtitleModal({
     const fallbackPreviewStyle = {
         fontFamily: fontName,
         color: fontColor,
-        fontSize: `${fontSize}px`,
+        fontSize: `${Math.round(fontSize * 1.8 * 0.3125)}px`,
         fontWeight: /anton/i.test(fontName) ? 400 : 800,
         maxWidth: '85%',
         padding: '6px 12px',
@@ -182,8 +190,8 @@ export default function SubtitleModal({
         position === 'top'
             ? { top: `${marginPercent}%`, bottom: 'auto' }
             : position === 'middle' || position === 'center'
-            ? { top: '50%', transform: 'translateY(-50%)' }
-            : { bottom: `${marginPercent}%`, top: 'auto' };
+                ? { top: '50%', transform: 'translateY(-50%)' }
+                : { bottom: `${marginPercent}%`, top: 'auto' };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} size="xl" eyebrow="EDITOR · LEGENDAS" title="Legendas">
@@ -210,7 +218,7 @@ export default function SubtitleModal({
                                 style={fallbackPositionStyle}
                             >
                                 <span style={fallbackPreviewStyle}>
-                                    É assim que suas legendas<br/>aparecerão no vídeo
+                                    É assim que suas legendas<br />aparecerão no vídeo
                                 </span>
                             </div>
                         </>
@@ -403,7 +411,7 @@ export default function SubtitleModal({
                         {/* Text Color */}
                         <div>
                             <p className="eyebrow mb-2">Cor do texto</p>
-                            <div className="flex flex-wrap items-center gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2.5" style={{ paddingLeft: '1em' }}>
                                 {COLOR_PRESETS.map((c) => {
                                     const col = c.color || c.value;
                                     return (
@@ -426,7 +434,7 @@ export default function SubtitleModal({
                         {/* Highlight Color */}
                         <div>
                             <p className="eyebrow mb-2">Destaque da palavra</p>
-                            <div className="flex flex-wrap items-center gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2.5" style={{ paddingLeft: '1em' }}>
                                 {HIGHLIGHT_PRESETS.map((c) => {
                                     const col = c.color || c.value;
                                     return (

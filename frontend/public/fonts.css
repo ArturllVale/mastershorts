@@ -215,3 +215,12 @@
   src: url('/fonts/NotoSerif-Bold.ttf') format('truetype');
 }
 
+@font-face {
+  font-family: 'Noto Serif Bold';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/NotoSerif-Bold.ttf') format('truetype');
+}
+
+

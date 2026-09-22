@@ -141,13 +141,23 @@ async def _get_job(job_id: str) -> Dict[str, Any]:
         return data
     return {}
 
+VALID_JOB_FIELDS = {
+    "status", "cmd", "env", "output_dir", "attestation",
+    "user_id", "reservation_id", "watermark", "partial",
+    "webhook_url", "webhook_secret", "base_url", "proxy_bytes",
+    "proxy_route", "ready_files", "result", "error",
+    "source_hash", "config_hash"
+}
+
 async def _create_or_update_job(job_id: str, data: Dict[str, Any]):
     prisma = await _get_bg_prisma()
     update_data = {}
     for k, v in data.items():
+        if k not in VALID_JOB_FIELDS:
+            continue
         if k in ["cmd", "env", "ready_files", "result", "partial", "attestation"]:
             update_data[k] = json.dumps(v)
-        elif k != "logs" and k != "id" and k != "created_at":
+        else:
             update_data[k] = v
 
     job = await prisma.job.find_unique(where={"id": job_id})
@@ -160,6 +170,8 @@ async def _create_or_update_job(job_id: str, data: Dict[str, Any]):
             await prisma.job.update(where={"id": job_id}, data=update_data)
 
 async def _update_job_field(job_id: str, field: str, value: Any):
+    if field not in VALID_JOB_FIELDS:
+        return
     prisma = await _get_bg_prisma()
     if field in ["cmd", "env", "ready_files", "result", "partial", "attestation"]:
         val = json.dumps(value)

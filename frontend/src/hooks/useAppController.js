@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { track } from '../lib/analytics';
-import { submitJob, pollJobStatus, downloadAllClips } from '../services/jobService';
+import { submitJob, pollJobStatus, downloadAllClips, retryJob } from '../services/jobService';
 import { restoreProject as restoreProjectApi, fetchDurableMap } from '../services/projectService';
 import { applySubtitles } from '../services/clipService';
 import { useAuth } from '../contexts/AuthContext';
@@ -367,6 +367,30 @@ export function useAppController() {
     handleProcessRef.current(pending.data);
   }, [billingEnabled, isSignedIn]);
 
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    if (!jobId) return;
+    setIsRetrying(true);
+    try {
+      const overrides = {};
+      if (llmProvider === 'openai') {
+        if (llmBaseUrl) overrides.llm_base_url = llmBaseUrl;
+        if (llmModel) overrides.llm_model = llmModel;
+        if (llmApiKey) overrides.llm_api_key = llmApiKey;
+      } else if (apiKey) {
+        overrides.gemini_api_key = apiKey;
+      }
+      await retryJob(jobId, overrides);
+      setStatus('processing');
+      setLogs(prev => [...prev, "🔄 Retomando processamento do vídeo..."]);
+    } catch (e) {
+      alert(`Falha ao tentar novamente: ${e.message}`);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   const handleReset = () => {
     flushClipState();
     setStatus('idle');
@@ -381,6 +405,8 @@ export function useAppController() {
   };
 
   return {
+    isRetrying,
+    handleRetry,
     tutorialPhase, setTutorialPhase,
     partialJob, setPartialJob,
     durableClips, setDurableClips,

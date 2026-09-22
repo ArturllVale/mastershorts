@@ -55,3 +55,20 @@ export async function fetchSourceUrl(jobId) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+/**
+ * Retries an existing failed job without losing downloaded or transcribed data.
+ *
+ * @param {string} jobId
+ * @param {object} options - Optional overrides (e.g. llm_base_url, llm_model, llm_api_key)
+ * @returns {Promise<object>}
+ */
+export async function retryJob(jobId, options = {}) {
+  const res = await apiFetch(`/api/jobs/${jobId}/retry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}

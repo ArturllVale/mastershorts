@@ -1,4 +1,4 @@
-// Prod schema using PostgreSQL
+// Dev schema using SQLite
 // Prisma does not support env() for provider. We use two schemas.
 
 generator client {
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -71,14 +71,4 @@ model WebhookDelivery {
   response_body  String?
 
   job            Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
-}
-
-model FeatureCache {
-  id           Int      @id @default(autoincrement())
-  source_hash  String
-  feature_type String
-  payload      String
-  created_at   DateTime @default(now())
-
-  @@unique([source_hash, feature_type])
 }

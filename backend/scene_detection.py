@@ -78,19 +78,31 @@ def _get_tn2_model():
 
 def _extract_frames_small(video_path):
     """Decode the whole clip as 48x27 RGB frames via ffmpeg (~4KB/frame)."""
-    cmd = [
-        "ffmpeg", "-nostdin", "-i", video_path,
-        "-vf", f"scale={_TN2_W}:{_TN2_H}",
-        "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
-    ]
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE,
-                          stderr=subprocess.DEVNULL, check=True, timeout=900)
-    frame_bytes = _TN2_H * _TN2_W * 3
-    n = len(proc.stdout) // frame_bytes
-    if n == 0:
-        raise RuntimeError("ffmpeg produced no frames")
-    return np.frombuffer(proc.stdout[:n * frame_bytes],
-                         dtype=np.uint8).reshape(n, _TN2_H, _TN2_W, 3)
+    import os
+    import asyncio
+    from services.cache import get_or_compute
+
+    source_hash = os.environ.get("SOURCE_HASH")
+
+    def _compute():
+        cmd = [
+            "ffmpeg", "-nostdin", "-i", video_path,
+            "-vf", f"scale={_TN2_W}:{_TN2_H}",
+            "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, check=True, timeout=900)
+        frame_bytes = _TN2_H * _TN2_W * 3
+        n = len(proc.stdout) // frame_bytes
+        if n == 0:
+            raise RuntimeError("ffmpeg produced no frames")
+        return np.frombuffer(proc.stdout[:n * frame_bytes],
+                             dtype=np.uint8).reshape(n, _TN2_H, _TN2_W, 3)
+
+    if source_hash:
+        return asyncio.run(get_or_compute(source_hash, "frames", _compute, is_large_payload=True))
+    else:
+        return _compute()
 
 
 def _detect_transnetv2(video_path):

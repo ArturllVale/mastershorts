@@ -16,6 +16,11 @@ def get_prisma_sync():
     if not HAS_PRISMA:
         return None
     if _prisma_client is None:
+        try:
+            from prisma import _registry
+            _registry._registered_client = None
+        except Exception:
+            pass
         _prisma_client = Prisma(auto_register=True)
     return _prisma_client
 

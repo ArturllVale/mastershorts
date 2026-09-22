@@ -1,5 +1,5 @@
-import React from 'react';
-import { Youtube, Instagram, Activity, Loader2, Terminal, ChevronDown, Download, RotateCcw } from 'lucide-react';
+import React, { useMemo, useRef } from 'react';
+import { Youtube, Instagram, Activity, Loader2, Terminal, ChevronDown, Download, RotateCcw, Play, RefreshCw, AlertCircle } from 'lucide-react';
 import MediaInput from '../../components/MediaInput';
 import ProcessingAnimation from '../../components/ProcessingAnimation';
 import StarBanner from '../../components/StarBanner';
@@ -19,6 +19,8 @@ export default function DashboardView({
   goToTab,
   handleProcess,
   handleReset,
+  handleRetry,
+  isRetrying = false,
   processingMedia,
   syncedTime,
   isSyncedPlaying,
@@ -48,6 +50,85 @@ export default function DashboardView({
   bulkSub
 }) {
   if (activeTab !== 'dashboard') return null;
+
+  const lastLog = logs && logs.length ? logs[logs.length - 1] : '';
+  const isConnectionError = Boolean(logs && logs.some(l => 
+    typeof l === 'string' && (
+      l.includes('10061') || 
+      l.toLowerCase().includes('recusou') || 
+      l.toLowerCase().includes('connecterror') || 
+      l.toLowerCase().includes('connection refused') ||
+      l.toLowerCase().includes('omniroute')
+    )
+  ));
+
+  // Maintain immutable timestamps (HH:mm) per log event instead of ticking live seconds
+  const logTimestampsRef = useRef(new Map());
+
+  const formattedLogs = useMemo(() => {
+    if (!Array.isArray(logs) || logs.length === 0) {
+      logTimestampsRef.current.clear();
+      return [];
+    }
+
+    const storageKey = jobId ? `openshorts_log_timestamps_${jobId}` : null;
+    const cache = logTimestampsRef.current;
+
+    if (storageKey && cache.size === 0) {
+      try {
+        const stored = sessionStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          Object.entries(parsed).forEach(([k, v]) => cache.set(k, v));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const now = new Date();
+    const currentClock = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let cacheUpdated = false;
+
+    const result = logs.map((log, index) => {
+      const logStr = typeof log === 'string' ? log : String(log || '');
+      const key = `${index}:${logStr}`;
+      let time = cache.get(key);
+
+      if (!time) {
+        // If log already starts with a timestamp like "10:05 ..." or "[10:05] ..."
+        const match = logStr.match(/^\[?(\d{1,2}:\d{2})\]?\s*(.*)$/);
+        if (match) {
+          time = match[1].padStart(5, '0');
+        } else {
+          time = currentClock;
+        }
+        cache.set(key, time);
+        cacheUpdated = true;
+      }
+
+      // If the log text had embedded timestamp, strip it so it doesn't double-display
+      const cleanText = logStr.replace(/^\[?\d{1,2}:\d{2}\]?\s+/, '');
+
+      return {
+        id: key,
+        raw: cleanText,
+        timestamp: time,
+      };
+    });
+
+    if (cacheUpdated && storageKey) {
+      try {
+        const serialized = {};
+        cache.forEach((v, k) => { serialized[k] = v; });
+        sessionStorage.setItem(storageKey, JSON.stringify(serialized));
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return result;
+  }, [logs, jobId]);
 
   return (
     <>
@@ -103,6 +184,27 @@ export default function DashboardView({
                   <span className={status === 'processing' ? 'badge-brass' : 'badge-danger'}>
                     {status === 'processing' ? 'PROCESSANDO' : status === 'error' ? 'ERRO' : status.toUpperCase()}
                   </span>
+                  {status === 'error' && handleRetry && (
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      disabled={isRetrying}
+                      className="px-3 py-1 text-xs font-semibold text-white bg-violet hover:bg-violet/90 rounded-input transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      title="Continuar processamento mantendo o progresso atual"
+                    >
+                      {isRetrying ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          <span>Retomando…</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw size={12} />
+                          <span>Continuar</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                   {handleReset && (
                     <button
                       type="button"
@@ -133,9 +235,60 @@ export default function DashboardView({
                   <div className="min-w-0 flex-1 flex items-center gap-2">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-brass font-semibold shrink-0">Status:</span>
                     <span className="min-w-0 truncate font-mono text-ink text-xs">
-                      {logs.length ? logs[logs.length - 1] : 'Iniciando processamento…'}
+                      {lastLog || 'Iniciando processamento…'}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {status === 'error' && (
+                <div className="mb-4 p-3.5 sm:p-4 rounded-card border border-danger/40 bg-danger/10 text-ink space-y-3 animate-fade">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-danger/20 rounded-lg text-danger shrink-0 mt-0.5">
+                      <AlertCircle size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-ink flex items-center gap-2">
+                        Falha no Processamento
+                      </h3>
+                      <p className="text-xs text-ink2 mt-1 leading-relaxed break-words font-mono">
+                        {lastLog || 'Ocorreu um erro durante a execução do processo.'}
+                      </p>
+                      {isConnectionError && (
+                        <div className="mt-2.5 bg-paper2/95 p-3 rounded-lg border border-rule text-xs space-y-1.5">
+                          <p className="font-semibold text-ink flex items-center gap-1.5">
+                            💡 <span>Dica OmniRoute / IA Local:</span>
+                          </p>
+                          <p className="text-ink2 leading-relaxed">
+                            O OmniRoute ou seu provedor local de IA parece estar desligado ou inacessível.
+                            Inicie o <strong>OmniRoute</strong> e depois clique em <strong>Continuar</strong> para retomar imediatamente de onde parou, sem precisar baixar ou transcrever o vídeo de novo!
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {handleRetry && (
+                    <div className="flex items-center gap-2 pt-1 border-t border-rule/50 justify-end">
+                      <button
+                        type="button"
+                        onClick={handleRetry}
+                        disabled={isRetrying}
+                        className="px-4 py-2 text-xs font-semibold text-white bg-violet hover:bg-violet/90 rounded-input transition-all flex items-center gap-2 shadow disabled:opacity-50"
+                      >
+                        {isRetrying ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>Retomando processamento...</span>
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw size={14} />
+                            <span>Continuar / Tentar Novamente</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -168,10 +321,11 @@ export default function DashboardView({
                     {status === 'processing' && (
                       <div className="flex items-center gap-2 text-brass text-[11px] pb-1 border-b border-dotted border-white/20 mb-1">
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-brass animate-ping" />
-                        <span className="font-sans font-medium text-[10px] uppercase tracking-wider">Última atualização em tempo real:</span>
+                        <span className="font-sans font-medium text-[10px] uppercase tracking-wider">Processamento em andamento:</span>
                       </div>
                     )}
-                    {[...logs].reverse().map((log, i) => {
+                    {[...formattedLogs].reverse().map((item) => {
+                      const log = item.raw;
                       const isError = log.toLowerCase().includes('error') || log.includes('failed');
                       const isWarning = log.includes('[LLM Fallback]') || log.toLowerCase().includes('warning');
                       const isSuccess = log.toLowerCase().includes('success') || log.toLowerCase().includes('done') || log.toLowerCase().includes('built');
@@ -184,9 +338,9 @@ export default function DashboardView({
                       else if (isInfo) textColor = 'text-ink';
 
                       return (
-                        <div key={i} className={`flex gap-3 py-1 border-b border-dotted border-white/20 last:border-0 hover:bg-white/[0.03] transition-colors px-1 ${textColor}`}>
-                          <span className="text-muted/40 shrink-0 font-mono text-[10px] hidden sm:inline pt-0.5 select-none">
-                            {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
+                        <div key={item.id} className={`flex items-baseline gap-3 py-1 border-b border-dotted border-white/20 last:border-0 hover:bg-white/[0.03] transition-colors px-1 ${textColor}`}>
+                          <span className="text-muted/50 shrink-0 font-mono text-[11px] tabular-nums select-none tracking-tight">
+                            {item.timestamp}
                           </span>
                           <span className="min-w-0 break-words leading-relaxed">{log}</span>
                         </div>
@@ -299,8 +453,25 @@ export default function DashboardView({
                     </p>
                   </div>
                 ) : status === 'error' ? (
-                  <div className="h-full min-h-[120px] flex flex-col items-center justify-center text-danger space-y-2">
-                    <p>Falha na geração dos clipes.</p>
+                  <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-4 space-y-3">
+                    <AlertCircle size={28} className="text-danger" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-ink">Processamento interrompido</p>
+                      <p className="text-xs text-muted max-w-[28ch]">
+                        Inicie o OmniRoute/servidor e clique em Continuar para prosseguir.
+                      </p>
+                    </div>
+                    {handleRetry && (
+                      <button
+                        type="button"
+                        onClick={handleRetry}
+                        disabled={isRetrying}
+                        className="px-3.5 py-1.5 text-xs font-semibold text-white bg-violet hover:bg-violet/90 rounded-input transition-colors flex items-center gap-1.5 shadow disabled:opacity-50"
+                      >
+                        {isRetrying ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                        <span>Continuar</span>
+                      </button>
+                    )}
                   </div>
                 ) : null
               )}

@@ -790,8 +790,19 @@ def clear_transcript_checkpoint(output_dir):
 def transcribe_video(video_path):
     print("🎙️ Iniciando transcrição do áudio...", flush=True)
     from transcribe_backends import transcribe_media
+    from services.cache import get_or_compute
+    import asyncio
+    
+    source_hash = os.environ.get("SOURCE_HASH")
+    
+    def _compute():
+        return transcribe_media(video_path)
 
-    transcript = transcribe_media(video_path)
+    if source_hash:
+        transcript = asyncio.run(get_or_compute(source_hash, "transcript", _compute))
+    else:
+        transcript = _compute()
+
     print("🎙️ Transcrição iniciada com sucesso!", flush=True)
 
     print(f"   Detected language '{transcript['language']}', "
@@ -1116,6 +1127,19 @@ def speech_is_sparse(transcript, duration):
 
 
 def get_visual_clips(video_path, video_duration, language="en"):
+    from services.cache import get_or_compute
+    import asyncio
+    import os
+    source_hash = os.environ.get("SOURCE_HASH")
+
+    def _compute():
+        return _compute_visual_clips(video_path, video_duration, language)
+
+    if source_hash:
+        return asyncio.run(get_or_compute(source_hash, "visual_clips", _compute))
+    return _compute()
+
+def _compute_visual_clips(video_path, video_duration, language="en"):
     """Clip a SILENT video by vision: Gemini watches the footage and picks the
     most engaging visual moments (no transcript). Returns the same
     {"shorts", "cost_analysis"} shape as get_viral_clips, or None."""

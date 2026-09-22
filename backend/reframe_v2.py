@@ -612,3 +612,194 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
                         [(s / fps, e / fps, strategy) for s, e, strategy in ranges])
     print(f"   ✅ Clip saved to {final_output_video}")
     return True
+
+
+def build_reframe_filtergraph(input_video, aspect_ratio, content_ranges=None,
+                              force_strategy=None, crop_overrides=None):
+    """
+    Executes the reframe_v2 analysis and returns the filtergraph pieces for
+    a unified render, instead of executing ffmpeg directly.
+    Returns: (filters_list, inputs_list, out_node_name, workdir, ranges, fps)
+    Caller MUST delete workdir when done with the ffmpeg command.
+    """
+    import main as m
+    import tempfile
+    content_ranges = content_ranges or []
+
+    print("   🔍 Reframe engine v2 (building unified filtergraph)")
+    scenes, fps = m.detect_scenes(input_video)
+    fps = float(fps)
+    orig_w, orig_h = m.get_video_resolution(input_video)
+
+    out_w, out_h = delivery_size(orig_w, orig_h, aspect_ratio)
+
+    if not scenes:
+        import cv2
+        cap = cv2.VideoCapture(input_video)
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+        from scenedetect import FrameTimecode
+        scenes = [(FrameTimecode(0, fps), FrameTimecode(total, fps))]
+
+    scene_boundaries = [(s.get_frames(), e.get_frames()) for s, e in scenes]
+    passthrough = source_already_fits(orig_w, orig_h, aspect_ratio)
+    if force_strategy:
+        strategies = [force_strategy] * len(scenes)
+        content_ranges = []
+        print(f"   📌 Framing override: every scene -> {force_strategy}")
+    elif passthrough:
+        strategies = ['TRACK'] * len(scenes)
+        content_ranges = []
+        print(f"   ✓  Source is already {orig_w}x{orig_h} vertical — passing it through")
+    else:
+        strategies = m.analyze_scenes_strategy(input_video, scenes)
+
+    splits = {}
+    split_scene_of = {}
+    detected_splits = {} if passthrough else split_layout.detect_split_scenes(
+        input_video, scenes, strategies)
+    for scene_idx, centres in detected_splits.items():
+        strategies[scene_idx] = 'SPLIT'
+        start_f = scene_boundaries[scene_idx][0]
+        splits[start_f] = centres
+        split_scene_of[start_f] = scene_idx
+
+    alternates = {}
+    if splits and active_speaker.ENABLED:
+        for start_f in list(splits):
+            scene_idx = split_scene_of[start_f]
+            end_f = scene_boundaries[scene_idx][1]
+            verdicts = active_speaker.verdicts_for_scene(
+                input_video, start_f, end_f, fps, splits[start_f])
+            if not active_speaker.is_conversation(verdicts):
+                a, b = active_speaker.shares(verdicts)
+                del splits[start_f]
+                strategies[scene_idx] = 'GENERAL'
+            elif active_speaker.CUT_MODE:
+                strategies[scene_idx] = 'ALTERNATE'
+                alternates[start_f] = (
+                    active_speaker.hold(verdicts), splits.pop(start_f))
+
+    screencasts = {}
+    for r in content_ranges:
+        for scene_idx, (s_f, e_f) in enumerate(scene_boundaries):
+            if r['start_s'] * fps < e_f and r['end_s'] * fps > s_f:
+                if strategies[scene_idx] in ('SPLIT', 'ALTERNATE'):
+                    if s_f in splits: del splits[s_f]
+                    if s_f in alternates: del alternates[s_f]
+                strategies[scene_idx] = 'SCREENCAST'
+                screencasts[s_f] = r['box']
+
+    xs = []
+    if not passthrough:
+        from cameraman import SmoothedCameraman, SpeakerTracker
+        cameraman = SmoothedCameraman(out_w, out_h, orig_w, orig_h, aspect_ratio=aspect_ratio)
+        tracker = SpeakerTracker(cooldown_frames=30)
+        xs = _analyze_trajectory(input_video, scene_boundaries, strategies, fps,
+                                 orig_w, orig_h, cameraman, tracker)
+        if not xs:
+            raise RuntimeError("analysis produced no frames")
+            
+        crop_w, crop_h = cameraman.crop_width, cameraman.crop_height
+        for start_f, (held, centres) in alternates.items():
+            end_f = scene_boundaries[split_scene_of[start_f]][1]
+            end_f = min(end_f, len(xs))
+            if end_f <= start_f: continue
+            xs[start_f:end_f] = active_speaker.speaker_xs(
+                held, centres, crop_w, orig_w, end_f - start_f, fps)
+
+    inset = None
+    if 'INSET' in strategies:
+        inset = camera_inset.detect(input_video)
+        if not inset:
+            strategies = ['GENERAL' if s == 'INSET' else s for s in strategies]
+        else:
+            strategies = [s if s != 'SCREENCAST' else 'INSET' for s in strategies]
+
+    beats = punch_in.detect_beats(input_video) if punch_in.ENABLED and not passthrough else []
+    crop_w = crop_w if not passthrough else orig_w
+    crop_h = crop_h if not passthrough else orig_h
+
+    if crop_overrides:
+        xs, strategies = override_framing(
+            crop_overrides, scene_boundaries, strategies, xs,
+            orig_w, orig_h=orig_h, splits=splits)
+
+    ranges = scene_frame_ranges(scene_boundaries, strategies, len(xs))
+    if not ranges:
+        raise RuntimeError("no usable scene ranges")
+    
+    workdir = tempfile.mkdtemp(prefix="reframe_v2_")
+    
+    filters = []
+    concat_nodes = []
+    
+    for idx, (start_f, end_f, strategy) in enumerate(ranges):
+        ss = start_f / fps
+        dur = (end_f - start_f) / fps
+
+        if strategy == 'INSET':
+            graph = camera_inset.inset_filtergraph(orig_w, orig_h, out_w, out_h, inset)
+        elif strategy == 'SCREENCAST':
+            graph = screencast_layout.screencast_filtergraph(orig_w, orig_h, out_w, out_h, screencasts[start_f])
+        elif strategy == 'WIDE':
+            graph = general_filtergraph(out_w, out_h, full_width_content_height(orig_w, orig_h, out_w))
+        elif strategy == 'SPLIT':
+            left, right = splits[start_f]
+            graph = split_layout.split_filtergraph(orig_w, orig_h, out_w, out_h, left, right)
+        elif strategy == 'GENERAL':
+            graph = general_filtergraph(out_w, out_h, orig_w=orig_w, orig_h=orig_h)
+        else:
+            seg_xs = [x if x is not None else 0 for x in xs[start_f:end_f]]
+            cmd_path = os.path.join(workdir, f"cmd_{idx:03d}.txt").replace("\\", "/")
+            if beats:
+                zooms = punch_in.zoom_curve(len(seg_xs), fps, beats, start_offset=ss)
+                boxes = punch_in.crop_boxes(seg_xs, zooms, crop_w, crop_h, orig_w, orig_h)
+                lines = punch_in.sendcmd_lines(boxes, fps)
+                first = boxes[0]
+                init = f"w={first[0]}:h={first[1]}:x={first[2]}:y={first[3]}"
+            else:
+                lines = dedupe_sendcmd_lines(seg_xs, fps)
+                crop_y = max(0, (orig_h - crop_h) // 2)
+                init = f"w={crop_w}:h={crop_h}:x={seg_xs[0]}:y={crop_y}"
+            with open(cmd_path, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            graph = (
+                f"[0:v]sendcmd=f='{escape_filter_value(cmd_path)}',"
+                f"crop@c={init},"
+                f"scale={out_w}:{out_h},setsar=1[v]"
+            )
+        
+        # Rewrite the graph to use namespaced pads
+        # Replace the hardcoded input [0:v] with the scene input node
+        sc_in = f"sc_{idx}_in"
+        sc_out = f"sc_{idx}_out"
+        
+        # Ensure unique intermediate pads in the graph (since some layouts use [ta][ba] etc)
+        # We find all [something] and add _sc{idx}
+        import re
+        def repl_pad(match):
+            pad = match.group(1)
+            if pad == "0:v":
+                return f"[{sc_in}]"
+            elif pad == "v":
+                return f"[{sc_out}]"
+            else:
+                return f"[{pad}_s{idx}]"
+        
+        namespaced_graph = re.sub(r'\[(.*?)\]', repl_pad, graph)
+        
+        # Add the trim node
+        # IMPORTANT: since we use input video from 0, the trim applies to the input stream
+        trim_filter = f"[0:v]trim=start={ss:.4f}:duration={dur:.4f},setpts=PTS-STARTPTS[{sc_in}]"
+        
+        filters.append(trim_filter)
+        filters.append(namespaced_graph)
+        concat_nodes.append(f"[{sc_out}]")
+        
+    concat_inputs = "".join(concat_nodes)
+    concat_filter = f"{concat_inputs}concat=n={len(ranges)}:v=1:a=0[v_reframed]"
+    filters.append(concat_filter)
+    
+    final_graph = ";".join(filters)
+    return final_graph, "[v_reframed]", workdir, ranges, fps

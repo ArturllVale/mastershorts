@@ -349,10 +349,17 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
     if not blocks:
         return False
 
-    # Match the SRT burn path: PlayResY 288 keeps font sizes consistent.
-    final_fontsize = int(_clamp_number(fontsize, 10, 200, 16) * 0.85)
-    if final_fontsize < 10:
-        final_fontsize = 10
+    # Match the Remotion 1080x1920 preview: PlayResY=288 and PlayResX=162 (9:16 vertical).
+    # Remotion renders fontSize * 1.8 px on a 1920-tall canvas.
+    # In PlayResY=288 units: (fontSize * 1.8 / 1920) * 288 = fontSize * 0.27.
+    # For UI default fontSize=44: 44 * 0.27 = 12 units (renders as 80px on 1080p).
+    num_font = _clamp_number(fontsize, 5, 200, 44)
+    if num_font > 18:
+        final_fontsize = int(round(num_font * 1.8 * 288 / 1920))
+    else:
+        final_fontsize = int(_clamp_number(num_font, 6, 24, 12))
+    if final_fontsize < 6:
+        final_fontsize = 6
 
     align_map = {'top': 8, 'middle': 5, 'center': 5, 'bottom': 2}
     ass_alignment = align_map.get(str(alignment).lower(), 2)
@@ -370,7 +377,7 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
     def seam_prefix(t):
         return "{\\an5}" if any(a <= t < b for a, b in seam_ranges) else ""
 
-    safe_font = _sanitize_font_name(font_name)
+    safe_font = map_font_family(font_name)
     base_opacity = _clamp_number(base_opacity, 0.05, 1.0, 1.0)
     # Dim inactive words via a fully-opaque scaled color (NOT alpha — see
     # _dim_hex_color); the active word overrides the color inline.
@@ -385,7 +392,7 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
     else:
         border_style = 1
         outline_colour = hex_to_ass_color(border_color, 1.0, fallback="000000")
-        outline_width = max(1, int(border_width))
+        outline_width = 0 if border_width <= 0 else max(1, int(round(border_width * 1.5 * 288 / 1920)))
 
     back_colour = hex_to_ass_color("#000000", 0.0)
     highlight_inline = _hex_to_ass_inline_color(highlight_color, fallback="FFD700")
@@ -411,6 +418,7 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
     header = (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
+        "PlayResX: 162\n"
         "PlayResY: 288\n"
         "WrapStyle: 0\n"
         "ScaledBorderAndShadow: yes\n"
@@ -508,6 +516,26 @@ def _sanitize_font_name(name):
     return cleaned or "Verdana"
 
 
+# Map fonts requested by the UI to the exact font family names defined inside the
+# bundled font binaries in fonts/ so libass / DirectWrite locates them without fallback.
+FONT_NAME_MAP = {
+    "inter": "Inter Black",
+    "inter black": "Inter Black",
+    "noto serif": "Noto Serif Bold",
+    "noto serif bold": "Noto Serif Bold",
+    "notoserif": "Noto Serif Bold",
+    "notoserif-bold": "Noto Serif Bold",
+    "anton": "Anton",
+    "montserrat": "Montserrat",
+}
+
+
+def map_font_family(name):
+    """Resolve font name to the exact family name of bundled fonts in fonts/."""
+    cleaned = _sanitize_font_name(name)
+    return FONT_NAME_MAP.get(cleaned.lower(), cleaned)
+
+
 def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
                    font_name="Anton", font_color="#FFFFFF",
                    border_color="#000000", border_width=4,
@@ -528,13 +556,16 @@ def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
     elif align_lower == 'bottom':
         ass_alignment = 2
 
-    # Font size scaling for ASS virtual resolution (PlayResY=288 default)
-    # For vertical 1080x1920 video, we need larger text for readability
-    final_fontsize = int(_clamp_number(fontsize, 10, 200, 16) * 0.85)
-    if final_fontsize < 10:
-        final_fontsize = 10
+    # Font size scaling matching Remotion preview on 1080x1920 video
+    num_font = _clamp_number(fontsize, 5, 200, 44)
+    if num_font > 18:
+        final_fontsize = int(round(num_font * 1.8 * 288 / 1920))
+    else:
+        final_fontsize = int(_clamp_number(num_font, 6, 24, 12))
+    if final_fontsize < 6:
+        final_fontsize = 6
 
-    safe_font_name = _sanitize_font_name(font_name)
+    safe_font_name = map_font_family(font_name)
     bg_opacity = _clamp_number(bg_opacity, 0.0, 1.0, 0.0)
     border_width = _clamp_number(border_width, 0, 10, 2)
 
@@ -553,11 +584,13 @@ def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
         # Outline mode: text border/outline
         border_style = 1
         outline_colour = hex_to_ass_color(border_color, 1.0, fallback="000000")
-        outline_width = max(1, int(border_width))
+        outline_width = 0 if border_width <= 0 else max(1, int(round(border_width * 1.5 * 288 / 1920)))
 
     back_colour = hex_to_ass_color("#000000", 0.0)
 
     style_string = (
+        f"PlayResX=162,"
+        f"PlayResY=288,"
         f"Alignment={ass_alignment},"
         f"Fontname={safe_font_name},"
         f"Fontsize={final_fontsize},"

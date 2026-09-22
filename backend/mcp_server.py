@@ -290,32 +290,7 @@ TOOLS = [
             "required": ["job_id", "clip_index", "segments"],
         },
     },
-    {
-        "name": "publish_clip",
-        "title": "Publish a clip to social platforms",
-        "description": (
-            "Post one clip to the user's connected accounts (TikTok lands as a "
-            "draft in the app; Instagram and YouTube publish directly). Requires "
-            "a connected social profile (cloud) or an Upload-Post key (self-host). "
-            "Optionally schedule with an ISO-8601 scheduled_date."
-        ),
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "job_id": {"type": "string"},
-                "clip_index": {"type": "integer"},
-                "platforms": {
-                    "type": "array",
-                    "items": {"type": "string", "enum": ["tiktok", "instagram", "youtube"]},
-                },
-                "title": {"type": "string"},
-                "description": {"type": "string"},
-                "scheduled_date": {"type": "string", "description": "ISO-8601; omit to post now."},
-                "timezone": {"type": "string"},
-            },
-            "required": ["job_id", "clip_index", "platforms"],
-        },
-    },
+
 ]
 
 
@@ -468,17 +443,6 @@ async def _tool_recut_clip(client, args):
     return resp.json(), False
 
 
-async def _tool_publish_clip(client, args):
-    body = {"job_id": args["job_id"], "clip_index": args["clip_index"],
-            "platforms": args["platforms"]}
-    for k in ("title", "description", "scheduled_date", "timezone"):
-        if args.get(k) is not None:
-            body[k] = args[k]
-    resp = await client.post("/api/social/post", json=body)
-    if resp.status_code >= 400:
-        return _api_error(resp), True
-    return resp.json(), False
-
 
 _TOOL_IMPLS = {
     "process_video": _tool_process_video,
@@ -488,7 +452,7 @@ _TOOL_IMPLS = {
     "get_quota": _tool_get_quota,
     "add_subtitles": _tool_add_subtitles,
     "recut_clip": _tool_recut_clip,
-    "publish_clip": _tool_publish_clip,
+
 }
 
 

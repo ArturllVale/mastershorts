@@ -40,6 +40,7 @@ from services.job_queue import (
     _canonical_clip_file,
     _recover_jobs_from_disk,
     _draining,
+    retry_job,
 )
 
 # We need some helper functions from app.py
@@ -581,6 +582,46 @@ async def process_endpoint(
     # caller connected to.
     api_base = os.environ.get("PUBLIC_API_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
 
+    # Compute Hashes and check Idempotency
+    from services.idempotency import compute_source_hash, compute_config_hash, find_idempotent_job
+
+    source_hash = await compute_source_hash(url=url, file_path=input_path)
+    
+    config_dict = {
+        "output_format": output_format,
+        "layouts": chosen,
+        "force_low_quality": force_low,
+        "target_clips": n_clips,
+        "clip_min_seconds": min_secs,
+        "clip_max_seconds": max_secs,
+        "auto_hook": env.get("AUTO_HOOK") == "1",
+        "auto_hook_style": env.get("AUTO_HOOK_STYLE"),
+        "captions": env.get("AUTO_CAPTIONS") != "0",
+        "max_minutes": max_minutes,
+        "llm_model": req_llm_model,
+    }
+    config_hash = compute_config_hash(config_dict)
+    
+    env["SOURCE_HASH"] = source_hash
+
+    existing_job = await find_idempotent_job(source_hash, config_hash)
+    if existing_job:
+        # Cleanup the just-created files because we will return the existing job
+        if not url and not thumb_session and input_path and os.path.exists(input_path):
+            try:
+                os.remove(input_path)
+            except OSError:
+                pass
+        shutil.rmtree(job_output_dir, ignore_errors=True)
+        
+        # Determine actual status (use proxy memory logic if needed)
+        status = _presented_status(existing_job.id, {"status": existing_job.status})
+        return JSONResponse(
+            status_code=200,
+            content={"job_id": existing_job.id, "status": status, "partial": existing_job.partial},
+            headers={"X-Idempotent": "true"}
+        )
+
     # Enqueue Job
     jobs[job_id] = {
         'status': 'queued',
@@ -596,6 +637,8 @@ async def process_endpoint(
         'webhook_url': webhook_url,
         'webhook_secret': webhook_secret,
         'base_url': api_base,
+        'source_hash': source_hash,
+        'config_hash': config_hash,
     }
 
     # Persist the owner so recovered jobs keep their multi-tenant guard after a
@@ -674,6 +717,31 @@ async def get_status(job_id: str, request: Request):
         # offer), so the dashboard can say so next to the clips.
         "partial": job.get('partial'),
     }
+
+
+@router.post("/api/jobs/{job_id}/retry")
+async def handle_retry_job(job_id: str, request: Request):
+    job = jobs.get(job_id)
+    if job is None:
+        job = _job_view_from_disk(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    await _assert_job_owner(request, job)
+
+    body = {}
+    try:
+        if request.headers.get("content-type", "").startswith("application/json"):
+            body = await request.json()
+    except Exception:
+        body = {}
+
+    try:
+        retried = retry_job(job_id, overrides=body)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"job_id": job_id, "status": retried["status"]}
 
 
 def _locate_source(job_id: str):

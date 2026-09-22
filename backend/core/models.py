@@ -97,19 +97,6 @@ class HookRequest(BaseModel):
     remove: Optional[bool] = False  # strip the burned hook instead of adding one
 
 
-class SocialPostRequest(BaseModel):
-    job_id: str
-    clip_index: int
-    api_key: Optional[str] = None  # BYOK; ignored for managed users
-    user_id: Optional[str] = None  # BYOK profile; ignored for managed users
-    platforms: List[str] # ["tiktok", "instagram", "youtube"]
-    # Optional overrides if frontend wants to edit them
-    title: Optional[str] = None
-    description: Optional[str] = None
-    scheduled_date: Optional[str] = None # ISO-8601 string
-    timezone: Optional[str] = "UTC"
-
-
 class ThumbnailTitlesRequest(BaseModel):
     session_id: Optional[str] = None
     message: Optional[str] = None
@@ -119,41 +106,3 @@ class ThumbnailTitlesRequest(BaseModel):
 class ThumbnailDescribeRequest(BaseModel):
     session_id: str
     title: str
-
-
-class SaaSAnalyzeRequest(BaseModel):
-    url: Optional[str] = None
-    description: Optional[str] = None  # Manual product/business description
-    num_scripts: int = 3
-    style: str = "ugc"
-    language: str = "en"
-    actor_gender: str = "female"
-
-
-class SaaSActorRequest(BaseModel):
-    actor_description: str
-    num_options: int = 3
-    product_description: Optional[str] = None
-
-
-class SaaSPostRequest(BaseModel):
-    job_id: str
-    api_key: Optional[str] = None  # BYOK; ignored for managed users
-    user_id: Optional[str] = None  # BYOK profile; ignored for managed users
-    platforms: List[str]
-    title: Optional[str] = None
-    description: Optional[str] = None
-    scheduled_date: Optional[str] = None
-    timezone: Optional[str] = "UTC"
-
-
-class SaaSGenerateRequest(BaseModel):
-    script: dict
-    voice_id: Optional[str] = None
-    actor_description: Optional[str] = None
-    selected_actor_url: Optional[str] = None  # Pre-selected actor image URL
-    retry_job_id: Optional[str] = None
-    video_mode: str = "lowcost"  # "lowcost" or "premium"
-    # Publishing to the public /gallery is opt-in: generated videos carry the
-    # user's product name, URL and full script.
-    share_to_gallery: bool = False

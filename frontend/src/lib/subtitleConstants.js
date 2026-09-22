@@ -1,7 +1,7 @@
 export const FONT_OPTIONS = [
   { value: 'Anton', label: 'Anton (Padrão Shorts)' },
   { value: 'Montserrat', label: 'Montserrat' },
-  { value: 'Inter', label: 'Inter' },
+  { value: 'Inter Black', label: 'Inter Black' },
   { value: 'Noto Serif', label: 'Noto Serif' }
 ];
 
@@ -72,7 +72,7 @@ export const CAPTION_PRESETS = [
     fontColor: '#FFFFFF',
     baseOpacity: 1.0,
     uppercase: true,
-    fontName: 'Inter',
+    fontName: 'Inter Black',
     borderWidth: 4,
     fontSize: 42,
     marginV: 43

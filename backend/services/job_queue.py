@@ -366,8 +366,113 @@ def _write_resume_manifest(job_id, cmd, priority, user_id, reservation_id, water
                 "partial": partial,
                 "llm_cfg": llm_cfg,
             }, f)
+        # Also persist a durable job spec that survives job failures for retry
+        save_job_spec(job_id, {
+            "cmd": cmd, "priority": priority, "user_id": user_id,
+            "reservation_id": reservation_id, "watermark": watermark,
+            "webhook_url": webhook_url, "webhook_secret": webhook_secret,
+            "base_url": base_url, "partial": partial, "env": env,
+            "output_dir": os.path.join(OUTPUT_DIR, job_id)
+        })
     except Exception as e:
         print(f"⚠️ Could not write resume manifest for {job_id}: {e}")
+
+def save_job_spec(job_id: str, job_data: dict):
+    try:
+        job_dir = os.path.join(OUTPUT_DIR, job_id)
+        os.makedirs(job_dir, exist_ok=True)
+        path = os.path.join(job_dir, ".job_spec.json")
+        data = {
+            "cmd": job_data.get("cmd"),
+            "priority": job_data.get("priority", 0),
+            "user_id": str(job_data["user_id"]) if job_data.get("user_id") is not None else None,
+            "reservation_id": job_data.get("reservation_id"),
+            "watermark": bool(job_data.get("watermark")),
+            "partial": job_data.get("partial"),
+            "output_dir": job_data.get("output_dir"),
+            "webhook_url": job_data.get("webhook_url"),
+            "webhook_secret": job_data.get("webhook_secret"),
+            "base_url": job_data.get("base_url"),
+            "env_overrides": {
+                k: v for k, v in (job_data.get("env") or {}).items()
+                if k in ("LLM_PROVIDER", "LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY",
+                         "LLM_FALLBACK_MODELS", "GEMINI_API_KEY", "AUTO_HOOK",
+                         "AUTO_HOOK_STYLE", "AUTO_CAPTIONS", "WATERMARK",
+                         "MAX_SOURCE_MINUTES", "CLIP_TARGET_MIN", "CLIP_TARGET_MAX",
+                         "CLIP_MIN_SECONDS", "CLIP_MAX_SECONDS", "PYTHONIOENCODING")
+            }
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"⚠️ Could not save job spec for {job_id}: {e}")
+
+def load_job_spec(job_id: str):
+    path = os.path.join(OUTPUT_DIR, job_id, ".job_spec.json")
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def retry_job(job_id: str, overrides: dict = None) -> dict:
+    job = jobs.get(job_id)
+    if job is None:
+        spec = load_job_spec(job_id)
+        if not spec or not spec.get("cmd"):
+            raise ValueError("Job spec not found in memory or on disk")
+        env = os.environ.copy()
+        env.update(spec.get("env_overrides") or {})
+        job = {
+            'status': 'queued',
+            'logs': [f"Job {job_id} recovered for retry."],
+            'cmd': spec['cmd'],
+            'env': env,
+            'output_dir': spec.get('output_dir') or os.path.join(OUTPUT_DIR, job_id),
+            'user_id': spec.get('user_id'),
+            'reservation_id': spec.get('reservation_id'),
+            'watermark': spec.get('watermark', False),
+            'partial': spec.get('partial'),
+            'webhook_url': spec.get('webhook_url'),
+            'webhook_secret': spec.get('webhook_secret'),
+            'base_url': spec.get('base_url'),
+        }
+        jobs[job_id] = job
+
+    if job.get('status') in ('processing', 'queued') and job_id in _running_jobs:
+        return job
+
+    env = dict(job.get("env") or {})
+    if overrides:
+        if overrides.get("llm_base_url"):
+            env["LLM_PROVIDER"] = "openai"
+            env["LLM_BASE_URL"] = overrides["llm_base_url"].strip().rstrip("/")
+        if overrides.get("llm_model"):
+            env["LLM_MODEL"] = overrides["llm_model"].strip()
+        if overrides.get("llm_api_key"):
+            env["LLM_API_KEY"] = overrides["llm_api_key"].strip()
+        if overrides.get("gemini_api_key"):
+            env["GEMINI_API_KEY"] = overrides["gemini_api_key"].strip()
+    job["env"] = env
+
+    job['status'] = 'queued'
+    job['logs'].append("🔄 Retomando processamento do vídeo...")
+    job.pop('result', None)
+    job.pop('clip_states', None)
+    job.pop('ready_files', None)
+
+    priority = job.get('priority', 0)
+    _write_resume_manifest(
+        job_id, job['cmd'], priority, job.get('user_id'), job.get('reservation_id'),
+        watermark=job.get('watermark', False), webhook_url=job.get('webhook_url'),
+        webhook_secret=job.get('webhook_secret'), base_url=job.get('base_url'),
+        partial=job.get('partial'), env=job.get('env')
+    )
+    from core.state import _enqueue_job
+    _enqueue_job(job_id, priority)
+    return job
 
 def _clear_resume_manifest(job_id):
     try:
@@ -1198,14 +1303,13 @@ async def _deliver_webhook(url, body: bytes, secret):
 
 
 async def _notify_job_webhook(job_id):
-    """Fire the caller's webhook for a terminal job. Runs inside run_job_wrapper's
-    finally AFTER the R2 archive, so durable links exist; the actual delivery
-    (with its retry sleeps) is detached so the worker slot frees immediately."""
+    """Enqueue a webhook for a terminal job using the durable delivery system."""
     job = jobs.get(job_id) or {}
     url = job.get('webhook_url')
     if not url or job.get('webhook_sent'):
         return
-    job['webhook_sent'] = True
+    # Note: we do NOT set webhook_sent=True here anymore,
+    # the worker sets it after successful delivery.
     status = job.get('status')
     # completed and partial both have at least one ready clip to deliver.
     has_clips = status in ('completed', 'partial')
@@ -1231,8 +1335,9 @@ async def _notify_job_webhook(job_id):
             }
     if not has_clips:
         payload["error"] = _job_error_text(job.get('logs', []))[-500:]
-    body = json.dumps(payload).encode()
-    asyncio.create_task(_deliver_webhook(url, body, job.get('webhook_secret')))
+        
+    from services.webhook import enqueue_webhook
+    await enqueue_webhook(job_id, url, payload)
 
 
 

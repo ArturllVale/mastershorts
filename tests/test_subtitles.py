@@ -333,3 +333,44 @@ class TestFilterQuoting:
     def test_plain_path_untouched(self):
         from subtitles import _escape_ffmpeg_filter_value
         assert _escape_ffmpeg_filter_value("/out/subs_0_123.ass") == "/out/subs_0_123.ass"
+
+
+class TestSubtitleScalingAndFontMapping:
+    """Verifies 1:1 parity with Remotion preview and fonts in fonts/."""
+
+    def _t(self, words):
+        return {"segments": [{"words": words}]}
+
+    def test_playres_declares_9_16_aspect_ratio(self, tmp_path):
+        from subtitles import generate_ass
+        out = tmp_path / "subs.ass"
+        assert generate_ass(self._t([_w(" hi", 0.0, 0.5)]), 0, 1, str(out)) is True
+        content = out.read_text(encoding="utf-8-sig")
+        assert "PlayResX: 162" in content
+        assert "PlayResY: 288" in content
+
+    def test_font_size_scales_to_match_remotion(self, tmp_path):
+        from subtitles import generate_ass
+        out = tmp_path / "subs.ass"
+        # UI default 44px -> in 1080x1920 Remotion is 79.2px -> in 288 units is 12
+        assert generate_ass(self._t([_w(" hi", 0.0, 0.5)]), 0, 1, str(out), fontsize=44) is True
+        content = out.read_text(encoding="utf-8-sig")
+        style_line = [l for l in content.splitlines() if l.startswith("Style: Default")][0]
+        # Format: Name, Fontname, Fontsize, ... -> Fontsize should be 12
+        fields = style_line.split(",")
+        assert fields[2] == "12"
+
+    def test_font_mapping_bundled_families(self, tmp_path):
+        from subtitles import generate_ass, map_font_family
+        assert map_font_family("Inter") == "Inter Black"
+        assert map_font_family("Inter Black") == "Inter Black"
+        assert map_font_family("Noto Serif") == "Noto Serif Bold"
+        assert map_font_family("Noto Serif Bold") == "Noto Serif Bold"
+        assert map_font_family("Anton") == "Anton"
+        assert map_font_family("Montserrat") == "Montserrat"
+
+        # Check in generated ASS
+        out = tmp_path / "inter.ass"
+        generate_ass(self._t([_w(" hi", 0.0, 0.5)]), 0, 1, str(out), font_name="Inter")
+        assert "Style: Default,Inter Black," in out.read_text(encoding="utf-8-sig")
+

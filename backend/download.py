@@ -167,6 +167,22 @@ def download_youtube_video(url, output_dir="."):
         with yt_dlp.YoutubeDL(_base_opts(extractor_args, proxy, cookies)) as ydl:
             info = ydl.extract_info(url, download=False)
         sanitized = sanitize_filename(info.get('title', 'youtube_video'))
+
+        # Reuse existing downloaded video if present and valid (e.g. from an interrupted or retried run)
+        for ext in ('mp4', 'mkv', 'webm'):
+            existing_candidate = os.path.join(output_dir, f'{sanitized}.{ext}')
+            if os.path.isfile(existing_candidate) and os.path.getsize(existing_candidate) > 1024 * 512:
+                try:
+                    import cv2
+                    probe = cv2.VideoCapture(existing_candidate)
+                    is_valid = probe.isOpened() and int(probe.get(cv2.CAP_PROP_FRAME_COUNT)) > 0
+                    probe.release()
+                    if is_valid:
+                        print(f"♻️ Vídeo já baixado encontrado: {existing_candidate} — pulando download.", flush=True)
+                        return sanitized
+                except Exception:
+                    pass
+
         try:
             for f in os.listdir(output_dir):
                 if f.startswith(sanitized) and not f.endswith(('.json', '.ass')):

@@ -73,11 +73,21 @@ Devido a restrições do Prisma que impedem o uso de variáveis de ambiente para
 Para executar as migrações localmente, utilizamos um script auxiliar em Python (`prisma_migrate.py`) que detecta o ambiente e invoca o comando apropriado do Prisma com o schema correto.
 
 **Geração inicial do banco de desenvolvimento (SQLite):**
+
+Linux / macOS (Bash):
 ```bash
 cd backend
 export DATABASE_URL="file:./dev.db"
 python prisma_migrate.py dev --name init
 ```
+
+Windows (PowerShell):
+```powershell
+cd backend
+$env:DATABASE_URL="file:./dev.db"
+python prisma_migrate.py dev --name init
+```
+*(Nota: `prisma_migrate.py` assume `file:./dev.db` por padrão se `DATABASE_URL` não for definido).*
 
 ---
 
@@ -120,3 +130,24 @@ npm run dev:frontend
 ## Licença
 
 Distribuído sob a licença MIT. Consulte o arquivo [LICENSE](file:///c:/Users/Vale/Documents/github/openshorts/LICENSE) para mais detalhes.
+
+## AceleraÃ§Ã£o por GPU (NVENC / CUDA)
+
+O OpenShorts detecta e utiliza automaticamente a aceleraÃ§Ã£o por hardware (NVIDIA GPU) caso esteja disponÃ­vel no sistema, o que pode acelerar as renderizaÃ§Ãµes em atÃ© 5x e reduzir drasticamente o uso da CPU.
+
+Para garantir que o FFmpeg estÃ¡ usando sua GPU (h264_nvenc):
+
+**1. InstalaÃ§Ã£o do Driver NVIDIA**
+- Tenha uma GPU NVIDIA compatÃ­vel.
+- Instale ou atualize o driver oficial da sua placa de vÃ­deo mais recente a partir do [NVIDIA Driver Downloads](https://www.nvidia.com/Download/index.aspx) ou do GeForce Experience.
+- Instale o CUDA Toolkit se nÃ£o foi incluÃ­do com o seu ambiente.
+
+**2. InstalaÃ§Ã£o do FFmpeg com Suporte NVENC**
+- **Windows:** Baixe a versÃ£o mais recente em [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (a build "essentials" ou "full" jÃ¡ traz o nvenc embutido por padrÃ£o).
+- **Linux:** O FFmpeg padrÃ£o das distros geralmente **nÃ£o** vem com nvenc devido a restriÃ§Ãµes de licenÃ§a.
+  - Para Ubuntu/Debian: VocÃª pode precisar instalar dependÃªncias de hardware (`sudo apt install nvidia-cuda-toolkit`) e as vezes compilar o FFmpeg ou instalar uma build estÃ¡tica de [johnvansickle.com/ffmpeg](https://johnvansickle.com/ffmpeg/).
+- **macOS:** NVENC nÃ£o Ã© suportado no macOS, o sistema cairÃ¡ no fallback para CPU com gracefully degradada qualidade (x264).
+
+**VerificaÃ§Ã£o de Suporte:**
+- O servidor avisa na inicializaÃ§Ã£o ou no primeiro encode: `Encoder escolhido: h264_nvenc (GPU)` ou `libx264 (CPU)`.
+- VocÃª tambÃ©m pode rodar no terminal: `ffmpeg -hide_banner -encoders` e verificar visualmente se `h264_nvenc` estÃ¡ na lista de encoders de vÃ­deo com suporte.
