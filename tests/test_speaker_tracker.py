@@ -21,7 +21,8 @@ def _face(center_x, size=120, score=None):
 
 
 def _tracker():
-    return main.SpeakerTracker(cooldown_frames=COOLDOWN)
+    cameraman = pytest.importorskip("cameraman")
+    return cameraman.SpeakerTracker(cooldown_frames=COOLDOWN)
 
 
 def _lock_onto(tracker, x, frame=0):
@@ -82,7 +83,8 @@ class TestJumpConfirmation:
     """A lone huge target jump is a detector error, not a person moving."""
 
     def _cam(self, crop=600, video_w=1920):
-        cam = main.SmoothedCameraman(crop, 1080, video_w, 1080,
+        cameraman = pytest.importorskip("cameraman")
+        cam = cameraman.SmoothedCameraman(crop, 1080, video_w, 1080,
                                      aspect_ratio=9 / 16)
         cam.target_center_x = 500.0
         return cam
