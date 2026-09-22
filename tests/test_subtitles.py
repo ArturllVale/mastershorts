@@ -310,7 +310,7 @@ class TestFilterQuoting:
         # Both generators must name their own file, never derive it from a
         # video title. This is the property that actually prevents the bug.
         import re
-        main_path = "main.py" if os.path.exists("main.py") else os.path.join(os.path.dirname(__file__), "..", "backend", "main.py")
+        main_path = "postprocessing.py" if os.path.exists("postprocessing.py") else os.path.join(os.path.dirname(__file__), "..", "backend", "postprocessing.py")
         src = open(main_path, encoding="utf-8").read()
         m = re.search(r'ass_path = os\.path\.join\(\s*output_dir,\s*f"([^"]+)"', src)
         assert m, "auto-caption .ass path not found"
@@ -321,7 +321,7 @@ class TestFilterQuoting:
         # Clips render in parallel; a bare timestamp collides and lets one clip
         # burn another's captions.
         import re
-        main_path = "main.py" if os.path.exists("main.py") else os.path.join(os.path.dirname(__file__), "..", "backend", "main.py")
+        main_path = "postprocessing.py" if os.path.exists("postprocessing.py") else os.path.join(os.path.dirname(__file__), "..", "backend", "postprocessing.py")
         src = open(main_path, encoding="utf-8").read()
         m = re.search(r'ass_path = os\.path\.join\(\s*output_dir,\s*f"([^"]+)"', src)
         assert "uuid" in m.group(1), f"not unique per clip: {m.group(1)}"
@@ -373,4 +373,6 @@ class TestSubtitleScalingAndFontMapping:
         out = tmp_path / "inter.ass"
         generate_ass(self._t([_w(" hi", 0.0, 0.5)]), 0, 1, str(out), font_name="Inter")
         assert "Style: Default,Inter Black," in out.read_text(encoding="utf-8-sig")
+
+
 

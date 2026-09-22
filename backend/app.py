@@ -1,5 +1,6 @@
 from core.models import *
 import os
+import logging
 import llm_backend
 import re
 import sys
@@ -52,6 +53,8 @@ import recut
 import layout_ranges
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -411,19 +414,6 @@ async def _assert_job_owner(request, record):
 
 # Application State
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # --- Mid-flight job resume (survive a redeploy without losing work) ----------
 # A job lives only in memory, so killing the container mid-processing used to
 # lose it: the user's clip just stops. We persist a tiny manifest per job and,
@@ -462,98 +452,19 @@ async def _assert_job_owner(request, record):
 _running_jobs: set = set()           # job ids with a live subprocess here
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Monthly proxy bandwidth counter (in-memory; an alert threshold, not a bill —
 # losing it on a deploy just means the alert re-arms from 0 mid-month).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Markers that identify a line as an actual error rather than progress noise.
 # "Error:" (capital E) catches raised exception lines — RuntimeError:,
 # DownloadError:, GeminiBlockedError: — which "ERROR:" alone missed, leaving
 # alerts with a bare "Traceback ... exit code 1" and no cause (prod 20-ago).
 
-
-
-
-
-
-
-
 # --- Job completion webhooks --------------------------------------------------
 # Agents and pipelines (n8n, cron, MCP clients) need push, not poll: a caller
 # passes webhook_url on /api/process and gets one POST when the job reaches a
 # terminal state. The URL goes through assert_public_url both at submit and at
 # delivery time — the second check is what defeats DNS rebinding between them.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @asynccontextmanager
@@ -570,6 +481,12 @@ async def lifespan(app: FastAPI):
     _install_drain_signal_handler()
     asyncio.create_task(_handover_watch())
     asyncio.create_task(_resume_scan())
+    # Connect Prisma database client
+    from database.prisma_client import get_prisma, disconnect_prisma
+    try:
+        await get_prisma()
+    except Exception as e:
+        logger.warning(f"Could not initialize Prisma on startup: {e}")
     # Start worker and cleanup
     worker_task = asyncio.create_task(process_queue())
     cleanup_task = asyncio.create_task(cleanup_jobs())
@@ -587,6 +504,7 @@ async def lifespan(app: FastAPI):
     yield
     # Cleanup (optional: cancel worker)
     await stop_webhook_worker()
+    await disconnect_prisma()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -648,16 +566,10 @@ def _safe_under(base_dir: str, user_rel_path: str) -> Optional[str]:
 # ever printed to the server console or stored in the job log.
 
 
-
-
 # Cloud users don't need (and shouldn't see) implementation details: the ingest
 # plumbing (proxy / downloader / cookies) OR which AI model powers it, token
 # usage and cost. These are dropped from the client view even when the line is
 # emoji-prefixed. Never applied under DEBUG_LOGS (local dev sees everything).
-
-
-
-
 
 
 @app.get("/health")
@@ -689,11 +601,6 @@ async def get_config():
         # because the moment picker runs on an OpenAI-compatible server.
         "localLlm": None if BILLING_ENABLED else llm_backend.describe(),
     }
-
-
-
-
-
 
 
 # Layouts the caller can let the renderer choose from, mapped to the env var
@@ -737,45 +644,10 @@ pending_uploads: Dict[str, Dict] = {}
 UPLOAD_TTL_SECONDS = int(os.environ.get("UPLOAD_TTL_SECONDS", str(6 * 3600)))
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # How long a signed source URL stays valid. Long enough to survive an editing
 # session and a page reload, short enough that a link leaked through a log, a
 # referer or a shared screenshot is dead by the time anyone tries it.
 SOURCE_URL_TTL_SECONDS = int(os.environ.get("SOURCE_URL_TTL_SECONDS", "21600"))
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # --- Project restore (paid mode) --------------------------------------------
@@ -786,10 +658,6 @@ _restore_locks: Dict[str, asyncio.Lock] = {}
 # Job ids are uuid4 strings; anything else under /videos is not a job dir
 # (thumbnails, stray probes) and must not reach the database.
 _JOB_ID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
-
-
-
-
 
 
 async def _restore_for_public_path(job_id: str) -> bool:
@@ -811,6 +679,7 @@ async def _restore_for_public_path(job_id: str) -> bool:
     if proj is None:
         return False
     try:
+        from routes.process import _restore_job_files
         await _restore_job_files(job_id, proj, str(proj.user_id))
     except HTTPException as e:
         print(f"⚠️  /videos restore of {job_id} failed: {e.detail}")
@@ -838,6 +707,7 @@ async def _ensure_job_files(job_id: str, request: Request) -> bool:
     if not BILLING_ENABLED:
         return False
     try:
+        from routes.process import restore_project
         await restore_project(job_id, request)
         return True
     except HTTPException:
@@ -860,13 +730,6 @@ from thumbnail import (analyze_video_for_titles, refine_titles, generate_thumbna
 # covered, and you cannot pick a new in-point from words you were not sent.
 # Cost is about 7 KB of JSON per minute of speech, fetched once per editor open.
 
-
-
-
-
-
-
-
 # Manual framing -> reframe-engine strategy. 'full' shows the whole source
 # frame (WIDE: no side-cropping, blurred filler bands); 'track' forces the
 # subject-tracking crop. Anything non-auto needs the retained source video.
@@ -880,10 +743,6 @@ _rerender_locks: Dict[str, asyncio.Lock] = {}
 # Scene-listing builds write stable preview/thumbnail names per job; serialize
 # them so overlapping editor opens don't tear each other's files.
 _scenes_locks: Dict[str, asyncio.Lock] = {}
-
-
-
-
 
 
 # --- Manual framing -----------------------------------------------------------
@@ -903,9 +762,6 @@ _scenes_locks: Dict[str, asyncio.Lock] = {}
 # --- Remotion Render Proxy ---
 RENDER_SERVICE_URL = os.getenv("RENDER_SERVICE_URL", "http://renderer:3100")
 
-
-
-
 app.include_router(_mcp_server.router)
 from routes.thumbnails import router as thumbnails_router
 from routes.clips import router as clips_router
@@ -915,5 +771,6 @@ app.include_router(clips_router)
 app.include_router(process_router)
 from routes.process import (
     _probe_youtube_quality, _media_duration_seconds, _source_signature,
-    _signed_source_url, _presented_status, layout_env
+    _signed_source_url, _presented_status, layout_env,
+    _restore_job_files, restore_project
 )

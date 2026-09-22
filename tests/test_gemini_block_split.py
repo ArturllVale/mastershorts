@@ -1,6 +1,6 @@
 """A policy block on a batch of windows must bisect, not kill the job."""
 import pytest
-main = pytest.importorskip("main")
+viral_analysis = pytest.importorskip("viral_analysis")
 import gemini_worker
 
 
@@ -18,9 +18,9 @@ def test_block_on_pair_isolates_and_drops_only_the_culprit(monkeypatch):
         if ids == ["w3"]:                    # and w3 blocks even on its own
             raise gemini_worker.GeminiBlockedError("PROHIBITED_CONTENT")
         return {"windows": [{"id": i, "score": 50} for i in ids]}, {"input_tokens": 1}
-    monkeypatch.setattr(main, "_run_gemini_stage", fake_stage)
+    monkeypatch.setattr(viral_analysis, "_run_gemini_stage", fake_stage)
     costs = []
-    out = main._run_stage_split(None, "m", _windows(8), lambda ws: __import__("json").dumps(ws),
+    out = viral_analysis._run_stage_split(None, "m", _windows(8), lambda ws: __import__("json").dumps(ws),
                                 None, "windows", costs, "score")
     got = sorted(w["id"] for w in out)
     # w5 and w6 each survive once separated; w3 only ever reached the model on
@@ -38,6 +38,9 @@ def test_no_block_is_a_single_call(monkeypatch):
     def fake_stage(client, model, prompt, schema):
         calls.append(prompt)
         return {"shorts": [{"start": 0, "end": 20}]}, None
-    monkeypatch.setattr(main, "_run_gemini_stage", fake_stage)
-    out = main._run_stage_split(None, "m", _windows(3), lambda ws: "p", None, "shorts", [], "detail")
+    monkeypatch.setattr(viral_analysis, "_run_gemini_stage", fake_stage)
+    out = viral_analysis._run_stage_split(None, "m", _windows(3), lambda ws: "p", None, "shorts", [], "detail")
     assert out == [{"start": 0, "end": 20}] and len(calls) == 1
+
+
+

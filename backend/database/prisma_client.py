@@ -6,7 +6,14 @@ except (ImportError, ModuleNotFoundError, AttributeError):
     Prisma = None
     HAS_PRISMA = False
 
+import os
+
 _prisma_client = None
+
+def _ensure_database_url():
+    if not os.environ.get("DATABASE_URL"):
+        dev_db = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dev.db")).replace("\\", "/")
+        os.environ["DATABASE_URL"] = f"file:{dev_db}"
 
 def get_prisma_sync():
     """Synchronous getter that ensures Prisma is only instantiated once per process,
@@ -15,13 +22,16 @@ def get_prisma_sync():
     global _prisma_client
     if not HAS_PRISMA:
         return None
+    _ensure_database_url()
     if _prisma_client is None:
         try:
             from prisma import _registry
-            _registry._registered_client = None
+            if _registry._registered_client is not None:
+                _prisma_client = _registry._registered_client
         except Exception:
             pass
-        _prisma_client = Prisma(auto_register=True)
+        if _prisma_client is None:
+            _prisma_client = Prisma(auto_register=True)
     return _prisma_client
 
 async def get_prisma():

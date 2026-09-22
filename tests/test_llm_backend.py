@@ -2,7 +2,7 @@
 
 Self-hosters asked for a pipeline that never calls Google. The transcript
 passes go to any /chat/completions server when LLM_BASE_URL is set; these
-tests pin the contract main.py relies on: same (parsed, cost) shape as the
+tests pin the contract viral_analysis.py relies on: same (parsed, cost) shape as the
 Gemini stage, schema validation, and the response_format fallback ladder.
 """
 import json
@@ -121,11 +121,11 @@ def test_server_errors_surface_with_status_and_url(local, monkeypatch):
     assert "503" in str(exc.value) and "loading model" in str(exc.value)
 
 
-# --- main.py routing (needs the heavy deps; skipped on minimal CI) ------------
+# --- viral_analysis.py routing (needs the heavy deps; skipped on minimal CI) ------------
 
 def test_stage_routes_to_local_backend_and_retries_transient(local, monkeypatch):
-    main = pytest.importorskip("main")
-    monkeypatch.setattr(main.time, "sleep", lambda *_: None)
+    viral_analysis = pytest.importorskip("viral_analysis")
+    monkeypatch.setattr(viral_analysis.time, "sleep", lambda *_: None)
     calls = {"n": 0}
 
     def fake_generate(prompt, schema, model=None):
@@ -135,18 +135,20 @@ def test_stage_routes_to_local_backend_and_retries_transient(local, monkeypatch)
         return {"windows": [{"id": "w0", "start": 0, "end": 1, "score": 50, "reason": ""}]}, {"total_cost": 0.0}
 
     monkeypatch.setattr(llm_backend, "generate_json", fake_generate)
-    parsed, cost = main._run_gemini_stage(None, "qwen2.5:14b", "prompt", gemini_worker.ScoreResponse)
+    parsed, cost = viral_analysis._run_gemini_stage(None, "qwen2.5:14b", "prompt", gemini_worker.ScoreResponse)
     assert calls["n"] == 2
     assert parsed["windows"][0]["score"] == 50
     assert cost["total_cost"] == 0.0
 
 
 def test_score_batch_shrinks_for_local_models(local, monkeypatch):
-    main = pytest.importorskip("main")
+    viral_analysis = pytest.importorskip("viral_analysis")
     monkeypatch.delenv("LLM_SCORE_BATCH", raising=False)
-    assert main.score_batch_size() == 3
+    assert viral_analysis.score_batch_size() == 3
     monkeypatch.setenv("LLM_SCORE_BATCH", "5")
-    assert main.score_batch_size() == 5
+    assert viral_analysis.score_batch_size() == 5
     monkeypatch.delenv("LLM_BASE_URL")
     monkeypatch.delenv("LLM_SCORE_BATCH")
-    assert main.score_batch_size() == 8
+    assert viral_analysis.score_batch_size() == 8
+
+

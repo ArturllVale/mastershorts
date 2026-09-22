@@ -16,6 +16,8 @@ _worker_task = None
 _stop_event = asyncio.Event()
 
 async def enqueue_webhook(job_id: str, url: str, payload: dict):
+    from database.prisma_client import get_prisma
+    await get_prisma()
     now = datetime.now(timezone.utc)
     
     await WebhookDelivery.prisma().create(
@@ -48,6 +50,8 @@ async def webhook_worker():
     logger.info("Webhook worker stopped")
 
 async def _process_webhooks():
+    from database.prisma_client import get_prisma
+    await get_prisma()
     now = datetime.now(timezone.utc)
     
     deliveries = await WebhookDelivery.prisma().find_many(

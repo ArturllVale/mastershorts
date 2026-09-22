@@ -9,7 +9,7 @@ import pytest
 
 # main pulls in cv2/torch/mediapipe at import time; the minimal CI env lacks
 # them, so skip there. Runs fully in the container/local where deps exist.
-main = pytest.importorskip("main")
+viral_analysis = pytest.importorskip("viral_analysis")
 
 
 class _FakeResponse:
@@ -44,19 +44,19 @@ def _client(models):
 
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
-    monkeypatch.setattr(main.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(viral_analysis.time, "sleep", lambda *_: None)
 
 
 def test_recovers_from_a_single_empty_body(monkeypatch):
     models = _FakeModels(blips=1)
-    parsed, _cost = main._run_gemini_stage(_client(models), "m", "prompt", object)
+    parsed, _cost = viral_analysis._run_gemini_stage(_client(models), "m", "prompt", object)
     assert models.calls == 2
     assert parsed["windows"][0]["score"] == 90
 
 
 def test_recovers_from_two_consecutive_blips():
     models = _FakeModels(blips=2)
-    parsed, _cost = main._run_gemini_stage(_client(models), "m", "prompt", object)
+    parsed, _cost = viral_analysis._run_gemini_stage(_client(models), "m", "prompt", object)
     assert models.calls == 3
     assert parsed["windows"]
 
@@ -64,7 +64,7 @@ def test_recovers_from_two_consecutive_blips():
 def test_gives_up_after_six_attempts():
     models = _FakeModels(blips=99)
     with pytest.raises(Exception) as exc:
-        main._run_gemini_stage(_client(models), "m", "prompt", object)
+        viral_analysis._run_gemini_stage(_client(models), "m", "prompt", object)
     assert models.calls == 6
     assert "empty response body" in str(exc.value)
 
@@ -78,13 +78,13 @@ def test_non_transient_errors_are_not_retried():
             raise ValueError("400 INVALID_ARGUMENT: bad request")
 
     with pytest.raises(ValueError):
-        main._run_gemini_stage(_client(_Boom()), "m", "prompt", object)
+        viral_analysis._run_gemini_stage(_client(_Boom()), "m", "prompt", object)
     assert _Boom.calls == 1
 
 
 def test_succeeds_without_retrying_when_the_first_call_is_fine():
     models = _FakeModels(blips=0)
-    main._run_gemini_stage(_client(models), "m", "prompt", object)
+    viral_analysis._run_gemini_stage(_client(models), "m", "prompt", object)
     assert models.calls == 1
 
 
@@ -114,7 +114,7 @@ def test_policy_block_fails_fast_without_retrying():
 
     import gemini_worker
     with pytest.raises(gemini_worker.GeminiBlockedError) as exc:
-        main._run_gemini_stage(_client(_Models()), "m", "prompt", object)
+        viral_analysis._run_gemini_stage(_client(_Models()), "m", "prompt", object)
     assert _Models.calls == 1
     assert "PROHIBITED_CONTENT" in str(exc.value)
 
@@ -144,3 +144,5 @@ def test_clean_response_is_not_flagged_as_blocked():
         candidates = []
 
     gemini_worker.raise_if_blocked(_Resp())  # must not raise
+
+

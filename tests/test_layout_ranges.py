@@ -88,7 +88,7 @@ class TestCaptionerReadsSidecar:
             seen["split_ranges"] = kw.get("split_ranges")
             return False  # stop before ffmpeg
         monkeypatch.setattr(subtitles, "generate_ass", fake_generate_ass)
-        main.auto_caption_clip(clip, _transcript([(" a", 0.0, 0.5)]), 0.0, 3.0)
+        postprocessing.auto_caption_clip(clip, _transcript([(" a", 0.0, 0.5)]), 0.0, 3.0)
         assert seen["split_ranges"] == [(0.0, 3.0)]
 
 
@@ -131,3 +131,4 @@ class TestLayoutEnvNone:
         assert app_module.layout_env(["none"]) == {"AUTO_LAYOUT": "0"}
         assert app_module.layout_env(["auto"]) == {"AUTO_LAYOUT": "1"}
         assert app_module.layout_env(["split"])["SPLIT_LAYOUT"] == "1"
+

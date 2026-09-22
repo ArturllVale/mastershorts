@@ -47,21 +47,26 @@ async def find_idempotent_job(source_hash: str, config_hash: str) -> Optional[Jo
     Se estiver completed nas últimas 24h, retorna o existente.
     Caso contrário (falhou ou muito antigo), permite criar novo.
     """
-    jobs = await Job.prisma().find_many(
-        where={
-            "source_hash": source_hash,
-            "config_hash": config_hash
-        },
-        order={"created_at": "desc"}
-    )
-    
-    for job in jobs:
-        if job.status in ["queued", "processing"]:
-            return job
-            
-        if job.status == "completed":
-            age = datetime.now(timezone.utc) - job.created_at
-            if age.total_seconds() <= COMPLETED_JOB_MAX_AGE_HOURS * 3600:
+    try:
+        from database.prisma_client import get_prisma
+        await get_prisma()
+        jobs = await Job.prisma().find_many(
+            where={
+                "source_hash": source_hash,
+                "config_hash": config_hash
+            },
+            order={"created_at": "desc"}
+        )
+        
+        for job in jobs:
+            if job.status in ["queued", "processing"]:
                 return job
                 
-    return None
+            if job.status == "completed":
+                age = datetime.now(timezone.utc) - job.created_at
+                if age.total_seconds() <= COMPLETED_JOB_MAX_AGE_HOURS * 3600:
+                    return job
+                    
+        return None
+    except Exception:
+        return None
