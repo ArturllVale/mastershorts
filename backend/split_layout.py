@@ -263,7 +263,7 @@ def detect_split_scenes(video_path, scenes, strategies, samples=None):
                     continue
                 if frame.mean() < 16:  # fade to black, same as the classifier
                     continue
-                sampled.append(m.detect_face_candidates(frame))
+                sampled.append(detection.detect_face_candidates(frame))
 
             # Too few readable samples to call it: defaulting to GENERAL costs a
             # nicer layout, defaulting to SPLIT risks half a frame of nobody.

@@ -14,7 +14,8 @@ W, H = 1920, 1080
 
 
 def _cam():
-    cam = main.SmoothedCameraman(1080, 1920, W, H, aspect_ratio=9 / 16)
+    cameraman = pytest.importorskip("cameraman")
+    cam = cameraman.SmoothedCameraman(1080, 1920, W, H, aspect_ratio=9 / 16)
     cam.jump_confirm_frames = 3
     return cam
 
@@ -66,7 +67,8 @@ class TestCameramanBeginScene:
 
 class TestTrackerReset:
     def test_reset_releases_the_cooldown_hold(self):
-        t = main.SpeakerTracker(cooldown_frames=30)
+        cameraman = pytest.importorskip("cameraman")
+        t = cameraman.SpeakerTracker(cooldown_frames=30)
         for f in range(5):
             t.get_target([{"box": _box(300), "score": 1}], f, W)
         t.get_target([{"box": _box(1500), "score": 1}], 40, W)  # switch -> cooldown

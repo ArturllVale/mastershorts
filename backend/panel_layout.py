@@ -224,6 +224,7 @@ def detect_panel_scenes(video_path, scenes, strategies, samples=None):
     # path (the default, and what CI exercises) must not pay that import.
     import cv2
     import main as m
+    import detection
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -260,7 +261,7 @@ def detect_panel_scenes(video_path, scenes, strategies, samples=None):
                     continue
                 if frame.mean() < 16:
                     continue
-                sampled.append(m.detect_face_candidates(frame))
+                sampled.append(detection.detect_face_candidates(frame))
 
             if len(sampled) < max(4, n // 2):
                 continue

@@ -92,7 +92,7 @@ async def thumbnail_upload(
             vpath = video_path
             # Download YouTube video if URL was provided
             if not vpath and url:
-                from main import download_youtube_video
+                from download import download_youtube_video
                 loop = asyncio.get_event_loop()
                 vpath, _ = await loop.run_in_executor(None, download_youtube_video, url, UPLOAD_DIR)
                 thumbnail_sessions[session_id]["video_path"] = vpath
@@ -175,7 +175,7 @@ async def thumbnail_analyze(
         session_id = str(uuid.uuid4())
 
         if url:
-            from main import download_youtube_video
+            from download import download_youtube_video
             video_path, _ = download_youtube_video(url, UPLOAD_DIR)
         else:
             safe_name = os.path.basename(file.filename or "upload") or "upload"

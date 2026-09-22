@@ -158,6 +158,7 @@ def detect(video_path, samples=10):
     import cv2
     import numpy as np
     import main as m
+    import detection
     import screencast_layout
 
     cap = cv2.VideoCapture(video_path)
@@ -185,7 +186,7 @@ def detect(video_path, samples=10):
             if faces:
                 box = max(faces, key=lambda c: c['score'])['box']
             else:
-                box = m.detect_person_yolo(frame)
+                box = detection.detect_person_yolo(frame)
             if not box:
                 continue
             if not is_cornered(box, frame_w, frame_h):

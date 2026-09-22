@@ -652,7 +652,7 @@ async def get_clip_scenes(job_id: str, clip_index: int, request: Request):
                     # Start the rectangle on the biggest face in the shot, so
                     # the common case is a nudge rather than a hunt.
                     try:
-                        faces = m.detect_face_candidates(frame)
+                        faces = detection.detect_face_candidates(frame)
                         if faces:
                             box = max(faces,
                                       key=lambda f: f['box'][2] * f['box'][3])['box']

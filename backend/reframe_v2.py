@@ -257,6 +257,7 @@ def _analyze_trajectory(input_video, scenes_boundaries, scene_strategies,
     stream. Returns xs: crop x per frame (None on GENERAL frames)."""
     import numpy as np
     import main as m
+    import detection
 
     small_w = min(ANALYSIS_MAX_WIDTH, orig_w)
     if small_w % 2:
@@ -310,16 +311,16 @@ def _analyze_trajectory(input_video, scenes_boundaries, scene_strategies,
                     tracker.reset()
                     cameraman.begin_scene()
 
-                if frame_number % m.DETECT_STRIDE == 0 or cut:
-                    candidates = m.detect_face_candidates(frame)
+                if frame_number % detection.DETECT_STRIDE == 0 or cut:
+                    candidates = detection.detect_face_candidates(frame)
                     for cand in candidates:
                         cand['box'] = [int(v * scale) for v in cand['box']]
                         cand['score'] = cand['box'][2] * cand['box'][3]
                     target_box = tracker.get_target(candidates, frame_number, orig_w)
                     if target_box:
                         cameraman.update_target(target_box)
-                    elif frame_number % m.YOLO_FALLBACK_STRIDE == 0 or cut:
-                        person_box = m.detect_person_yolo(frame)
+                    elif frame_number % detection.YOLO_FALLBACK_STRIDE == 0 or cut:
+                        person_box = detection.detect_person_yolo(frame)
                         if person_box:
                             cameraman.update_target([int(v * scale) for v in person_box])
 
@@ -482,8 +483,9 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
     # derives crop_width/crop_height from video_width/video_height and never
     # reads the output pair. So out_w/out_h being the (possibly upscaled)
     # delivery size doesn't move the camera; only the final scale= uses it.
-    cameraman = m.SmoothedCameraman(out_w, out_h, orig_w, orig_h, aspect_ratio=aspect_ratio)
-    tracker = m.SpeakerTracker(cooldown_frames=30)
+    from cameraman import SmoothedCameraman, SpeakerTracker
+    cameraman = SmoothedCameraman(out_w, out_h, orig_w, orig_h, aspect_ratio=aspect_ratio)
+    tracker = SpeakerTracker(cooldown_frames=30)
 
     xs = _analyze_trajectory(input_video, scene_boundaries, strategies, fps,
                              orig_w, orig_h, cameraman, tracker)

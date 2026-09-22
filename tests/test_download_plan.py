@@ -9,7 +9,8 @@ import pytest
 
 main = pytest.importorskip("main")
 
-plan = main.plan_download_attempts
+import download
+plan = download.plan_download_attempts
 
 STATICS = ["http://s1", "http://s2", "http://s3"]
 PAID = "http://paid"
@@ -66,7 +67,7 @@ def test_direct_file_urls_skip_the_proxy_chain():
     got = plan(False, ["s1", "s2"], "paid", True, youtube=False)
     assert got == [("direct", False, None), ("static-fallback", False, "s1")]
     assert plan(False, [], "paid", True, youtube=False) == [("direct", False, None)]
-    assert main.is_youtube_url("https://www.youtube.com/watch?v=x")
-    assert main.is_youtube_url("https://youtu.be/x")
-    assert not main.is_youtube_url("https://litter.catbox.moe/u90j4q.mp4")
-    assert not main.is_youtube_url("https://tmpfiles.org/dl/1/2/v.mp4")
+    assert download.is_youtube_url("https://www.youtube.com/watch?v=x")
+    assert download.is_youtube_url("https://youtu.be/x")
+    assert not download.is_youtube_url("https://litter.catbox.moe/u90j4q.mp4")
+    assert not download.is_youtube_url("https://tmpfiles.org/dl/1/2/v.mp4")

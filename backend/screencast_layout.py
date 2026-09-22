@@ -124,6 +124,7 @@ def detect_faces_full_res(frame):
     """
     import cv2
     import main as m
+    import detection
 
     h, w, _ = frame.shape
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -312,7 +313,7 @@ def detect_screencast_scenes(video_path, scenes, strategies, ranges, samples=6):
                     # where the person is plainly visible). YOLO finds the body
                     # in the same frames, and a body centre frames the speaker
                     # just as well for this layout.
-                    person = m.detect_person_yolo(frame)
+                    person = detection.detect_person_yolo(frame)
                     if person:
                         centre = (person[0] + person[2] / 2.0,
                                   person[1] + person[3] / 2.0)
