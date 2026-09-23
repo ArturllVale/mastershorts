@@ -77,7 +77,7 @@ async def _process_webhooks():
 
         try:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
-                headers = {"Content-Type": "application/json", "User-Agent": "OpenShorts-Webhook/1.0"}
+                headers = {"Content-Type": "application/json", "User-Agent": "MasterShorts-Webhook/1.0"}
                 resp = await client.post(delivery.url, content=delivery.payload.encode(), headers=headers)
                 if resp.status_code < 300:
                     success = True

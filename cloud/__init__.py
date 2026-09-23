@@ -1,4 +1,4 @@
-"""Optional cloud (paid / managed-keys) mode for OpenShorts.
+"""Optional cloud (paid / managed-keys) mode for MasterShorts.
 
 This whole package is dormant unless the ``BILLING_ENABLED`` env flag is set.
 ``app.py`` imports it only in that case, so self-hosters never need the extra
@@ -27,7 +27,7 @@ def setup_sync(app):
     app.add_middleware(SessionMiddleware, secret_key=settings.jwt_secret)
 
     from . import (auth, oauth, billing, social_profiles, videos, api_keys,
-                   account, mcp_oauth, marketing)
+                   account, marketing)
     oauth.register()
     billing._init_stripe()
     app.include_router(auth.router)
@@ -36,7 +36,6 @@ def setup_sync(app):
     app.include_router(social_profiles.router)
     app.include_router(videos.router)
     app.include_router(api_keys.router)
-    app.include_router(mcp_oauth.router)
     app.include_router(account.router)
     # Unsubscribe from the one commercial email (LSSI art. 21.2).
     app.include_router(marketing.router)

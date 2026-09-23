@@ -5,11 +5,14 @@
   "scripts": {
     "dev:backend": "node scripts/dev-backend.js",
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:renderer": "npm --prefix render-service run dev",
+    "dev": "concurrently -n \"backend,frontend,renderer\" -c \"blue,green,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:renderer\"",
     "build:frontend": "npm --prefix frontend run build",
     "install:frontend": "npm --prefix frontend install",
+    "install:renderer": "npm --prefix render-service install",
+    "install:remotion": "npm --prefix remotion install",
     "install:backend": "node scripts/install-backend.js",
-    "install:all": "npm install && npm run install:frontend && npm run install:backend"
+    "install:all": "npm install && npm run install:frontend && npm run install:renderer && npm run install:remotion && npm run install:backend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

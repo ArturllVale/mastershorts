@@ -536,15 +536,15 @@ AI_XMP_PACKET = (
     ' xmlns:dc="http://purl.org/dc/elements/1.1/"'
     ' Iptc4xmpExt:DigitalSourceType='
     '"http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"'
-    ' xmp:CreatorTool="OpenShorts (openshorts.app)">'
+    ' xmp:CreatorTool="MasterShorts">'
     '<dc:description><rdf:Alt><rdf:li xml:lang="x-default">'
-    'AI-generated image produced with OpenShorts (openshorts.app)'
+    'AI-generated image produced with MasterShorts'
     '</rdf:li></rdf:Alt></dc:description>'
     '</rdf:Description></rdf:RDF></x:xmpmeta>'
     '<?xpacket end="w"?>'
 ).encode("utf-8")
 
-AI_SOFTWARE_TAG = "OpenShorts (openshorts.app) — AI-generated image"
+AI_SOFTWARE_TAG = "MasterShorts — AI-generated image"
 
 
 def _ai_save_kwargs(img):

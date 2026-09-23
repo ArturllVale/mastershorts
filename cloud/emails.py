@@ -48,17 +48,17 @@ async def send_magic_link_email(email: str, link: str):
         return
     html = f"""
       <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto">
-        <h2>Sign in to OpenShorts</h2>
+        <h2>Sign in to MasterShorts</h2>
         <p>Click the button below to sign in. This link expires in 15 minutes.</p>
         <p><a href="{link}" style="display:inline-block;background:#111;color:#fff;
            padding:12px 20px;border-radius:8px;text-decoration:none">Sign in</a></p>
         <p style="color:#666;font-size:13px">If you didn't request this, ignore this email.</p>
       </div>
     """
-    await send_email(email, "Your OpenShorts sign-in link", html)
+    await send_email(email, "Your MasterShorts sign-in link", html)
 
 
-GITHUB_REPO_URL = "https://github.com/mutonby/openshorts"
+GITHUB_REPO_URL = "https://github.com/ArturllVale/mastershorts"
 
 
 async def send_clips_ready_email(email: str, job_title: str, clip_count: int,
@@ -72,7 +72,7 @@ async def send_clips_ready_email(email: str, job_title: str, clip_count: int,
            clip{'s' if clip_count != 1 else ''}. They're waiting in your dashboard.</p>
         <p><a href="{dashboard_url}" style="display:inline-block;background:#111;color:#fff;
            padding:12px 20px;border-radius:8px;text-decoration:none">View my clips</a></p>
-        <p style="color:#666;font-size:13px">Enjoying OpenShorts? A
+        <p style="color:#666;font-size:13px">Enjoying MasterShorts? A
            <a href="{GITHUB_REPO_URL}" style="color:#666">star on GitHub</a> helps a lot ⭐</p>
       </div>
     """
@@ -149,7 +149,7 @@ async def send_account_deleted_email(email: str):
     """
     html = """
       <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto">
-        <h2>Your OpenShorts account has been deleted</h2>
+        <h2>Your MasterShorts account has been deleted</h2>
         <p>Everything is gone: your account, your projects, your clips and their
            transcripts, your API keys, and the connection to any social accounts
            you had linked. Any active subscription was cancelled.</p>
@@ -165,8 +165,8 @@ async def send_account_deleted_email(email: str):
         <p>You can sign up again any time with the same address; it will be a
            brand-new, empty account.</p>
         <p style="color:#666;font-size:13px">If this wasn't you, reply to this
-           email straight away &mdash; info@openshorts.app.</p>
+           email straight away &mdash; contact@mastershorts.app.</p>
       </div>
     """
     print(f"✉️  Account-deleted confirmation → {email}")
-    await send_email(email, "Your OpenShorts account has been deleted", html)
+    await send_email(email, "Your MasterShorts account has been deleted", html)

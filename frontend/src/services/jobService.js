@@ -2,7 +2,7 @@
  * Job submission and polling service.
  *
  * Encapsulates all HTTP operations related to creating and monitoring
- * processing jobs via the OpenShorts API. Components call these functions
+ * processing jobs via the MasterShorts API. Components call these functions
  * instead of calling apiFetch directly for job-related operations.
  */
 

@@ -12,37 +12,7 @@ import re
 import requests
 from typing import Optional, List, Dict, Any
 
-async def call_render_service(job_id: str, clip_index: int, video_url: str, duration_frames: int, fps: float, width: int, height: int, subtitles: dict, hook: dict = None):
-    url = "http://localhost:3100/render"
-    payload = {
-        "jobId": job_id,
-        "clipIndex": clip_index,
-        "props": {
-            "videoUrl": video_url,
-            "durationInFrames": duration_frames,
-            "fps": fps,
-            "width": width,
-            "height": height,
-            "subtitles": subtitles,
-            "hook": hook
-        }
-    }
-    # Fire the request
-    res = requests.post(url, json=payload, timeout=10)
-    res.raise_for_status()
-    data = res.json()
-    render_id = data["renderId"]
-
-    # Poll
-    while True:
-        status_res = requests.get(f"http://localhost:3100/render/{render_id}", timeout=10)
-        status_res.raise_for_status()
-        sdata = status_res.json()
-        if sdata["status"] == "done":
-            return sdata["outputUrl"]
-        elif sdata["status"] == "error":
-            raise Exception(sdata.get("error", "Render failed"))
-        await asyncio.sleep(1.0)
+from services.renderer import call_render_service
 
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException, Body, Form, File, UploadFile
 from pydantic import BaseModel
@@ -449,7 +419,7 @@ async def rerender_clip(req: RerenderRequest, request: Request):
     job = jobs[req.job_id]
     await _assert_job_owner(request, job)
 
-    # Serialize rerenders per job: concurrent saves (easy for an MCP agent to
+    # Serialize rerenders per job: concurrent saves (easy for an automated caller to
     # produce) would otherwise race on the shared metadata.json
     # read-modify-write below, with the last writer silently reverting the
     # other clip's recipe/video_url.

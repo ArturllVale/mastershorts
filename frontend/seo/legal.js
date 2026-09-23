@@ -153,7 +153,7 @@ submitting URLs of content you have no rights to;</li>
 <li>impersonate any person, or produce media of an identifiable person's image
 or voice without authorisation (deepfakes);</li>
 <li>probe, disrupt or overload the service, scrape it, or access it by any
-automated means other than the documented API and MCP endpoints within their
+automated means other than the documented API endpoints within their
 rate limits;</li>
 <li>reverse engineer the hosted service or attempt to extract its models,
 prompts or non-public components;</li>
@@ -442,7 +442,7 @@ incluido enviar URLs de contenido sobre el que no tienes derechos;</li>
 <li>suplantar a nadie ni producir medios con la imagen o la voz de una persona
 identificable sin autorización (deepfakes);</li>
 <li>sondear, interrumpir o sobrecargar el servicio, hacer scraping, o acceder
-por medios automatizados distintos de la API y el endpoint MCP documentados y
+por medios automatizados distintos de la API documentada y
 dentro de sus límites de uso;</li>
 <li>hacer ingeniería inversa del servicio alojado o intentar extraer sus
 modelos, prompts o componentes no públicos;</li>

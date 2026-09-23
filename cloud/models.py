@@ -134,7 +134,7 @@ class SignupAttribution(Base):
 
 
 class ApiKey(Base):
-    """A user-issued ``osk_...`` token for programmatic access (MCP, scripts, CI).
+    """A user-issued ``osk_...`` token for programmatic access (API, scripts, CI).
 
     Only the sha256 of the raw token is stored — the raw value is shown once at
     creation and never again. ``prefix`` keeps the first characters so the UI

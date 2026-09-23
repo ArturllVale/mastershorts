@@ -185,7 +185,7 @@ WATERMARK_OPACITY = 0.85
 
 
 def apply_watermark(video_path):
-    """Burn the OpenShorts watermark into a finished clip (free plan).
+    """Burn the MasterShorts watermark into a finished clip (free plan).
 
     One re-encode pass on the final file so every output format (TRACK,
     GENERAL, horizontal passthrough) gets the mark, and later subtitle/hook

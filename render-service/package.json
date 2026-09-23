@@ -1,11 +1,11 @@
 {
-  "name": "openshorts-render-service",
+  "name": "mastershorts-render-service",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "test": "node --import tsx --test src/composition-metadata.test.ts",
+    "test": "node --import tsx --test src/*.test.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },

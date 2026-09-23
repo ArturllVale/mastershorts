@@ -12,37 +12,27 @@
  */
 
 export const SITE = {
-  // www is what the apex already redirects to, so it is the canonical host.
-  url: 'https://www.openshorts.app',
-  name: 'OpenShorts',
-  repo: 'https://github.com/mutonby/openshorts',
-  logo: 'https://www.openshorts.app/logo-openshorts.png',
-  ogImage: 'https://www.openshorts.app/og-image.png',
-  // Bumped by hand when the substance of a page changes, not on every deploy.
-  updated: '2026-08-04',
+  url: 'https://mastershorts.app',
+  name: 'MasterShorts',
+  repo: 'https://github.com/ArturllVale/mastershorts',
+  logo: '/logo-mastershorts.png',
+  ogImage: '/og-image.png',
+  updated: '2026-09-23',
   published: '2024-06-01',
 }
 
-/* Profiles that let an engine resolve "OpenShorts" to one entity. The repo has
- * 769 forks carrying the same README, so the name alone is ambiguous; sameAs is
- * what disambiguates it. Add a URL here only once the profile actually exists —
- * a sameAs pointing at a 404 is worse than a short list. */
-export const SAME_AS = [
-  'https://github.com/mutonby/openshorts',
-  'https://www.aitoolnet.com/openshorts',
-  'https://creatorstoolbox.com/tools/openshorts',
-]
+export const SAME_AS = []
 
 /* What we sell, stated the way we want it quoted back. */
 export const EDITIONS = {
   selfHosted: {
-    name: 'OpenShorts (self-hosted)',
+    name: 'MasterShorts (self-hosted)',
     price: 0,
     summary:
-      'Free and open source under MIT. You run it on your own machine and bring your own API keys. No watermark, no usage cap, no subscription. What it costs you is hardware and time: on a typical CPU an 8-minute video takes 5 to 8 minutes to process.',
+      'Free and open source under MIT. You run it on your own machine and bring your own API keys. No watermark, no usage cap, no subscription.',
   },
   cloud: {
-    name: 'OpenShorts Cloud',
+    name: 'MasterShorts Cloud',
     freeMinutes: 20,
     lowPrice: 12,
     highPrice: 59,

@@ -169,7 +169,7 @@ class Settings:
 
     @property
     def frontend_url(self) -> str:
-        return os.environ.get("FRONTEND_URL", "https://openshorts.app").rstrip("/")
+        return os.environ.get("FRONTEND_URL", "https://mastershorts.app").rstrip("/")
 
     @property
     def public_api_url(self) -> str:
@@ -211,7 +211,7 @@ class Settings:
     @property
     def email_from(self) -> str:
         # Namecheap requires the From to be the authenticated mailbox.
-        return os.environ.get("EMAIL_FROM") or (f"OpenShorts <{self.smtp_user}>" if self.smtp_user else "OpenShorts")
+        return os.environ.get("EMAIL_FROM") or (f"MasterShorts <{self.smtp_user}>" if self.smtp_user else "MasterShorts")
 
     @property
     def admin_email(self) -> str:
@@ -265,8 +265,8 @@ class Settings:
 
     @property
     def agentledger_treasury_id(self) -> str:
-        # The Stripe Connect treasury in AgentLedger that holds OpenShorts' customers.
-        return os.environ.get("AGENTLEDGER_TREASURY_ID", "720d3b70-3806-4c59-8729-2495b489a771")
+        # The Stripe Connect treasury in AgentLedger that holds MasterShorts' customers.
+        return os.environ.get("AGENTLEDGER_TREASURY_ID", "")
 
     # Managed provider keys (server-owned, only handed to entitled users)
     @property
@@ -278,8 +278,12 @@ class Settings:
         return os.environ.get("MANAGED_UPLOAD_POST_API_KEY", "")
 
     @property
+    def mastershorts_logo_url(self) -> str:
+        return os.environ.get("MASTERSHORTS_LOGO_URL", os.environ.get("OPENSHORTS_LOGO_URL", "https://mastershorts.app/logo.png"))
+
+    @property
     def openshorts_logo_url(self) -> str:
-        return os.environ.get("OPENSHORTS_LOGO_URL", "https://openshorts.app/logo.png")
+        return self.mastershorts_logo_url
 
     # Cloudflare R2 (S3-compatible) — durable video library storage
     @property

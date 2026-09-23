@@ -193,11 +193,11 @@ const buildGraph = (page) => {
 
 const NAV = `
 <header class="site"><div class="wrap">
-  <a class="brand" href="${SITE.url}/"><img src="/logo-openshorts.png" alt="OpenShorts logo" width="26" height="26">OpenShorts</a>
+  <a class="brand" href="${SITE.url}/">${SITE.name}</a>
   <nav class="nav">
     <a href="/free-ai-clip-generator">Clip generator</a>
     <a href="/alternatives">Alternatives</a>
-    <a href="/mcp">MCP &amp; API</a>
+    <a href="/automate-shorts-api">API</a>
     <a href="${SITE.repo}" rel="noopener">GitHub</a>
   </nav>
   <a class="cta" href="${SITE.url}/">Get free clips</a>
@@ -206,7 +206,7 @@ const NAV = `
 const footer = (_related) => `
 <footer class="site"><div class="wrap">
   <div class="row">
-    <a href="${SITE.url}/">OpenShorts</a>
+    <a href="${SITE.url}/">${SITE.name}</a>
     <a href="${SITE.repo}" rel="noopener">Source on GitHub</a>
     <a href="/free-ai-clip-generator">Free AI clip generator</a>
     <a href="/free-ai-clip-generator-no-watermark">No-watermark clip generator</a>
@@ -215,10 +215,9 @@ const footer = (_related) => `
     <a href="/podcast-to-shorts">Podcast to shorts</a>
     <a href="/youtube-to-shorts-converter">YouTube to Shorts converter</a>
     <a href="/gta-5-clips">GTA 5 clips</a>
-    <a href="/how-openshorts-works">How it works</a>
+    <a href="/how-mastershorts-works">How it works</a>
     <a href="/alternatives">Alternatives compared</a>
     <a href="/alternativas">Alternativas (ES)</a>
-    <a href="/mcp">MCP server and API</a>
     <a href="/automate-shorts-api">Automate shorts</a>
   </div>
   <div class="row">
@@ -229,7 +228,7 @@ const footer = (_related) => `
     <a href="/vizard-ai-video-to-text">Vizard AI video to text</a>
     <a href="/submagic-reviews">Submagic review</a>
   </div>
-  <p>OpenShorts self-hosted is free and open source under MIT. OpenShorts Cloud
+  <p>MasterShorts self-hosted is free and open source under MIT. MasterShorts Cloud
   is the hosted service: 20 free minutes a month, paid plans from $12/month.
   Last updated ${esc(SITE.updated)}.</p>
 </div></footer>`
@@ -261,7 +260,7 @@ const ANALYTICS = `
       var clientId = "%VITE_OPENPANEL_CLIENT_ID%";
       var unset = function (v) { return !v || v.charAt(0) === "%"; };
       if (unset(apiUrl) || unset(clientId)) return false;
-      var ANALYTICS_HOSTS = /^(www\\.)?openshorts\\.app$/;
+      var ANALYTICS_HOSTS = /^(www\\.)?mastershorts\\.app$/;
       if (!ANALYTICS_HOSTS.test(location.hostname)) return false;
       started = true;
       window.op("init", {
@@ -348,7 +347,7 @@ export function renderPage(page, related = [], { cta = true } = {}) {
 ${page.noindex ? '' : `<link rel="canonical" href="${canonical}">\n`}<meta name="robots" content="${
     page.noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large,max-snippet:-1'
   }">
-<link rel="icon" type="image/png" href="/logo-openshorts.png">
+<link rel="icon" type="image/svg+xml" href="/logo-mastershorts.svg">
 <link rel="stylesheet" href="/fonts.css">
 ${ANALYTICS}
 <meta property="og:type" content="article">
@@ -376,7 +375,7 @@ ${
   page.noindex
     ? ''
     : `<div class="byline">
-  By the OpenShorts team<span class="sep">·</span>
+  By the MasterShorts team<span class="sep">·</span>
   Published <time datetime="${esc(page.published || SITE.published)}">${esc(page.published || SITE.published)}</time><span class="sep">·</span>
   Updated <time datetime="${esc(page.updated || SITE.updated)}">${esc(page.updated || SITE.updated)}</time>
 </div>`

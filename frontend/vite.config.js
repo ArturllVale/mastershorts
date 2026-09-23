@@ -4,7 +4,6 @@ import seo from './vite-plugin-seo'
 
 // Backend target for the dev proxy. Defaults to http://127.0.0.1:8000.
 const backend = process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000';
-const renderer = process.env.VITE_RENDER_TARGET || 'http://localhost:3100';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -13,17 +12,12 @@ export default defineConfig({
   // llms.txt. See vite-plugin-seo.js.
   plugins: [react(), seo()],
   server: {
-    allowedHosts: [
-      'openshorts.app',
-      'www.openshorts.app'
-    ],
+    allowedHosts: true,
     proxy: {
       '/api': { target: backend, changeOrigin: true },
       '/videos': { target: backend, changeOrigin: true },
       '/thumbnails': { target: backend, changeOrigin: true },
-      '/gallery': { target: backend, changeOrigin: true },
       '/video': { target: backend, changeOrigin: true },
-      '/render': { target: renderer, changeOrigin: true },
     }
   }
 })

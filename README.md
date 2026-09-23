@@ -68,7 +68,7 @@ pip install -r backend/requirements.txt
 O backend agora utiliza o **Prisma Client Python** para mapeamento ORM.
 Devido a restrições do Prisma que impedem o uso de variáveis de ambiente para definir o `provider` do banco de forma dinâmica, usamos a seguinte abordagem:
 - **Desenvolvimento:** Utilizamos o arquivo `backend/prisma/schema.prisma` com provider `sqlite`. O `.env` deve ter `DATABASE_URL="file:./dev.db"`.
-- **Produção:** Utilizamos o arquivo `backend/prisma/schema.prod.prisma` com provider `postgresql`. O `.env` deve ter a URL completa do banco PostgreSQL, por exemplo `DATABASE_URL="postgres://user:pass@host:5432/openshorts"`.
+- **Produção:** Utilizamos o arquivo `backend/prisma/schema.prod.prisma` com provider `postgresql`. O `.env` deve ter a URL completa do banco PostgreSQL, por exemplo `DATABASE_URL="postgres://user:pass@host:5432/mastershorts"`.
 
 Para executar as migrações localmente, utilizamos um script auxiliar em Python (`prisma_migrate.py`) que detecta o ambiente e invoca o comando apropriado do Prisma com o schema correto.
 
@@ -129,25 +129,25 @@ npm run dev:frontend
 
 ## Licença
 
-Distribuído sob a licença MIT. Consulte o arquivo [LICENSE](file:///c:/Users/Vale/Documents/github/openshorts/LICENSE) para mais detalhes.
+Distribuído sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-## AceleraÃ§Ã£o por GPU (NVENC / CUDA)
+## Aceleração por GPU (NVENC / CUDA)
 
-O OpenShorts detecta e utiliza automaticamente a aceleraÃ§Ã£o por hardware (NVIDIA GPU) caso esteja disponÃ­vel no sistema, o que pode acelerar as renderizaÃ§Ãµes em atÃ© 5x e reduzir drasticamente o uso da CPU.
+O MasterShorts detecta e utiliza automaticamente a aceleração por hardware (NVIDIA GPU) caso esteja disponível no sistema, o que pode acelerar as renderizações em até 5x e reduzir drasticamente o uso da CPU.
 
-Para garantir que o FFmpeg estÃ¡ usando sua GPU (h264_nvenc):
+Para garantir que o FFmpeg está usando sua GPU (h264_nvenc):
 
-**1. InstalaÃ§Ã£o do Driver NVIDIA**
-- Tenha uma GPU NVIDIA compatÃ­vel.
-- Instale ou atualize o driver oficial da sua placa de vÃ­deo mais recente a partir do [NVIDIA Driver Downloads](https://www.nvidia.com/Download/index.aspx) ou do GeForce Experience.
-- Instale o CUDA Toolkit se nÃ£o foi incluÃ­do com o seu ambiente.
+**1. Instalação do Driver NVIDIA**
+- Tenha uma GPU NVIDIA compatível.
+- Instale ou atualize o driver oficial da sua placa de vídeo mais recente a partir do [NVIDIA Driver Downloads](https://www.nvidia.com/Download/index.aspx) ou do GeForce Experience.
+- Instale o CUDA Toolkit se não foi incluído com o seu ambiente.
 
-**2. InstalaÃ§Ã£o do FFmpeg com Suporte NVENC**
-- **Windows:** Baixe a versÃ£o mais recente em [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (a build "essentials" ou "full" jÃ¡ traz o nvenc embutido por padrÃ£o).
-- **Linux:** O FFmpeg padrÃ£o das distros geralmente **nÃ£o** vem com nvenc devido a restriÃ§Ãµes de licenÃ§a.
-  - Para Ubuntu/Debian: VocÃª pode precisar instalar dependÃªncias de hardware (`sudo apt install nvidia-cuda-toolkit`) e as vezes compilar o FFmpeg ou instalar uma build estÃ¡tica de [johnvansickle.com/ffmpeg](https://johnvansickle.com/ffmpeg/).
-- **macOS:** NVENC nÃ£o Ã© suportado no macOS, o sistema cairÃ¡ no fallback para CPU com gracefully degradada qualidade (x264).
+**2. Instalação do FFmpeg com Suporte NVENC**
+- **Windows:** Baixe a versão mais recente em [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (a build "essentials" ou "full" já traz o nvenc embutido por padrão).
+- **Linux:** O FFmpeg padrão das distros geralmente **não** vem com nvenc devido a restrições de licença.
+  - Para Ubuntu/Debian: Instale dependências de hardware (`sudo apt install nvidia-cuda-toolkit`) ou compile o FFmpeg / instale build estática.
+- **macOS:** NVENC não é suportado no macOS, o sistema cairá no fallback para CPU (libx264).
 
-**VerificaÃ§Ã£o de Suporte:**
-- O servidor avisa na inicializaÃ§Ã£o ou no primeiro encode: `Encoder escolhido: h264_nvenc (GPU)` ou `libx264 (CPU)`.
-- VocÃª tambÃ©m pode rodar no terminal: `ffmpeg -hide_banner -encoders` e verificar visualmente se `h264_nvenc` estÃ¡ na lista de encoders de vÃ­deo com suporte.
+**Verificação de Suporte:**
+- O servidor avisa na inicialização ou no primeiro encode: `Encoder escolhido: h264_nvenc (GPU)` ou `libx264 (CPU)`.
+- Você também pode rodar no terminal: `ffmpeg -hide_banner -encoders` e verificar se `h264_nvenc` está na lista de encoders suportados.

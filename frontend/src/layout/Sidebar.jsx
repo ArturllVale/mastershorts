@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 import NavFooterLinks from './NavFooterLinks';
 
-const STORAGE_KEY = 'openshorts_sidebar_collapsed';
+const STORAGE_KEY = 'mastershorts_sidebar_collapsed';
 
 export default function Sidebar({ navItems, activeTab, goToTab, tabLocked, billingEnabled }) {
   const [isCollapsed, setIsCollapsed] = useState(() => {

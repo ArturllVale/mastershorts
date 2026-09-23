@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { KeyRound, Plus, Trash2, Copy, Check, Loader2 } from 'lucide-react';
 import { apiJson } from '../lib/api';
 
-// API keys for programmatic access (MCP clients, scripts, n8n). The raw key is
+// API keys for programmatic access (scripts, automations, n8n). The raw key is
 // returned exactly once by POST /api/keys, so it is surfaced in a one-time
 // banner the user must copy before it disappears.
 export default function ApiKeysCard() {

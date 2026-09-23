@@ -1337,9 +1337,10 @@ async def _webhook_clip_entries(job_id, job):
 
 
 async def _deliver_webhook(url, body: bytes, secret):
-    headers = {"Content-Type": "application/json", "User-Agent": "OpenShorts-Webhook/1.0"}
+    headers = {"Content-Type": "application/json", "User-Agent": "MasterShorts-Webhook/1.0"}
     if secret:
-        headers["X-OpenShorts-Signature"] = _sign_webhook(body, secret)
+        sig = _sign_webhook(body, secret)
+        headers["X-MasterShorts-Signature"] = sig
     from security_utils import assert_public_url, UnsafeURLError
     loop = asyncio.get_event_loop()
     for attempt, delay in enumerate(WEBHOOK_RETRY_DELAYS, 1):

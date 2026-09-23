@@ -50,8 +50,8 @@ const FAQS = [
     answer: "Sim. O MasterShorts inclui estúdio completo com sugestão de títulos virais, chat interativo de refinamento com IA, gerador de miniaturas personalizadas e descrições automáticas com capítulos para publicação direta."
   },
   {
-    question: "O acesso à API e ao servidor MCP custa extra?",
-    answer: "Não. Todos os planos podem utilizar a API REST e o servidor MCP para integrar automações com Claude, ChatGPT ou n8n consumindo os mesmos minutos mensais da sua conta."
+    question: "O acesso à API custa extra?",
+    answer: "Não. Todos os planos podem utilizar a API REST para integrar automações consumindo os mesmos minutos mensais da sua conta."
   },
   {
     question: "Quais são os requisitos de sistema para rodar localmente?",

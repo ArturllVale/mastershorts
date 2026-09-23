@@ -11,13 +11,12 @@ import CookieBanner from './components/CookieBanner'
 
 const App = lazy(() => import('./App.jsx'))
 const Legal = lazy(() => import('./Legal.jsx'))
-const OAuthConsent = lazy(() => import('./components/OAuthConsent'))
 
 function PageShell({ title, children }) {
   return (
     <div className="min-h-screen bg-paper text-ink2">
       <header className="h-14 sm:h-16 border-b border-rule bg-paper flex items-center justify-between gap-3 px-4 sm:px-6 sticky top-0 z-20">
-        <a href="#app" className="font-display font-medium text-lg text-ink tracking-tight truncate">OpenShorts</a>
+        <a href="#app" className="font-display font-medium text-lg text-ink tracking-tight truncate">MasterShorts</a>
         <a href="#app" className="text-sm text-muted hover:text-ink transition-colors shrink-0">← <span className="hidden sm:inline">Back to app</span><span className="sm:hidden">Back</span></a>
       </header>
       <main className="p-4 sm:p-6 md:p-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
@@ -48,7 +47,7 @@ function AccountView() {
 
 // Landing spot after an account is erased. Its own view because the session is
 // gone: sending the user to #/account would bounce them to pricing with no
-// explanation, and "openshorts_skip_landing" would send them into the app.
+// explanation, and "mastershorts_skip_landing" would send them into the app.
 function DeletedView() {
   return (
     <div className="min-h-screen bg-paper text-ink2 flex items-center justify-center p-6">
@@ -63,7 +62,7 @@ function DeletedView() {
           You're welcome back any time — signing up again with the same address
           starts a brand-new, empty account.
         </p>
-        <a href="#landing" className="btn-ghost px-4 py-2 inline-flex">Back to OpenShorts.app</a>
+        <a href="#landing" className="btn-ghost px-4 py-2 inline-flex">Back to app</a>
       </div>
     </div>
   );
@@ -73,7 +72,6 @@ function Root() {
   const resolveView = () => {
     const hash = window.location.hash || '';
     if (hash.startsWith('#/auth/')) return 'auth';       // AuthContext consumes then redirects
-    if (hash.startsWith('#/oauth/authorize')) return 'oauth';
     if (hash.startsWith('#/account')) return 'account';
     if (hash.startsWith('#/deleted')) return 'deleted';
     if (hash.startsWith('#/pricing')) return 'pricing';
@@ -92,7 +90,6 @@ function Root() {
   if (view === 'legal') return <Legal />;
   if (view === 'pricing') return <PricingView />;
   if (view === 'account') return <AccountView />;
-  if (view === 'oauth') return <OAuthConsent />;
   if (view === 'deleted') return <DeletedView />;
   if (view === 'auth') {
     return <div className="min-h-screen flex items-center justify-center bg-background text-zinc-400">Signing you in…</div>;

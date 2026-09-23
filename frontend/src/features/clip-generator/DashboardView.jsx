@@ -73,7 +73,7 @@ export default function DashboardView({
       return [];
     }
 
-    const storageKey = jobId ? `openshorts_log_timestamps_${jobId}` : null;
+    const storageKey = jobId ? `mastershorts_log_timestamps_${jobId}` : null;
     const cache = logTimestampsRef.current;
 
     if (storageKey && cache.size === 0) {
@@ -154,7 +154,7 @@ export default function DashboardView({
                   onClick={(e) => { if (!billingEnabled) { e.preventDefault(); goToTab('settings'); } }}
                   className="text-ink underline underline-offset-2 hover:text-violet transition-colors font-medium"
                 >
-                  Conecte Claude, ChatGPT ou n8n via MCP →
+                  Conecte automações e integrações via API →
                 </a>
               </p>
               )}

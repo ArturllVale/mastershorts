@@ -7,7 +7,8 @@ load_dotenv()
 # Constants
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BACKEND_DIR, "uploads")
-OUTPUT_DIR = os.path.join(BACKEND_DIR, "output")
+ROOT_DIR = os.path.dirname(BACKEND_DIR)
+OUTPUT_DIR = os.environ.get("SHARED_OUTPUT_DIR", os.path.join(ROOT_DIR, "output"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -101,3 +102,5 @@ LAYOUT_IMPLIES = {
 UPLOAD_TTL_SECONDS = int(os.environ.get("UPLOAD_TTL_SECONDS", str(6 * 3600)))
 SOURCE_URL_TTL_SECONDS = int(os.environ.get("SOURCE_URL_TTL_SECONDS", "21600"))
 HEARTBEAT_STALE_AFTER = 60
+
+RENDER_SERVICE_URL = os.environ.get("RENDER_SERVICE_URL", "http://localhost:3100")

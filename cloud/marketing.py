@@ -1,6 +1,6 @@
 """Opting out of the one email we send that is a commercial communication.
 
-Every other message OpenShorts sends is a service notice: a sign-in link, "your
+Every other message MasterShorts sends is a service notice: a sign-in link, "your
 clips are ready", "your free clips are deleted tomorrow", "your account has been
 deleted". ``send_out_of_minutes_email`` is not — it leads with a price and a
 Buy button, which makes it a comunicación comercial under LSSI art. 21. Art.
@@ -71,12 +71,12 @@ async def _opt_out(u: str, t: str):
     if not u or not t or not settings.jwt_secret:
         return _page("That link didn't work",
                      "The unsubscribe link is incomplete. Email "
-                     "<a href='mailto:info@openshorts.app'>info@openshorts.app</a> "
+                     "<a href='mailto:contact@mastershorts.app'>contact@mastershorts.app</a> "
                      "and we'll do it by hand.", status=400)
     if not hmac.compare_digest(t, unsubscribe_token(u)):
         return _page("That link didn't work",
                      "We couldn't verify this unsubscribe link. Email "
-                     "<a href='mailto:info@openshorts.app'>info@openshorts.app</a> "
+                     "<a href='mailto:contact@mastershorts.app'>contact@mastershorts.app</a> "
                      "and we'll do it by hand.", status=400)
     try:
         async with database.session() as s:

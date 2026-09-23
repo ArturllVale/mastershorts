@@ -260,7 +260,7 @@ async def delete_account(payload: DeleteAccountRequest, request: Request):
         print(f"⚠️  Account deletion aborted, Stripe cancel failed for {user.id}: {e}")
         raise HTTPException(status_code=502, detail=(
             "We couldn't cancel your subscription, so nothing was deleted. "
-            "Please try again, or email info@openshorts.app."))
+            "Please try again, or email contact@mastershorts.app."))
 
     # Storage before the third party: if the bucket refuses, the only thing that
     # has changed so far is the cancelled subscription, and the error below can
@@ -275,7 +275,7 @@ async def delete_account(payload: DeleteAccountRequest, request: Request):
             raise HTTPException(status_code=502, detail=(
                 "We couldn't reach the storage that holds your clips, so your "
                 "account was not deleted. Your subscription has already been "
-                "cancelled. Please try again, or email info@openshorts.app."))
+                "cancelled. Please try again, or email contact@mastershorts.app."))
 
     if _local_purge is not None:
         try:
@@ -300,7 +300,7 @@ async def delete_account(payload: DeleteAccountRequest, request: Request):
         print(f"⚠️  Account row delete failed for {user.id} after purge: {e}")
         raise HTTPException(status_code=500, detail=(
             "Your clips were deleted but we couldn't close the account itself. "
-            "Please try again, or email info@openshorts.app."))
+            "Please try again, or email contact@mastershorts.app."))
     # ``email`` was read before the delete on purpose: from here on the address
     # exists nowhere in our systems, and the goodbye email still has to go out.
 

@@ -102,88 +102,6 @@ def _reject_short_source(duration: float):
         f"short-form content."))
 
 
-def _upload_url_base(request):
-    return os.environ.get("PUBLIC_API_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
-
-
-@router.post("/api/uploads")
-async def create_upload(request: Request):
-    """Reserve an upload slot. Body (JSON, optional): {"filename": "..."}."""
-    user_id = await _owner_id(request)
-    if BILLING_ENABLED and user_id is None:
-        raise HTTPException(status_code=401, detail="Sign in or use an API key to upload")
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    filename = os.path.basename(str((body or {}).get("filename") or "video.mp4")) or "video.mp4"
-    upload_id = str(uuid.uuid4())
-    pending_uploads[upload_id] = {
-        "user_id": user_id,
-        "filename": filename,
-        "path": os.path.join(UPLOAD_DIR, f"pending_{upload_id}_{filename}"),
-        "created": time.time(),
-        "bytes": 0,
-        "complete": False,
-    }
-    return {
-        "upload_id": upload_id,
-        "upload_url": f"{_upload_url_base(request)}/api/uploads/{upload_id}",
-        "method": "PUT",
-        "max_mb": MAX_FILE_SIZE_MB,
-        "expires_in": UPLOAD_TTL_SECONDS,
-        "hint": "PUT the raw video bytes to upload_url (e.g. curl -T video.mp4 <upload_url>), "
-                "then call /api/process (or the process_video tool) with this upload_id. "
-                "The slot and file are deleted after expires_in seconds if unused, or "
-                "DELETE this URL to drop them sooner.",
-    }
-
-
-@router.put("/api/uploads/{upload_id}")
-async def put_upload(upload_id: str, request: Request):
-    """Receive the raw video body for a reserved slot. Streams to disk, capped
-    at MAX_FILE_SIZE_MB; a second PUT replaces the first."""
-    slot = pending_uploads.get(upload_id)
-    if not slot or time.time() - slot["created"] > UPLOAD_TTL_SECONDS:
-        pending_uploads.pop(upload_id, None)
-        raise HTTPException(status_code=404, detail="Unknown or expired upload_id")
-    limit_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
-    size = 0
-    async with aiofiles.open(slot["path"], 'wb') as out:
-        async for chunk in request.stream():
-            size += len(chunk)
-            if size > limit_bytes:
-                await out.close()
-                os.remove(slot["path"])
-                raise HTTPException(status_code=413, detail=f"File too large. Max size {MAX_FILE_SIZE_MB}MB")
-            await out.write(chunk)
-    if size == 0:
-        os.remove(slot["path"])
-        raise HTTPException(status_code=400, detail="Empty body")
-    slot.update({"bytes": size, "complete": True})
-    duration = await asyncio.get_event_loop().run_in_executor(None, _media_duration_seconds, slot["path"])
-    if duration <= 0:
-        os.remove(slot["path"])
-        slot["complete"] = False
-        raise HTTPException(status_code=400, detail="The body is not a readable video file")
-    return {"upload_id": upload_id, "bytes": size, "duration_seconds": round(duration, 1),
-            "hint": "Now call /api/process with upload_id."}
-
-
-@router.delete("/api/uploads/{upload_id}")
-async def delete_upload(upload_id: str, request: Request):
-    """Drop a slot and its file before it expires (owner only in cloud mode)."""
-    slot = pending_uploads.get(upload_id)
-    if not slot or (BILLING_ENABLED and slot.get("user_id") != await _owner_id(request)):
-        raise HTTPException(status_code=404, detail="Unknown or expired upload_id")
-    pending_uploads.pop(upload_id, None)
-    try:
-        os.remove(slot["path"])
-    except OSError:
-        pass
-    return {"deleted": upload_id}
-
-
 def _sweep_pending_uploads(now=None):
     """Expire agent upload slots older than UPLOAD_TTL_SECONDS (file included).
     Returns the ids removed. Called from the cleanup loop; pure enough to test."""
@@ -467,7 +385,7 @@ async def process_endpoint(
         print(f"[layouts] job={job_id} enabled={sorted(chosen)}")
 
     # Auto-hook: burn each clip's Gemini hook text during the render. Off when
-    # the field is absent, so API/MCP/webhook callers keep their old output
+    # the field is absent, so API/webhook callers keep their old output
     # byte-for-byte; the dashboard sends an explicit value either way.
     if str(auto_hook).lower() in ("1", "true", "yes"):
         env["AUTO_HOOK"] = "1"
@@ -974,7 +892,7 @@ async def download_all_clips(job_id: str, request: Request):
     return FileResponse(
         to_long_path(zip_path),
         media_type="application/zip",
-        filename=f"openshorts_clips_{job_id[:8]}.zip",
+        filename=f"mastershorts_clips_{job_id[:8]}.zip",
         background=BackgroundTask(os.remove, to_long_path(zip_path)),
     )
 

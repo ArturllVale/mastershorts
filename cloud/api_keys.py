@@ -1,4 +1,4 @@
-"""User API keys (``osk_...``) for programmatic access: MCP clients, scripts, CI.
+"""User API keys (``osk_...``) for programmatic access: scripts, CI and integrations.
 
 Two halves:
   - Management endpoints (create / list / revoke). These require a SESSION JWT,

@@ -133,7 +133,7 @@ export default function PricingSection({ onRequireLogin }) {
                 <li className="flex items-start gap-2"><Check size={16} className="text-success shrink-0 mt-0.5" /> <span><b>Sem marca d'água</b>, sem expiração de cortes</span></li>
                 <li className="flex items-start gap-2"><Cpu size={16} className="text-success shrink-0 mt-0.5" /> <span><b>Renderização em GPU</b> (~50s por vídeo de 8 min)</span></li>
                 <li className="flex items-start gap-2"><KeyRound size={16} className="text-success shrink-0 mt-0.5" /> <span>Chave Gemini + postagem automática inclusas</span></li>
-                <li className="flex items-start gap-2"><Bot size={16} className="text-success shrink-0 mt-0.5" /> <span>Acesso <b>MCP + API</b> para automações</span></li>
+                <li className="flex items-start gap-2"><Bot size={16} className="text-success shrink-0 mt-0.5" /> <span>Acesso à <b>API</b> para automações</span></li>
                 {plan === 'pro' && <li className="flex items-start gap-2"><Zap size={16} className="text-accent shrink-0 mt-0.5" /> <span>Fila de processamento prioritária</span></li>}
               </ul>
               <button
@@ -161,7 +161,7 @@ export default function PricingSection({ onRequireLogin }) {
             <li className="flex items-start gap-2"><Send size={15} className="text-ok shrink-0 mt-0.5" /> <span><b>Postagem automática integrada</b> para TikTok, Instagram Reels e YouTube Shorts.</span></li>
             <li className="flex items-start gap-2"><HardDrive size={15} className="text-ok shrink-0 mt-0.5" /> <span><b>Cortes armazenados em nuvem</b>, prontos para reabrir e reeditar de qualquer navegador.</span></li>
             <li className="flex items-start gap-2"><Check size={15} className="text-ok shrink-0 mt-0.5" /> <span><b>YouTube Studio</b> completo: títulos, miniaturas e descrições.</span></li>
-            <li className="flex items-start gap-2"><Bot size={15} className="text-ok shrink-0 mt-0.5" /> <span><b>Servidor MCP e API para agentes.</b> Conecte Claude, ChatGPT ou n8n a um endpoint ativo e automatize o fluxo de ponta a ponta. Chamadas usam os mesmos minutos, sem custos extras. <a href="/mcp" className="underline underline-offset-2 hover:text-ink" target="_blank" rel="noopener">Guia</a>.</span></li>
+            <li className="flex items-start gap-2"><Bot size={15} className="text-ok shrink-0 mt-0.5" /> <span><b>API para integrações.</b> Conecte seus scripts ou ferramentas a um endpoint ativo e automatize o fluxo de ponta a ponta. Chamadas usam os mesmos minutos, sem custos extras.</span></li>
           </ul>
           <p className="text-xs text-muted mt-3 pt-3 border-t border-rule">
             Seus minutos mensais cobrem o processamento de vídeo. Títulos e descrições são gratuitos;

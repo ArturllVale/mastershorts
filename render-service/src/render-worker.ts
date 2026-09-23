@@ -37,10 +37,6 @@ export async function executeRender(params: RenderParams): Promise<void> {
     job.status = "rendering";
     job.progress = 0;
 
-    console.log(
-      `[render-worker] Starting render ${renderId} (job=${jobId}, clip=${clipIndex})`
-    );
-
     const bundleLocation = getBundleLocation();
 
     // Select the composition with the provided input props
@@ -51,18 +47,25 @@ export async function executeRender(params: RenderParams): Promise<void> {
     });
 
     // Determine output directory and file path
-    const outputDir = process.env.OUTPUT_DIR
+    const outputDir = process.env.SHARED_OUTPUT_DIR
+      ? path.resolve(process.env.SHARED_OUTPUT_DIR)
+      : process.env.OUTPUT_DIR
       ? path.resolve(process.env.OUTPUT_DIR)
       : path.resolve(import.meta.dirname, "../../output");
 
     const jobOutputDir = path.join(outputDir, jobId);
     fs.mkdirSync(jobOutputDir, { recursive: true });
 
-    const timestamp = Date.now();
-    const outputFileName = `remotion_${clipIndex}_${timestamp}.mp4`;
+    const outputFileName = `remotion_${clipIndex}_${renderId}.mp4`;
+    const relativePath = path.posix.join(jobId, outputFileName);
     const outputLocation = path.join(jobOutputDir, outputFileName);
 
-    console.log(`[render-worker] Output: ${outputLocation}`);
+    const startTime = Date.now();
+    console.log(
+      `[render-worker] RENDER STARTED | renderId=${renderId} | jobId=${jobId} | clipIndex=${clipIndex} | durationInFrames=${props.durationInFrames} | fps=${props.fps}`
+    );
+
+    const timeoutMs = parseInt(process.env.RENDER_TIMEOUT_MS || "300000", 10);
 
     // Render the video
     await renderMedia({
@@ -71,26 +74,49 @@ export async function executeRender(params: RenderParams): Promise<void> {
       codec: "h264",
       crf: 22,
       outputLocation,
+      timeoutInMilliseconds: timeoutMs,
       onProgress: ({ progress }) => {
         const percent = Math.round(progress * 100);
         job.progress = percent;
 
-        if (percent % 10 === 0) {
-          console.log(`[render-worker] ${renderId} progress: ${percent}%`);
+        if (percent % 25 === 0 && percent > 0 && percent < 100) {
+          console.log(`[render-worker] RENDER PROGRESS | renderId=${renderId} | progress=${percent}%`);
         }
       },
     });
 
+    const endTime = Date.now();
+    const durationMs = endTime - startTime;
+
     // Success
     job.status = "done";
     job.progress = 100;
-    job.outputUrl = outputLocation;
+    job.outputUrl = relativePath;
 
-    console.log(`[render-worker] Render ${renderId} completed: ${outputLocation}`);
+    console.log(
+      `[render-worker] RENDER COMPLETED | renderId=${renderId} | timeMs=${durationMs} | output=${outputLocation}`
+    );
   } catch (err) {
     job.status = "error";
     job.error = err instanceof Error ? err.message : String(err);
 
-    console.error(`[render-worker] Render ${renderId} failed:`, err);
+    console.error(`[render-worker] RENDER FAILED | renderId=${renderId} | error:`, err);
+
+    // Attempt to cleanup temporary output file if it exists
+    try {
+      const failedOutputDir = process.env.SHARED_OUTPUT_DIR
+        ? path.resolve(process.env.SHARED_OUTPUT_DIR)
+        : process.env.OUTPUT_DIR
+        ? path.resolve(process.env.OUTPUT_DIR)
+        : path.resolve(import.meta.dirname, "../../output");
+      const failedLoc = path.join(failedOutputDir, jobId, `remotion_${clipIndex}_${renderId}.mp4`);
+      if (fs.existsSync(failedLoc)) {
+        fs.unlinkSync(failedLoc);
+        console.log(`[render-worker] CLEANUP SUCCESS | renderId=${renderId} | deleted=${failedLoc}`);
+      }
+    } catch (cleanupErr) {
+      console.error(`[render-worker] CLEANUP FAILED | renderId=${renderId} | error:`, cleanupErr);
+    }
   }
 }
+

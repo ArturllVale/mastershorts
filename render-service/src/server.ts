@@ -40,22 +40,42 @@ const renderRequestSchema = z.object({
 
 // --- Express app ---
 
-const app = express();
+export const app = express();
 app.use(express.json({ limit: "10mb" }));
 
+import path from "node:path";
 const PORT = parseInt(process.env.PORT || "3100", 10);
-const OUTPUT_DIR = process.env.OUTPUT_DIR || "/output";
+const OUTPUT_DIR = process.env.SHARED_OUTPUT_DIR || process.env.OUTPUT_DIR || path.resolve(import.meta.dirname, "../../output");
 
 // Serve video files from the shared output volume so Remotion can access them via HTTP
 app.use("/output", express.static(OUTPUT_DIR));
 
+export let isReady = false;
+export function setIsReady(val: boolean) {
+  isReady = val;
+}
+
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, ready: isReady });
+});
+
+// Ready check
+app.get("/ready", (_req, res) => {
+  if (isReady) {
+    res.json({ ok: true });
+  } else {
+    res.status(503).json({ ok: false, error: "Bundle not ready" });
+  }
 });
 
 // Submit a render job
 app.post("/render", (req, res) => {
+  if (!isReady) {
+    res.status(503).json({ error: "Service not ready" });
+    return;
+  }
+
   const parsed = renderRequestSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -151,16 +171,37 @@ app.get("/render/:renderId", (req, res) => {
 // --- Start server ---
 
 async function main() {
-  console.log("[render-service] Initializing Remotion bundle...");
-  await initBundle();
-  console.log("[render-service] Bundle ready.");
+  console.log("[render-service] BOOTING");
 
-  app.listen(PORT, () => {
-    console.log(`[render-service] Listening on port ${PORT}`);
+  console.log("[render-service] VALIDATING CONFIG");
+  if (!process.env.PORT && !PORT) {
+    console.error("[render-service] Error: PORT is not defined and default failed.");
+    process.exit(1);
+  }
+  if (!OUTPUT_DIR) {
+    console.error("[render-service] Error: OUTPUT_DIR could not be resolved.");
+    process.exit(1);
+  }
+
+  app.listen(PORT, "0.0.0.0", async () => {
+    console.log(`[render-service] Listening on 0.0.0.0:${PORT}`);
+    
+    try {
+      console.log("[render-service] INITIALIZING REMOTION BUNDLE");
+      await initBundle();
+      console.log("[render-service] READY");
+      isReady = true;
+    } catch (err) {
+      console.error("[render-service] Fatal error during bundle init:", err);
+      process.exit(1);
+    }
   });
 }
 
-main().catch((err) => {
-  console.error("[render-service] Fatal error during startup:", err);
-  process.exit(1);
-});
+import url from "node:url";
+if (import.meta.url === url.pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error("[render-service] Fatal error during startup:", err);
+    process.exit(1);
+  });
+}

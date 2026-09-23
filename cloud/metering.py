@@ -340,7 +340,7 @@ def _route_name(proxy, proxies) -> str:
 def _ffprobe_url_seconds(url: str, timeout: int = 30) -> float:
     out = subprocess.check_output(
         ["ffprobe", "-v", "error", "-rw_timeout", str(timeout * 1_000_000),
-         "-user_agent", "Mozilla/5.0 (OpenShorts probe)",
+         "-user_agent", "Mozilla/5.0 (MasterShorts probe)",
          "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1", url],
         stderr=subprocess.STDOUT, timeout=timeout + 5,

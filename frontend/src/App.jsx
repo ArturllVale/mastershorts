@@ -4,7 +4,6 @@ import KeyInput from './components/KeyInput';
 import MediaInput from './components/MediaInput';
 import ResultCard from './components/ResultCard';
 import ProcessingAnimation from './components/ProcessingAnimation';
-// import Gallery from './components/Gallery';
 import ThumbnailStudio from './components/ThumbnailStudio';
 
 import ClipEditor from './components/ClipEditor';
@@ -268,11 +267,6 @@ function App() {
             />
           )}
 
-          {/* View: Gallery */}
-          {/* {activeTab === 'gallery' && (
-            <Gallery />
-          )} */}
-
           <DashboardView
             activeTab={activeTab}
             status={status}
@@ -354,7 +348,7 @@ function App() {
       >
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            O OpenShorts necessita de um modelo de IA para analisar as transcrições de vídeo e encontrar momentos virais.
+            O MasterShorts necessita de um modelo de IA para analisar as transcrições de vídeo e encontrar momentos virais.
           </p>
 
           {llmProvider === 'openai' ? (

@@ -6,15 +6,13 @@ clips: the ``.resume.json`` manifest (which carries the customer's own
 ``webhook_secret``), the ``.owner`` sidecar (a user uuid), the ``.instance``
 deploy marker, the face crops under ``thumbnails/`` and every actor photo a user
 had uploaded. ``app.py`` now serves those two prefixes through real handlers
-that ask who is calling; this module is the part of that with no FastAPI in it,
-so both ``app.py`` and ``mcp_server.py`` can sign a URL without importing each
-other.
+that ask who is calling; this module is the part of that with no FastAPI in it.
 
 Two token shapes, because there are two kinds of consumer:
 
 * **path capability** (``?exp=…&sig=…``) — an HMAC over one relative path and an
   expiry. This is what goes to a consumer that cannot send a header at all: the
-  webhook payload and the absolute URLs the MCP tools return. Same idea as the
+  webhook payload and presigned links. Same idea as the
   R2 ``presigned_get`` links the history endpoint already hands out, and as
   ``/api/source-url``.
 * **user token** (``?mt=<uid>.<exp>.<sig>``) — a short-lived bearer for one
@@ -24,7 +22,7 @@ Two token shapes, because there are two kinds of consumer:
   30-day session JWT into query strings, access logs and referrers.
 
 A request that arrives with an ordinary ``Authorization: Bearer`` / ``X-API-Key``
-header (agents, ``curl``, the MCP client) needs neither: ``app.py`` resolves the
+header (scripts, ``curl``, automated pipelines) needs neither: ``app.py`` resolves the
 user from the header and compares it to the owner directly.
 """
 from __future__ import annotations

@@ -461,7 +461,7 @@ _running_jobs: set = set()           # job ids with a live subprocess here
 # alerts with a bare "Traceback ... exit code 1" and no cause (prod 20-ago).
 
 # --- Job completion webhooks --------------------------------------------------
-# Agents and pipelines (n8n, cron, MCP clients) need push, not poll: a caller
+# Pipelines and integrations (n8n, cron, automated scripts) need push, not poll: a caller
 # passes webhook_url on /api/process and gets one POST when the job reaches a
 # terminal state. The URL goes through assert_public_url both at submit and at
 # delivery time — the second check is what defeats DNS rebinding between them.
@@ -511,10 +511,6 @@ app = FastAPI(lifespan=lifespan)
 # Cloud mode: attach middleware + routers at import time (before the app serves).
 if BILLING_ENABLED:
     cloud.setup_sync(app)
-
-# MCP server (/mcp): the pipeline as agent-callable tools. Works in both modes —
-# cloud requires an osk_ API key, self-host keeps BYOK (see mcp_server.py).
-import mcp_server as _mcp_server
 
 
 # Enable CORS for frontend. Cloud mode locks this down to the configured origins;
@@ -630,13 +626,9 @@ LAYOUT_IMPLIES = {
 
 
 # --------------------------------------------------------------------------- #
-# Agent uploads: a two-step path for callers that hold a video FILE, not a URL
-# (an MCP client handed the file by the user). POST reserves an id and returns
-# a PUT URL; the client streams the raw bytes there with no auth beyond the
-# unguessable id (so `curl -T` works from any agent runtime); /api/process then
-# takes the upload_id. Files live in UPLOAD_DIR under the same retention sweep
-# as every other source upload, and the owner recorded at POST is checked at
-# process time so a leaked id cannot start a job on someone else's account.
+# File uploads: a two-step path for callers that hold a video FILE, not a URL.
+# POST reserves an id and returns a PUT URL; the client streams the raw bytes.
+# Files live in UPLOAD_DIR under the same retention sweep as every other source upload.
 # --------------------------------------------------------------------------- #
 pending_uploads: Dict[str, Dict] = {}
 # Unconsumed slots are gone after this; a consumed one becomes the job's
@@ -756,13 +748,8 @@ _scenes_locks: Dict[str, asyncio.Lock] = {}
 # close camera and a fixed wide one, and the right crop differs per camera.
 # Scene boundaries already are the camera changes: PySceneDetect finds them.
 #
-# Scenes the user never touches keep the automatic camera, so correcting one
-# bad shot cannot spoil the ones the tracker got right.
-
 # --- Remotion Render Proxy ---
-RENDER_SERVICE_URL = os.getenv("RENDER_SERVICE_URL", "http://renderer:3100")
 
-app.include_router(_mcp_server.router)
 from routes.thumbnails import router as thumbnails_router
 from routes.clips import router as clips_router
 from routes.process import router as process_router

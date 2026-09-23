@@ -140,7 +140,7 @@ async def list_plans():
 # inside the 14-day withdrawal window. Without it a withdrawal on day 13 is
 # a full refund of a plan that was already used.
 CONSENT_MESSAGE = (
-    "I accept the Terms of Service and the Privacy Policy, and I ask OpenShorts "
+    "I accept the Terms of Service and the Privacy Policy, and I ask MasterShorts "
     "to start the service immediately. EU consumers: you keep your 14-day right "
     "of withdrawal, but you accept that we may charge for the minutes already "
     "processed when you withdraw."
@@ -460,7 +460,7 @@ async def _apply_topup(session_obj: dict):
     # Mirror the sale into OpenPanel, on the same profile the browser identifies.
     analytics.track_revenue(
         user_id, total, session_obj.get("currency"),
-        type="topup", source="openshorts", minutes=minutes,
+        type="topup", source="mastershorts", minutes=minutes,
         stripe_session_id=session_id, email=buyer_email, **acquisition,
     )
 
@@ -700,7 +700,7 @@ async def _track_invoice_revenue(invoice_obj: dict):
     reason = invoice_obj.get("billing_reason") or ""
     analytics.track_revenue(
         user_id, amount, invoice_obj.get("currency"),
-        type=_INVOICE_REVENUE_TYPE.get(reason, "other"), source="openshorts",
+        type=_INVOICE_REVENUE_TYPE.get(reason, "other"), source="mastershorts",
         plan=plan, interval=interval, billing_reason=reason or None,
         stripe_invoice_id=invoice_obj.get("id"), email=email, **acquisition,
     )
@@ -731,6 +731,6 @@ async def _track_refund(charge_obj: dict):
         acquisition = await _acquisition_properties(s, user_id)
     analytics.track_revenue(
         user_id, -amount, charge_obj.get("currency"),
-        type="refund", source="openshorts",
+        type="refund", source="mastershorts",
         stripe_charge_id=charge_obj.get("id"), email=email, **acquisition,
     )

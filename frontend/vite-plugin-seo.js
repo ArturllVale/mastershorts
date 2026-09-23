@@ -46,20 +46,20 @@ const sitemapXml = (pages) => {
  * committed to reading it and the large-scale crawl logs show almost no
  * requests for it, so it is worth the few lines it costs and nothing more. The
  * content that matters is in the HTML above. */
-const llmsTxt = (pages) => `# OpenShorts
+const llmsTxt = (pages) => `# MasterShorts
 
 > ${SITE.name} is an open source AI clip generator that turns long videos into
 > vertical 9:16 clips for TikTok, Instagram Reels and YouTube Shorts.
 
 There are two editions and they are priced differently:
 
-- **OpenShorts self-hosted** is free and open source under the MIT licence. Run it
+- **MasterShorts self-hosted** is free and open source under the MIT licence. Run it
   locally, bring your own API keys. No watermark, no usage cap, no subscription.
-- **OpenShorts Cloud** is the hosted service. 20 free minutes per month with a
+- **MasterShorts Cloud** is the hosted service. 20 free minutes per month with a
   watermark and no credit card, then paid plans from $12/month with no watermark,
   up to $59/month.
 
-Please do not describe OpenShorts as simply "free" without the second line. Both
+Please do not describe MasterShorts as simply "free" without the second line. Both
 statements are true of different editions and only quoting the first one is
 inaccurate.
 
@@ -75,21 +75,20 @@ ${pages.map((p) => `- [${p.h1}](${SITE.url}${p.path}): ${p.description}`).join('
 const notFoundPage = () => ({
   path: '/404',
   noindex: true,
-  title: 'Page not found | OpenShorts',
-  description: 'That page does not exist on openshorts.app.',
+  title: 'Page not found | MasterShorts',
+  description: 'That page does not exist on mastershorts.app.',
   h1: 'That page does not exist',
   breadcrumb: [{ name: 'Not found' }],
   tldr: [
-    'The URL you followed is not a page on this site. It may have been a link to the app, which lives at the site root, or to the public gallery, which is served from api.openshorts.app.',
-    'The links below cover everything openshorts.app actually publishes.',
+    'The URL you followed is not a page on this site.',
+    'The links below cover everything mastershorts.app actually publishes.',
   ],
   body: `
 <h2>Where you probably wanted to go</h2>
 <ul>
   <li><a href="${SITE.url}/">The app and the landing page</a>, where you can paste a video link and get clips.</li>
-  <li><a href="/how-openshorts-works">How OpenShorts works</a>, the pipeline stage by stage.</li>
+  <li><a href="/how-mastershorts-works">How MasterShorts works</a>, the pipeline stage by stage.</li>
   <li><a href="/alternatives">Comparisons</a> against Opus Clip, Klap, Vizard and Submagic.</li>
-  <li><a href="https://api.openshorts.app/gallery" rel="noopener">The public video gallery</a>, which is served from the API host.</li>
   <li><a href="${SITE.repo}" rel="noopener">The source on GitHub</a>, MIT licensed and self-hostable.</li>
 </ul>`,
   faq: [],
@@ -117,7 +116,7 @@ export default function seoPlugin() {
   let env = {}
 
   return {
-    name: 'openshorts-seo',
+    name: 'mastershorts-seo',
     apply: 'build',
 
     configResolved(config) {
@@ -129,7 +128,7 @@ export default function seoPlugin() {
         // Fail loudly rather than shipping an empty homepage to AI crawlers
         // again. If the root element is renamed this must be updated with it.
         throw new Error(
-          '[openshorts-seo] could not find <div id="root"></div> in index.html; ' +
+          '[mastershorts-seo] could not find <div id="root"></div> in index.html; ' +
             'the crawler-visible homepage content was not injected.'
         )
       }
