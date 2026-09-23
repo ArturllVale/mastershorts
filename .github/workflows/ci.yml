@@ -83,13 +83,18 @@ jobs:
           ffmpeg -version
           pytest --version
 
-      - name: Generate Prisma Client (No DB connection needed)
-        run: prisma generate --schema=backend/prisma/schema.prisma
+      - name: Generate Prisma Client & Push Schema
+        env:
+          DATABASE_URL: "file:./ci.db"
+        run: |
+          prisma generate --schema=backend/prisma/schema.prisma
+          prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss
 
       - name: Run tests (Ignore DB integration tests if they require a real DB)
         env:
           # Keep minimal env vars that might be required
           TESTING: "true"
+          DATABASE_URL: "file:./ci.db"
         run: pytest tests/ -v
 
   frontend-build:
