@@ -43,7 +43,10 @@ cd master-shorts
 cp .env.example .env
 ```
 
-Edite o arquivo `.env` e configure suas chaves de API (ex: `GEMINI_API_KEY`, etc.).
+Edite o arquivo `.env` e configure suas variáveis:
+- **Essenciais:** `GEMINI_API_KEY` (IA de momentos), `DATABASE_URL` (banco de dados).
+- **Serviços:** `RENDER_SERVICE_URL` (padrão `http://localhost:3100`), `VITE_PROXY_TARGET` (padrão `http://127.0.0.1:8000`).
+- **Telemetria/Analytics (Opcional):** `VITE_OPENPANEL_API_URL` e `VITE_OPENPANEL_CLIENT_ID` (mantenha vazios `""` para desativar a coleta de métricas e suprimir alertas de compilação do Vite).
 
 ### 2. Instalar dependências
 

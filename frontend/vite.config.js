@@ -7,6 +7,7 @@ const backend = process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  envDir: '../',
   // seo() runs on build only. It injects the crawler-visible homepage content
   // into #root and emits the static /alternatives pages, sitemap.xml and
   // llms.txt. See vite-plugin-seo.js.
