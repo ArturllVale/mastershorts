@@ -46,6 +46,7 @@ wheels/
 .pytest_cache/
 .coverage
 htmlcov/
+-encoders
 
 # ==========================================
 # Node & Frontend

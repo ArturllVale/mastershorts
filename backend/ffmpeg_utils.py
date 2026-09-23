@@ -274,7 +274,7 @@ def cut_clip(input_video, clip_temp_path, start, end, clip_number):
             end_f = start_f + 15.0
             
     target_dur = end_f - start_f
-    stream_copy_enabled = os.environ.get("STREAM_COPY_CUT", "1").strip().lower() not in ("0", "false", "no")
+    stream_copy_enabled = os.environ.get("STREAM_COPY_CUT", "0").strip().lower() in ("1", "true", "yes")
 
     # Fast stream-copy attempt (video copy + normalized AAC audio)
     if stream_copy_enabled:
