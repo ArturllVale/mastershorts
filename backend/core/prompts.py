@@ -620,35 +620,30 @@ Create platform-specific copy.
 
 CRITICAL RULE: The title (`video_title_for_youtube_short`) and the descriptions (`video_description_for_tiktok`, `video_description_for_instagram`) MUST BE COMPLETELY INDEPENDENT.
 DO NOT split a single sentence in half, putting the first half as the title and the second half as the description.
-- The TITLE must be a standalone, catchy headline.
-- The DESCRIPTION must be a complete, self-contained thought (starting with a capital letter) that stands entirely on its own.
+- The TITLE must be a standalone, magnetic viral headline (NEVER a verbatim quote or raw spoken sentence fragment).
+- The DESCRIPTION must be a complete, ready-to-post social media caption with attention hook, value takeaway, CTA, and relevant hashtags.
 
 TIKTOK:
 
-- Short
-- Conversational
-- Natural
-- Curiosity-oriented
-- Encourage interaction when appropriate
-- Use relevant keywords naturally
-- Use hashtags sparingly
-- Never sound like an advertisement
+- Catchy opening hook with emoji
+- Short, conversational 1-2 sentence summary of the core insight/takeaway
+- Natural Call To Action encouraging comments
+- Include 5-8 relevant hashtags (#shorts #viral #foryou and topic-specific hashtags)
+- Never sound like a sterile advertisement
 
 INSTAGRAM:
 
-- Conversational
-- Slightly more contextual
-- Encourage saves/shares naturally
-- Use relevant keywords
-- Avoid excessive hashtags
+- Engaging opening line with emoji
+- Contextual reflection/takeaway from the clip
+- Natural Call To Action encouraging saves and shares
+- Include 5-8 organized, topic-specific hashtags (#shorts #viral #reels and content tags)
 
 YOUTUBE SHORTS:
 
-- Strong curiosity-driven title
-- Search-friendly when appropriate
-- Maximum 90 characters
-- No misleading clickbait
-- The title must accurately represent the clip
+- Powerful curiosity-driven title with high click-through rate (CTR)
+- Maximum 70 characters
+- CRITICAL: NEVER copy or extract raw speech fragments or quotes from the transcript!
+- Use emotional hooks, intrigue, or curiosity gaps that accurately represent the clip
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CTA RULES

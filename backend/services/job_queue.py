@@ -246,6 +246,7 @@ HARD_EXIT_SECONDS = float(os.environ.get("HARD_EXIT_SECONDS", "30"))
 _draining = False
 _stopping = False
 _running_jobs: set = set()
+_active_processes: dict = {}
 
 
 def _manifest_path(job_id):
@@ -1156,6 +1157,7 @@ async def run_job(job_id, job_data):
             env=env,
             cwd=BACKEND_DIR
         )
+        _active_processes[job_id] = process
         
         # We need to capture logs in a thread because Popen isn't async
         t_log = threading.Thread(target=enqueue_output, args=(process.stdout, job_id))
@@ -1291,6 +1293,8 @@ async def run_job(job_id, job_data):
         # Exception text can embed URLs with credentials (e.g. the proxy URL
         # inside a yt-dlp/httpx error) — scrub before it reaches client logs.
         jobs[job_id]['logs'].append(_scrub_secrets(f"Execution error: {str(e)}"))
+    finally:
+        _active_processes.pop(job_id, None)
 
 
 def _sign_webhook(body: bytes, secret: str) -> str:
@@ -1498,3 +1502,65 @@ def _purge_local_jobs_for_user(user_id) -> int:
     if removed:
         print(f"🗑️  Purged {removed} local work item(s) for erased user {uid}.")
     return removed
+
+
+def delete_single_job(job_id: str) -> bool:
+    """Terminates process if active, cleans up disk files, removes job from queue/db and clears cache."""
+    proc = _active_processes.pop(job_id, None)
+    if proc:
+        try:
+            proc.terminate()
+            time.sleep(0.2)
+            if proc.poll() is None:
+                proc.kill()
+        except Exception:
+            pass
+
+    _running_jobs.discard(job_id)
+    _clear_resume_manifest(job_id)
+    _rm_under(OUTPUT_DIR, job_id)
+
+    for path in glob.glob(os.path.join(UPLOAD_DIR, f"{glob.escape(job_id)}_*")):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    source_hash = None
+    if job_id in jobs:
+        try:
+            j = jobs[job_id]
+            if isinstance(j, dict):
+                env = j.get('env') or {}
+                source_hash = env.get('SOURCE_HASH')
+        except Exception:
+            pass
+        jobs.pop(job_id, None)
+
+    try:
+        from prisma.models import Job, FeatureCache
+        import asyncio
+        async def _db_cleanup():
+            try:
+                await Job.prisma().delete_many(where={"id": job_id})
+            except Exception:
+                pass
+            if source_hash:
+                try:
+                    await FeatureCache.prisma().delete_many(where={"source_hash": source_hash})
+                except Exception:
+                    pass
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.create_task(_db_cleanup())
+            else:
+                loop.run_until_complete(_db_cleanup())
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    print(f"🗑️  Deleted job {job_id} and purged all its artifacts.", flush=True)
+    return True
+

@@ -73,6 +73,8 @@ async def get_or_compute(source_hash: str, feature_type: str, compute_fn, is_lar
         else:
             db_payload = json.dumps(payload)
             
+        from database.prisma_client import get_prisma
+        db = await get_prisma()
         await db.featurecache.upsert(
             where={
                 "source_hash_feature_type": {

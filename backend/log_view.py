@@ -19,6 +19,8 @@ def _strip_paths(line):
 _RULES = [
     # Worker/job lifecycle + errors in pt-BR
     (re.compile(r'^Job started', re.I), '🚀 Iniciando processamento do vídeo...'),
+    (re.compile(r'(?:⏱️\s*)?Tempo total de processamento:\s*(.*)', re.I), '⏱️ Tempo total: {0}'),
+    (re.compile(r'(?:⏱️\s*)?Total execution time:\s*([\d.]+)s', re.I), '⏱️ Tempo total: {0}s'),
     (re.compile(r'^(?:Process finished|🎉 Processamento finalizado)', re.I), '🎉 Processamento concluído com sucesso!'),
     (re.compile(r'^(?:Process failed|Execution error)', re.I), '❌ Ocorreu uma falha no processamento.'),
     (re.compile(r'^❌\s*(.*)'), '❌ {0}'),

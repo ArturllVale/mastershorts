@@ -79,7 +79,15 @@ class RestoringStaticFiles(StaticFiles):
 
                 long_p = to_long_path(full)
                 try:
-                    return long_p, os.stat(long_p)
+                    stat_res = os.stat(long_p)
+                    if full.lower().endswith('.mp4'):
+                        try:
+                            from ffmpeg_utils import ensure_yuv420p
+                            if ensure_yuv420p(full):
+                                stat_res = os.stat(long_p)
+                        except Exception:
+                            pass
+                    return long_p, stat_res
                 except (FileNotFoundError, NotADirectoryError, OSError):
                     pass
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { Youtube, Instagram, Activity, Loader2, Terminal, ChevronDown, Download, RotateCcw, Play, RefreshCw, AlertCircle } from 'lucide-react';
+import { Youtube, Instagram, Activity, Loader2, Terminal, ChevronDown, Download, RotateCcw, Play, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
 import MediaInput from '../../components/MediaInput';
 import ProcessingAnimation from '../../components/ProcessingAnimation';
 import StarBanner from '../../components/StarBanner';
@@ -21,6 +21,8 @@ export default function DashboardView({
   handleReset,
   handleRetry,
   isRetrying = false,
+  handleDeleteProject,
+  isDeleting = false,
   processingMedia,
   syncedTime,
   isSyncedPlaying,
@@ -216,6 +218,18 @@ export default function DashboardView({
                       <span>Cancelar</span>
                     </button>
                   )}
+                  {handleDeleteProject && jobId && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProject(jobId)}
+                      disabled={isDeleting}
+                      className="px-2 py-1 text-[11px] sm:text-xs font-medium text-danger hover:text-white bg-danger/10 hover:bg-danger border border-danger/30 rounded-input transition-colors flex items-center gap-1"
+                      title="Excluir este projeto e todos os seus arquivos do servidor"
+                    >
+                      {isDeleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                      <span>Excluir</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -267,8 +281,20 @@ export default function DashboardView({
                       )}
                     </div>
                   </div>
-                  {handleRetry && (
-                    <div className="flex items-center gap-2 pt-1 border-t border-rule/50 justify-end">
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-rule/50 justify-end">
+                    {handleDeleteProject && jobId && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProject(jobId)}
+                        disabled={isDeleting}
+                        className="px-3.5 py-2 text-xs font-medium text-danger hover:text-white bg-danger/10 hover:bg-danger border border-danger/30 rounded-input transition-colors flex items-center gap-1.5"
+                        title="Excluir este projeto para começar do zero"
+                      >
+                        {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        <span>Excluir e Começar do Zero</span>
+                      </button>
+                    )}
+                    {handleRetry && (
                       <button
                         type="button"
                         onClick={handleRetry}
@@ -287,8 +313,8 @@ export default function DashboardView({
                           </>
                         )}
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -368,7 +394,19 @@ export default function DashboardView({
                 )}
               </h2>
               {status === 'complete' && (
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {handleDeleteProject && jobId && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProject(jobId)}
+                      disabled={isDeleting}
+                      className="px-3 py-1.5 text-xs font-medium text-danger hover:text-white bg-danger/10 hover:bg-danger border border-danger/30 rounded-input transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      title="Excluir este projeto e todos os seus arquivos do servidor para refazer do zero"
+                    >
+                      {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      <span>Excluir e Refazer do Zero</span>
+                    </button>
+                  )}
                   {handleReset && (
                     <button
                       type="button"

@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import glob
 
 # Force UTF-8 stdio on Windows to avoid UnicodeEncodeError crashes on emojis/unicode symbols
 if sys.platform == "win32":
@@ -149,7 +150,7 @@ def cap_source_duration(input_video, max_minutes):
     tmp = f"{root}.capped{ext or '.mp4'}"
     attempts = [
         ["-c", "copy"],
-        ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "160k"],
+        [*video_encode_args(QUALITY_FAST), "-c:a", "aac", "-b:a", "160k"],
     ]
     for codec_args in attempts:
         cmd = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", input_video,
@@ -374,6 +375,8 @@ if __name__ == '__main__':
         import traceback as _traceback
         import json as _json
 
+        shorts = clips_data['shorts']
+
         def _process_one_clip(i, clip):
             # Check if this clip has already been completely rendered and styled
             clean_filename = f"{video_title}_clip_{i+1}.mp4"
@@ -455,50 +458,49 @@ if __name__ == '__main__':
                 if os.path.exists(clip_temp_path):
                     os.remove(clip_temp_path)
 
-            clip_workers = max(int(os.environ.get("CLIP_WORKERS", "3")), 1)
-            shorts = clips_data['shorts']
-            # Mark all clips as queued before submitting to the executor so the
-            # parent process sees an explicit initial state for every clip.
-            for _qi in range(len(shorts)):
-                print(f"CLIP_QUEUED {_qi}", flush=True)
-            with ThreadPoolExecutor(max_workers=min(clip_workers, len(shorts))) as pool:
-                futures = {pool.submit(_process_one_clip, i, clip): i
-                           for i, clip in enumerate(shorts)}
-                _clip_outcomes: dict[int, str] = {}  # index -> "ready" | "failed"
-                for future in as_completed(futures):
-                    i = futures[future]
-                    try:
-                        future.result()
-                        # CLIP_READY already printed inside _process_one_clip on
-                        # success; record the outcome here for JOB_CLIPS_DONE.
-                        _clip_outcomes[i] = "ready"
-                    except Exception as e:
-                        _clip_outcomes[i] = "failed"
-                        # Emit structured failure marker so the parent (job_queue.py)
-                        # can record exc_type, message and truncated traceback per clip
-                        # without swallowing the exception silently.
-                        _tb_text = _traceback.format_exc()[:2000]
-                        _err_payload = _json.dumps({
-                            "exc_type": type(e).__name__,
-                            "message": str(e)[:500],
-                            "traceback": _tb_text,
-                        }, ensure_ascii=False)
-                        print(f"CLIP_FAILED {i} {_err_payload}", flush=True)
-                        print(f"   ❌ Clip {i+1} failed: {type(e).__name__}: {e}")
+        clip_workers = max(int(os.environ.get("CLIP_WORKERS", "3")), 1)
+        # Mark all clips as queued before submitting to the executor so the
+        # parent process sees an explicit initial state for every clip.
+        for _qi in range(len(shorts)):
+            print(f"CLIP_QUEUED {_qi}", flush=True)
+        with ThreadPoolExecutor(max_workers=min(clip_workers, len(shorts))) as pool:
+            futures = {pool.submit(_process_one_clip, i, clip): i
+                       for i, clip in enumerate(shorts)}
+            _clip_outcomes: dict[int, str] = {}  # index -> "ready" | "failed"
+            for future in as_completed(futures):
+                i = futures[future]
+                try:
+                    future.result()
+                    # CLIP_READY already printed inside _process_one_clip on
+                    # success; record the outcome here for JOB_CLIPS_DONE.
+                    _clip_outcomes[i] = "ready"
+                except Exception as e:
+                    _clip_outcomes[i] = "failed"
+                    # Emit structured failure marker so the parent (job_queue.py)
+                    # can record exc_type, message and truncated traceback per clip
+                    # without swallowing the exception silently.
+                    _tb_text = _traceback.format_exc()[:2000]
+                    _err_payload = _json.dumps({
+                        "exc_type": type(e).__name__,
+                        "message": str(e)[:500],
+                        "traceback": _tb_text,
+                    }, ensure_ascii=False)
+                    print(f"CLIP_FAILED {i} {_err_payload}", flush=True)
+                    print(f"   ❌ Clip {i+1} failed: {type(e).__name__}: {e}")
 
-            # Signal to the parent how many clips landed in each terminal state
-            # so it can apply the canonical job-status policy without re-scanning
-            # the filesystem (which is unreliable when clips are still being written).
-            _n_ready = sum(1 for s in _clip_outcomes.values() if s == "ready")
-            _n_failed = sum(1 for s in _clip_outcomes.values() if s == "failed")
-            print(f"JOB_CLIPS_DONE {_n_ready} {_n_failed}", flush=True)
+        # Signal to the parent how many clips landed in each terminal state
+        # so it can apply the canonical job-status policy without re-scanning
+        # the filesystem (which is unreliable when clips are still being written).
+        _n_ready = sum(1 for s in _clip_outcomes.values() if s == "ready")
+        _n_failed = sum(1 for s in _clip_outcomes.values() if s == "failed")
+        print(f"JOB_CLIPS_DONE {_n_ready} {_n_failed}", flush=True)
 
 
-            # Persist per-clip render results added by the workers (auto_hook)
-            # so the editor can see what is already burned into each clip.
-            if any('auto_hook' in c or 'hook_grounding' in c for c in shorts):
-                with open(to_long_path(metadata_file), 'w', encoding='utf-8') as f:
-                    json.dump(clips_data, f, indent=2)
+        # Persist per-clip render results added by the workers (auto_hook)
+        # so the editor can see what is already burned into each clip.
+        if any('auto_hook' in c or 'hook_grounding' in c for c in shorts):
+            with open(to_long_path(metadata_file), 'w', encoding='utf-8') as f:
+                json.dump(clips_data, f, indent=2)
 
     # Clean up original if requested
     if args.url and not args.keep_original and os.path.exists(input_video):
@@ -509,6 +511,11 @@ if __name__ == '__main__':
         clear_transcript_checkpoint(output_dir)
 
     total_time = time.time() - script_start_time
-    print(f"\n⏱️  Total execution time: {total_time:.2f}s")
+    mins = int(total_time // 60)
+    secs = int(total_time % 60)
+    time_str = f"{mins}m {secs:02d}s" if mins > 0 else f"{secs}s"
+    from ffmpeg_utils import get_selected_encoder_name
+    encoder_name = get_selected_encoder_name()
+    print(f"\n⏱️ Tempo total de processamento: {time_str} ({encoder_name})", flush=True)
     print("🎉 Processamento finalizado com sucesso!", flush=True)
 

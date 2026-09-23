@@ -75,6 +75,7 @@ import layout_ranges
 from editor import VideoEditor
 from subtitles import generate_srt, generate_ass, burn_subtitles, generate_srt_from_video
 from hooks import add_hook_to_video
+from ffmpeg_utils import ensure_yuv420p
 
 router = APIRouter()
 _FRAMING_STRATEGIES = {"auto": None, "full": "WIDE", "track": "TRACK"}
@@ -306,6 +307,18 @@ async def get_clip_transcript(job_id: str, clip_index: int, request: Request):
                     })
 
     duration_sec = clip_end - clip_start
+
+    # Ensure clip file has valid web pixel format (yuv420p) so preview never looks green
+    try:
+        clip_url = clip_data.get('video_url', '')
+        if clip_url:
+            raw_filename = clip_url.split('/')[-1]
+            base_filename = _strip_burned_captions(output_dir, raw_filename)
+            base_path = os.path.join(output_dir, base_filename)
+            if os.path.exists(base_path):
+                ensure_yuv420p(base_path)
+    except Exception as e:
+        print(f"⚠️ ensure_yuv420p check skipped in transcript endpoint: {e}")
 
     return {
         "captions": captions,
@@ -724,7 +737,7 @@ async def get_clip_scenes(job_id: str, clip_index: int, request: Request):
                     subprocess.run(
                         ["ffmpeg", "-y", "-loglevel", "error", "-i", work_path,
                          "-vf", "scale=640:-2", "-c:v", "libx264", "-preset",
-                         "veryfast", "-crf", "30", "-c:a", "aac", "-b:a", "96k",
+                         "veryfast", "-crf", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
                          # faststart: the editor's <video> streams the preview;
                          # a tail moov would stall it until fully downloaded.
                          "-movflags", "+faststart",
@@ -1159,6 +1172,9 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
         # Just fail if not found.
         raise HTTPException(status_code=404, detail=f"Video file not found: {input_path}")
 
+    # Ensure input video uses web-compatible pixel format (yuv420p)
+    ensure_yuv420p(input_path)
+
     # Define outputs
     generation_id = int(time.time())
     is_karaoke = req.style == "karaoke"
@@ -1281,7 +1297,32 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
             import shutil
             shutil.move(output_url, output_path)
 
-        await run_remotion()
+        rendered = False
+        try:
+            await run_remotion()
+            rendered = True
+        except Exception as remotion_err:
+            print(f"⚠️ Render service on port 3100 unavailable ({remotion_err}) — falling back to native FFmpeg burning.")
+
+        if not rendered:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: burn_subtitles(
+                    video_path=input_path,
+                    srt_path=srt_path,
+                    output_path=output_path,
+                    alignment=req.position,
+                    fontsize=req.font_size,
+                    font_name=req.font_name,
+                    font_color=req.font_color,
+                    border_color=req.border_color,
+                    border_width=req.border_width,
+                    bg_color=req.bg_color,
+                    bg_opacity=req.bg_opacity,
+                    margin_v=getattr(req, 'margin_v', 43)
+                )
+            )
 
     except Exception as e:
         print(f"❌ Subtitle Error: {e}")

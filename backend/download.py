@@ -197,17 +197,42 @@ def download_youtube_video(url, output_dir="."):
             }
         return opts
 
-    _dl_bytes = {"total": 0, "partial": 0}
+    _dl_bytes = {
+        "total": 0,
+        "partial": 0,
+        "last_pct": -1,
+        "last_file": None,
+        "stream_idx": 0,
+    }
 
     def _progress_hook(d):
         if d.get('status') == 'downloading':
-            _dl_bytes["partial"] = int(d.get('downloaded_bytes') or 0)
+            fname = d.get('filename')
+            if fname and fname != _dl_bytes.get("last_file"):
+                _dl_bytes["last_file"] = fname
+                _dl_bytes["stream_idx"] = _dl_bytes.get("stream_idx", 0) + 1
+
+            stream_idx = _dl_bytes.get("stream_idx", 1)
+            downloaded = int(d.get('downloaded_bytes') or 0)
             total = int(d.get('total_bytes') or d.get('total_bytes_estimate') or 0)
-            downloaded = _dl_bytes["partial"]
             if total > 0:
-                pct = int((downloaded / total) * 100)
+                stream_ratio = downloaded / total
+                info = d.get('info_dict') or {}
+                vcodec = info.get('vcodec')
+                acodec = info.get('acodec')
+
+                # Separate video stream (85%) vs audio stream (15%)
+                if vcodec and vcodec != 'none' and (acodec == 'none' or not acodec):
+                    pct = int(stream_ratio * 85)
+                elif vcodec == 'none' or stream_idx >= 2:
+                    pct = 85 + int(stream_ratio * 15)
+                else:
+                    pct = int(stream_ratio * 100)
+
+                # Guarantee percentage is strictly monotonic and capped at 100
+                pct = min(100, max(_dl_bytes.get("last_pct", 0), pct))
                 last = _dl_bytes.get("last_pct", -1)
-                if pct != last and (pct % 5 == 0 or pct in (1, 2, 99, 100)):
+                if pct > last and (pct % 5 == 0 or pct in (1, 2, 99, 100)):
                     _dl_bytes["last_pct"] = pct
                     print(f"📥 Baixando vídeo: {pct}%", flush=True)
         elif d.get('status') == 'finished':
@@ -215,11 +240,13 @@ def download_youtube_video(url, output_dir="."):
             _dl_bytes["total"] += int(d.get('total_bytes')
                                       or d.get('total_bytes_estimate')
                                       or d.get('downloaded_bytes') or 0)
-            print("✅ Download concluído com sucesso!", flush=True)
 
     def _attempt(extractor_args, fmt, proxy, cookies=True):
         _dl_bytes["total"] = 0
         _dl_bytes["partial"] = 0
+        _dl_bytes["last_pct"] = -1
+        _dl_bytes["last_file"] = None
+        _dl_bytes["stream_idx"] = 0
         with yt_dlp.YoutubeDL(_base_opts(extractor_args, proxy, cookies)) as ydl:
             info = ydl.extract_info(url, download=False)
         sanitized = sanitize_filename(info.get('title', 'youtube_video'))
@@ -261,6 +288,7 @@ def download_youtube_video(url, output_dir="."):
         }
         with yt_dlp.YoutubeDL(dl_opts) as ydl:
             ydl.download([url])
+        print("✅ Download concluído com sucesso!", flush=True)
         return sanitized
 
     _direct_first = (os.environ.get("DIRECT_FIRST", "").strip() == "1"

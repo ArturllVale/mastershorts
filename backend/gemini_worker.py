@@ -35,6 +35,10 @@ class DetailClipModel(BaseModel):
     source_window_id: str
     predicted_score: int
     explanation: str
+    video_title_for_youtube_short: str = ""
+    viral_hook_text: str = ""
+    video_description_for_tiktok: str = ""
+    video_description_for_instagram: str = ""
 
 
 class DetailResponse(BaseModel):
@@ -102,8 +106,8 @@ meaning is on the screen, not in the face.
    month", "3,400 stars") from the transcript or the current hook. Never a
    summary of the video's general topic, never a slogan that would fit any
    clip of this video, never drop a figure for a vaguer phrase.
-3. `video_title_for_youtube_short`: max 100 chars, same rule, in
-   TRANSCRIPT_LANGUAGE, no fake claims.
+3. `video_title_for_youtube_short`: max 70 chars, magnetic, viral headline with high curiosity/CTR, in
+   TRANSCRIPT_LANGUAGE, no verbatim speech quotes, no fake claims.
 
 The current hook and title below were written WITHOUT seeing the frames and
 are the kind of topic summary you must replace. Do not reuse their wording.
@@ -306,6 +310,19 @@ CLIP RULES:
 COPY RULES:
 - `predicted_score`: honest 0-100 estimate of viral potential.
 - `explanation`: a short 1-2 sentence justification for the score in TRANSCRIPT_LANGUAGE ({language}). Why is this specific moment viral?
+- `video_title_for_youtube_short`: A powerful, curiosity-driven YouTube Shorts title (max 70 chars, in {language}).
+  CRITICAL: Do NOT copy a random spoken sentence or quote verbatim from the transcript! Craft a high-CTR, scroll-stopping headline that sparks curiosity, emotion, or promises a revelation (e.g., "O Segredo Que Ninguém Te Conta Sobre o Medo 😱", "Você Comete Esse Erro Sem Perceber? ⚠️", "A Verdade Que Mudou Minha Mente...").
+- `viral_hook_text`: 3 to 7 punchy words for the on-screen hook overlay with an emoji (e.g. "Você vive com medo? 👀", "Pare de fazer isso agora! ⚠️").
+- `video_description_for_tiktok`: Ready-to-publish TikTok post caption in {language}. Include:
+  1) An attention-grabbing hook line with emojis
+  2) A 1-2 sentence compelling summary of the core insight/takeaway
+  3) A clear call-to-action (CTA) inviting comments ("Qual sua opinião sobre isso? Comenta aí! 👇")
+  4) 5-8 relevant hashtags (#shorts #viral #foryou + topic tags matching the video content).
+- `video_description_for_instagram`: Ready-to-publish Instagram Reels caption in {language}. Include:
+  1) Hook line with emojis
+  2) Concise context/insight
+  3) CTA encouraging saves/shares ("Salva esse post para não esquecer e compartilha com um amigo! 📌")
+  4) 5-8 organized, targeted hashtags.
 
 TRANSCRIPT_LANGUAGE: {language}
 VIDEO_DURATION_SECONDS: {video_duration}
@@ -320,7 +337,11 @@ Return only:
       "end": <number>,
       "source_window_id": "<window id>",
       "predicted_score": <integer 0-100>,
-      "explanation": "<short justification max 20 words>"
+      "explanation": "<short justification max 20 words>",
+      "video_title_for_youtube_short": "<high-CTR viral title max 70 chars>",
+      "viral_hook_text": "<punchy on-screen hook 3-7 words>",
+      "video_description_for_tiktok": "<ready-to-post TikTok caption with hook, summary, CTA and #hashtags>",
+      "video_description_for_instagram": "<ready-to-post Instagram caption with hook, summary, CTA and #hashtags>"
     }}
   ]
 }}

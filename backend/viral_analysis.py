@@ -281,12 +281,12 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
             dropped = len(shorts) - max_clips
             shorts = trim_to_best(shorts, max_clips)
 
-        # Pre-fill empty metadata (generated later in parallel)
+        # Preserve model-generated metadata or initialize if absent
         for s in shorts:
-            s["video_description_for_tiktok"] = ""
-            s["video_description_for_instagram"] = ""
-            s["video_title_for_youtube_short"] = ""
-            s["viral_hook_text"] = ""
+            s.setdefault("video_description_for_tiktok", "")
+            s.setdefault("video_description_for_instagram", "")
+            s.setdefault("video_title_for_youtube_short", "")
+            s.setdefault("viral_hook_text", "")
 
         for s in shorts:
             ns, ne = snap_clip_to_words(s.get("start", 0), s.get("end", 0), words, video_duration,

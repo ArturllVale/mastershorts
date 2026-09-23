@@ -198,11 +198,14 @@ export default function SubtitleModal({
         position,
         style: {
             fontFamily: fontName,
-            fontSize: fontSize * 1.8, // Scale up for 1080p preview
+            fontSize: fontSize * 1.8, // Scale up for 1080p canvas (Remotion renders in 1920px height)
             fontColor,
             activeTextColor,
             highlightColor,
             borderColor,
+            // ×1.5 is a calibration factor: CSS textShadow of (borderWidth×1.5)px on the 1920px
+            // canvas produces the same visual weight as the libass ASS Outline rendered at
+            // max(1, round(borderWidth×1.5×288/1920)) units in PlayResY=288 space.
             borderWidth: borderWidth * 1.5,
             bgColor,
             bgOpacity,
@@ -215,6 +218,7 @@ export default function SubtitleModal({
     };
 
     // Fallback: static CSS preview (scaled to the ~600px preview container, 600/1920 = 0.3125)
+    // ×1.5 calibration factor mirrors the subtitleConfig above so both previews look the same.
     const bw = Math.max(Math.round(borderWidth * 1.5 * 0.3125), 0);
     const bc = borderColor;
     const outlineShadow = bw > 0 ? [

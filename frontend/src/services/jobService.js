@@ -72,3 +72,18 @@ export async function retryJob(jobId, options = {}) {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+/**
+ * Permanently deletes a job and all its generated files from the server.
+ *
+ * @param {string} jobId
+ * @returns {Promise<object>}
+ */
+export async function deleteJob(jobId) {
+  const res = await apiFetch(`/api/jobs/${jobId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+

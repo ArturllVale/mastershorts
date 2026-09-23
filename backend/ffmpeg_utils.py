@@ -20,15 +20,15 @@ QUALITY_FAST = "quality_fast"  # was: -preset fast -crf 18
 DELIVERY = "delivery"          # was: -preset fast -crf 22
 
 _X264_ARGS = {
-    QUALITY: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"],
-    QUALITY_FAST: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"],
-    DELIVERY: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"],
+    QUALITY: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"],
+    QUALITY_FAST: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"],
+    DELIVERY: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"],
 }
 
 _NVENC_ARGS = {
-    QUALITY: ["-c:v", "h264_nvenc", "-preset", "p4"],
-    QUALITY_FAST: ["-c:v", "h264_nvenc", "-preset", "p4"],
-    DELIVERY: ["-c:v", "h264_nvenc", "-preset", "p4"],
+    QUALITY: ["-c:v", "h264_nvenc", "-preset", "p4", "-pix_fmt", "yuv420p"],
+    QUALITY_FAST: ["-c:v", "h264_nvenc", "-preset", "p4", "-pix_fmt", "yuv420p"],
+    DELIVERY: ["-c:v", "h264_nvenc", "-preset", "p4", "-pix_fmt", "yuv420p"],
 }
 
 # Output args that drop container/stream metadata carried over from the source
@@ -137,13 +137,26 @@ _announced = False
 
 
 def _probe_nvenc():
-    """Detect availability by running ffmpeg -encoders and looking for h264_nvenc."""
-    cmd = ["ffmpeg", "-hide_banner", "-encoders"]
+    """Detect NVENC availability by testing real encoding on a dummy frame."""
+    cmd_probe = ["ffmpeg", "-hide_banner", "-encoders"]
     try:
         result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10, text=True
+            cmd_probe, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5, text=True
         )
-        return "h264_nvenc" in result.stdout
+        if "h264_nvenc" not in result.stdout:
+            return False
+    except Exception:
+        return False
+
+    cmd_test = [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-f", "lavfi", "-i", "color=s=64x64:d=0.04",
+        "-c:v", "h264_nvenc",
+        "-f", "null", "-"
+    ]
+    try:
+        r = subprocess.run(cmd_test, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        return r.returncode == 0
     except Exception:
         return False
 
@@ -167,12 +180,15 @@ def reset_encoder_cache():
 
 
 def video_encode_args(tier=QUALITY):
-    """Return the codec/quality args for one encode, honoring FFMPEG_ENCODER."""
+    """Return the codec/quality args for one encode, honoring FFMPEG_ENCODER (defaults to auto/GPU)."""
     global _announced
     if tier not in _X264_ARGS:
         raise ValueError(f"Unknown encode tier: {tier!r}")
 
-    mode = os.environ.get("FFMPEG_ENCODER", "x264").strip().lower()
+    mode = os.environ.get("FFMPEG_ENCODER", "auto").strip().lower()
+    if mode not in ("x264", "nvenc", "auto"):
+        mode = "auto"
+
     use_nvenc = False
     if mode in ("nvenc", "auto"):
         use_nvenc = nvenc_available()
@@ -185,6 +201,15 @@ def video_encode_args(tier=QUALITY):
         print(f"Encoder escolhido: {'h264_nvenc (GPU)' if use_nvenc else 'libx264 (CPU)'}")
 
     return list((_NVENC_ARGS if use_nvenc else _X264_ARGS)[tier])
+
+
+def get_selected_encoder_name() -> str:
+    """Return friendly name of the active encoder: 'GPU - NVIDIA NVENC' or 'CPU - libx264'."""
+    mode = os.environ.get("FFMPEG_ENCODER", "auto").strip().lower()
+    use_nvenc = False
+    if mode in ("nvenc", "auto"):
+        use_nvenc = nvenc_available()
+    return "GPU - NVIDIA NVENC" if use_nvenc else "CPU - libx264"
 
 
 def escape_filter_value(value):
@@ -284,5 +309,56 @@ def cut_clip(input_video, clip_temp_path, start, end, clip_number):
         f"ffmpeg could not cut clip {clip_number} ({start}s-{end}s) from "
         f"{os.path.basename(input_video)} in {len(CUT_RETRY_WAITS) + 1} "
         f"attempts: {report}")
+
+
+_verified_yuv420p = set()
+
+def ensure_yuv420p(video_path: str) -> bool:
+    """Checks if video is encoded in an incompatible pixel format (gbrp, yuv444p, etc.)
+    and converts it in-place to yuv420p so browser playback does not show green screens
+    or decoding failures. Thread-safe and caches verified paths."""
+    if not video_path or not os.path.isfile(video_path):
+        return False
+    norm_path = os.path.abspath(video_path)
+    if norm_path in _verified_yuv420p:
+        return False
+    try:
+        cmd = [
+            'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+            '-show_entries', 'stream=pix_fmt', '-of', 'default=noprint_wrappers=1:nokey=1',
+            norm_path
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        pix_fmt = res.stdout.strip().lower()
+        if not pix_fmt or pix_fmt == 'yuv420p':
+            _verified_yuv420p.add(norm_path)
+            return False
+
+        # Incompatible with standard browser/hardware decoders (gbrp causes the green tint bug)
+        if pix_fmt in ('gbrp', 'yuv444p', 'rgb24', 'bgr24', 'yuv422p', 'gbrp10le', 'gbrp12le'):
+            print(f"⚠️ Video {os.path.basename(norm_path)} is in '{pix_fmt}'. Converting to 'yuv420p'...")
+            temp_path = norm_path + ".fixed.mp4"
+            conv_cmd = [
+                'ffmpeg', '-y', '-i', norm_path,
+                *video_encode_args(QUALITY_FAST),
+                '-c:a', 'copy',
+                *METADATA_SCRUB,
+                '-movflags', '+faststart',
+                temp_path
+            ]
+            conv_res = subprocess.run(conv_cmd, capture_output=True, timeout=120)
+            if conv_res.returncode == 0 and os.path.exists(temp_path) and os.path.getsize(temp_path) > 1000:
+                os.replace(temp_path, norm_path)
+                _verified_yuv420p.add(norm_path)
+                print(f"✅ Converted {os.path.basename(norm_path)} to yuv420p successfully.")
+                return True
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"⚠️ ensure_yuv420p check failed for {norm_path}: {e}")
+    return False
 
 

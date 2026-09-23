@@ -65,6 +65,17 @@ def test_no_paths_ever_leak():
         assert ".mp4" not in line
 
 
+def test_timing_and_hardware_log_lines():
+    line_gpu = "⏱️ Tempo total de processamento: 2m 15s (GPU - NVIDIA NVENC)"
+    assert friendly_log_line(line_gpu) == "⏱️ Tempo total: 2m 15s (GPU - NVIDIA NVENC)"
+
+    line_cpu = "⏱️ Tempo total de processamento: 45s (CPU - libx264)"
+    assert friendly_log_line(line_cpu) == "⏱️ Tempo total: 45s (CPU - libx264)"
+
+    line_raw = "⏱️  Total execution time: 135.20s"
+    assert friendly_log_line(line_raw) == "⏱️ Tempo total: 135.20s"
+
+
 def test_technical_lines_are_hidden():
     assert friendly_log_line("🎙️ [ASR] parakeet ok: lang=es segments=43") is None
     assert friendly_log_line("🎞️ [Encoder] video encoder: h264_nvenc") is None

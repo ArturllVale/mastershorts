@@ -23,13 +23,16 @@ def _clean_encoder_state(monkeypatch):
     reset_encoder_cache()
 
 
-def test_default_args_pin_historical_x264_settings():
-    assert video_encode_args(QUALITY) == [
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18"]
-    assert video_encode_args(QUALITY_FAST) == [
-        "-c:v", "libx264", "-preset", "fast", "-crf", "18"]
-    assert video_encode_args(DELIVERY) == [
-        "-c:v", "libx264", "-preset", "fast", "-crf", "22"]
+def test_default_mode_is_auto_and_prefers_nvenc(monkeypatch):
+    monkeypatch.setattr(ffmpeg_utils, "_probe_nvenc", lambda: True)
+    assert video_encode_args(QUALITY) == ["-c:v", "h264_nvenc", "-preset", "p4", "-pix_fmt", "yuv420p"]
+
+
+def test_x264_mode_uses_libx264_args(monkeypatch):
+    monkeypatch.setenv("FFMPEG_ENCODER", "x264")
+    assert video_encode_args(QUALITY) == ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]
+    assert video_encode_args(QUALITY_FAST) == ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]
+    assert video_encode_args(DELIVERY) == ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]
 
 
 def test_unknown_tier_raises():
@@ -42,11 +45,7 @@ def test_nvenc_mode_uses_nvenc_when_probe_passes(monkeypatch):
     monkeypatch.setattr(ffmpeg_utils, "_probe_nvenc", lambda: True)
     for tier in (QUALITY, QUALITY_FAST, DELIVERY):
         args = video_encode_args(tier)
-        assert args[:2] == ["-c:v", "h264_nvenc"]
-        assert "-cq" in args
-        # Without an explicit yuv420p, RGB input makes nvenc emit GBR-space
-        # H.264 that web players render with wrong colors.
-        assert args[-2:] == ["-pix_fmt", "yuv420p"]
+        assert args == ["-c:v", "h264_nvenc", "-preset", "p4", "-pix_fmt", "yuv420p"]
 
 
 def test_nvenc_mode_falls_back_to_x264_when_probe_fails(monkeypatch):

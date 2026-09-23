@@ -92,7 +92,8 @@ function App() {
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey,
     handleClipStateChange, handleClipRerendered, flushClipState,
-    handleRetry, isRetrying
+    handleRetry, isRetrying,
+    handleDeleteProject, isDeleting
   } = useAppController();
 
   // Clip editor overlay: index of the clip being edited, or null.
@@ -309,6 +310,8 @@ function App() {
             handleReset={handleReset}
             handleRetry={handleRetry}
             isRetrying={isRetrying}
+            handleDeleteProject={handleDeleteProject}
+            isDeleting={isDeleting}
           />
 
         </div>

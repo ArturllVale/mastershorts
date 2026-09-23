@@ -259,6 +259,7 @@ async def process_endpoint(
     captions: Optional[str] = Form(None),
     upload_id: Optional[str] = Form(None),
     max_minutes: Optional[str] = Form(None),
+    force_rerun: Optional[str] = Form(None),
 ):
     req_llm_base = request.headers.get("X-LLM-Base-URL") or request.headers.get("x-llm-base-url")
     req_llm_model = request.headers.get("X-LLM-Model") or request.headers.get("x-llm-model")
@@ -294,6 +295,8 @@ async def process_endpoint(
         captions = body.get("captions")
         upload_id = body.get("upload_id")
         max_minutes = body.get("max_minutes")
+        if not force_rerun and (body.get("force_rerun") or body.get("force")):
+            force_rerun = body.get("force_rerun") or body.get("force")
         if not req_llm_provider and body.get("llm_provider"):
             req_llm_provider = body.get("llm_provider")
         if not req_openrouter_key and body.get("openrouter_key"):
@@ -628,23 +631,31 @@ async def process_endpoint(
     
     env["SOURCE_HASH"] = source_hash
 
-    existing_job = await find_idempotent_job(source_hash, config_hash)
-    if existing_job:
-        # Cleanup the just-created files because we will return the existing job
-        if not url and not thumb_session and input_path and os.path.exists(input_path):
-            try:
-                os.remove(input_path)
-            except OSError:
-                pass
-        shutil.rmtree(job_output_dir, ignore_errors=True)
-        
-        # Determine actual status (use proxy memory logic if needed)
-        status = _presented_status(existing_job.id, {"status": existing_job.status})
-        return JSONResponse(
-            status_code=200,
-            content={"job_id": existing_job.id, "status": status, "partial": existing_job.partial},
-            headers={"X-Idempotent": "true"}
-        )
+    force_flag = str(force_rerun).lower() in ("1", "true", "yes")
+
+    if not force_flag:
+        existing_job = await find_idempotent_job(source_hash, config_hash)
+        if existing_job:
+            # Cleanup the just-created files because we will return the existing job
+            if not url and not thumb_session and input_path and os.path.exists(input_path):
+                try:
+                    os.remove(input_path)
+                except OSError:
+                    pass
+            shutil.rmtree(job_output_dir, ignore_errors=True)
+            
+            # Determine actual status (use proxy memory logic if needed)
+            status = _presented_status(existing_job.id, {"status": existing_job.status})
+            return JSONResponse(
+                status_code=200,
+                content={"job_id": existing_job.id, "status": status, "partial": existing_job.partial},
+                headers={"X-Idempotent": "true"}
+            )
+    else:
+        existing_job = await find_idempotent_job(source_hash, config_hash)
+        if existing_job:
+            from services.job_queue import delete_single_job
+            delete_single_job(existing_job.id)
 
     # Enqueue Job
     jobs[job_id] = {
@@ -766,6 +777,21 @@ async def handle_retry_job(job_id: str, request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
     return {"job_id": job_id, "status": retried["status"]}
+
+
+@router.delete("/api/jobs/{job_id}")
+@router.delete("/api/projects/{job_id}")
+async def handle_delete_job(job_id: str, request: Request):
+    job = jobs.get(job_id)
+    if job is None:
+        job = _job_view_from_disk(job_id)
+
+    if job is not None:
+        await _assert_job_owner(request, job)
+
+    from services.job_queue import delete_single_job
+    success = delete_single_job(job_id)
+    return {"ok": True, "job_id": job_id, "deleted": success}
 
 
 def _locate_source(job_id: str):

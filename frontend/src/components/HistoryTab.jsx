@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Loader2, Download, Film, FolderOpen } from 'lucide-react';
+import { Loader2, Download, Film, FolderOpen, Trash2 } from 'lucide-react';
 import { apiJson } from '../lib/api';
+import { deleteJob } from '../services/jobService';
 import EmptyState from './ui/EmptyState';
 import Button from './ui/Button';
 
@@ -50,6 +51,26 @@ export default function HistoryTab({ onReopenProject }) {
     }
   };
 
+  const [deletingId, setDeletingId] = useState(null);
+
+  const handleDelete = async (jobId) => {
+    if (!window.confirm('Tem certeza de que deseja excluir permanentemente este projeto da sua biblioteca?')) return;
+    setDeletingId(jobId);
+    try {
+      await deleteJob(jobId);
+      setVideos((prev) => (prev || []).filter((v) => (v.job_id || v.id) !== jobId));
+      setProjects((prev) => {
+        const next = { ...prev };
+        delete next[jobId];
+        return next;
+      });
+    } catch (e) {
+      alert(`Falha ao excluir projeto: ${e.message}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
 
   if (videos === null && !error) {
@@ -89,19 +110,33 @@ export default function HistoryTab({ onReopenProject }) {
                     {fmtDate(vids[0]?.created_at)} · {vids.length} corte{vids.length === 1 ? '' : 's'}
                   </p>
                 </div>
-                {project && onReopenProject && (
+                <div className="flex items-center gap-2">
+                  {project && onReopenProject && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleReopen(jobId)}
+                      disabled={!!reopening}
+                      isLoading={reopening === jobId}
+                      leftIcon={!reopening && <FolderOpen size={14} />}
+                      title="Restaura este projeto no Gerador de Cortes para continuar editando legendas, ganchos e efeitos"
+                    >
+                      {reopening === jobId ? 'Reabrindo…' : 'Reabrir Projeto'}
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleReopen(jobId)}
-                    disabled={!!reopening}
-                    isLoading={reopening === jobId}
-                    leftIcon={!reopening && <FolderOpen size={14} />}
-                    title="Restaura este projeto no Gerador de Cortes para continuar editando legendas, ganchos e efeitos"
+                    className="text-danger hover:bg-danger/10 hover:text-danger px-2.5"
+                    onClick={() => handleDelete(jobId)}
+                    disabled={deletingId === jobId}
+                    isLoading={deletingId === jobId}
+                    leftIcon={deletingId !== jobId && <Trash2 size={14} />}
+                    title="Excluir este projeto permanentemente"
                   >
-                    {reopening === jobId ? 'Reabrindo…' : 'Reabrir Projeto'}
+                    {deletingId === jobId ? 'Excluindo…' : 'Excluir'}
                   </Button>
-                )}
+                </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {vids.map((v) => (

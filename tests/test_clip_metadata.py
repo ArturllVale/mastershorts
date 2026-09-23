@@ -89,3 +89,37 @@ def test_clean_or_generate_clip_metadata_preserves_valid_metadata():
     assert cleaned["video_description_for_tiktok"] == "Descubra o segredo! #shorts"
     assert cleaned["predicted_score"] == 88
     assert cleaned["explanation"] == "Ótimo momento de tensão."
+
+
+def test_fallback_title_never_quotes_verbatim_speech():
+    clip_text = "E aí quando você acorda de manhã e sente muito medo do futuro."
+    title = generate_fallback_title(clip_text, video_title="UM_VÍDEO_NECESSÁRIO_pra__VOCÊ,_que_VIVE_COM_MEDO")
+    assert "E aí quando você acorda" not in title
+    assert len(title) <= 70
+    assert "medo" in title.lower()
+
+
+def test_verbatim_speech_title_is_replaced():
+    clip_text = "então eu decidi começar a investir meu dinheiro ontem."
+    dummy_clip = {
+        "start": 0.0,
+        "end": 20.0,
+        "video_title_for_youtube_short": "então eu decidi começar a investir",
+        "video_description_for_tiktok": "",
+        "video_description_for_instagram": "",
+    }
+    transcript = {"segments": [{"start": 0.0, "end": 20.0, "text": clip_text}]}
+    cleaned = clean_or_generate_clip_metadata(dummy_clip, transcript=transcript, video_title="Vídeo Sobre Dinheiro")
+    assert cleaned["video_title_for_youtube_short"] != "então eu decidi começar a investir"
+    assert len(cleaned["video_title_for_youtube_short"]) > 5
+
+
+def test_social_description_has_hook_cta_and_hashtags():
+    clip_text = "Se você quer superar o medo, precisa dar o primeiro passo hoje."
+    desc = generate_fallback_description(clip_text, video_title="Como Vencer o Medo", platform="tiktok")
+    assert "#shorts" in desc
+    assert "#viral" in desc
+    assert "#medo" in desc
+    assert "👇" in desc
+    assert "\n\n" in desc
+

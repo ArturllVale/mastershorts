@@ -118,7 +118,10 @@ def _detect_transnetv2(video_path):
     threshold = float(os.environ.get("TRANSNETV2_THRESHOLD", "0.5"))
 
     with _TN2_LOCK, torch.no_grad():
-        tensor = torch.from_numpy(np.ascontiguousarray(frames)).to(model.device)
+        arr = np.ascontiguousarray(frames)
+        if not arr.flags.writeable:
+            arr = arr.copy()
+        tensor = torch.from_numpy(arr).to(model.device)
         single_frame_pred, _ = model.predict_frames(tensor, quiet=True)
 
     # predictions_to_scenes returns [[start, end], ...] with INCLUSIVE ends;

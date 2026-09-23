@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { track } from '../lib/analytics';
-import { submitJob, pollJobStatus, downloadAllClips, retryJob } from '../services/jobService';
+import { submitJob, pollJobStatus, downloadAllClips, retryJob, deleteJob } from '../services/jobService';
 import { restoreProject as restoreProjectApi, fetchDurableMap } from '../services/projectService';
 import { applySubtitles } from '../services/clipService';
 import { useAuth } from '../contexts/AuthContext';
@@ -290,6 +290,7 @@ export function useAppController() {
         layouts: data.layout && data.layout !== 'auto' ? data.layout : null,
         max_minutes: data.maxMinutes || null,
         llm_provider: llmProvider,
+        force_rerun: data.forceRerun ? 'true' : null,
         openrouter_key: (llmProvider === 'combo' && openrouterApiKey) ? openrouterApiKey : null,
         mistral_key: (llmProvider === 'combo' && mistralApiKey) ? mistralApiKey : null,
         llm_fallback_models: (llmProvider === 'openai' && llmFallbackModels) ? llmFallbackModels : null,
@@ -418,7 +419,31 @@ export function useAppController() {
     localStorage.removeItem(SESSION_KEY);
   };
 
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteProject = async (idToDelete = jobId) => {
+    const target = idToDelete || jobId;
+    if (!target) return;
+    if (!window.confirm("Deseja excluir permanentemente este projeto e todos os seus cortes para refazer do zero?")) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      if (processingMedia?.type === 'url' && processingMedia.payload) {
+        try { localStorage.setItem('os_pending_url', processingMedia.payload); } catch (_) {}
+      }
+      await deleteJob(target);
+      handleReset();
+    } catch (e) {
+      alert(`Falha ao excluir o projeto: ${e.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return {
+    isDeleting,
+    handleDeleteProject,
     isRetrying,
     handleRetry,
     tutorialPhase, setTutorialPhase,

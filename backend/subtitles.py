@@ -351,11 +351,15 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
 
     # Match the Remotion 1080x1920 preview: PlayResY=288 and PlayResX=162 (9:16 vertical).
     # Remotion renders fontSize * 1.8 px on a 1920-tall canvas.
-    # In PlayResY=288 units: (fontSize * 1.8 / 1920) * 288 = fontSize * 0.27.
-    # For UI default fontSize=44: 44 * 0.27 = 12 units (renders as 80px on 1080p).
+    # In PlayResY=288 units the mathematical equivalent is fontSize * 1.8 * (288/1920) = fontSize * 0.27.
+    # However, browser CSS and libass have different visual rendering for the same nominal font size
+    # (libass renders visually ~1.5× smaller than CSS for Anton). An empirical ×1.5 correction
+    # brings the burned video in line with what the Remotion live preview shows:
+    # fontSize * 1.8 * 1.5 * (288/1920) = fontSize * 0.405
+    # Default fontSize=44: 44 * 0.405 ≈ 18 units — renders visually ≈ the Remotion preview.
     num_font = _clamp_number(fontsize, 5, 200, 44)
-    if num_font > 18:
-        final_fontsize = int(round(num_font * 1.8 * 288 / 1920))
+    if num_font > 12:
+        final_fontsize = int(round(num_font * 2.7 * 288 / 1920))
     else:
         final_fontsize = int(_clamp_number(num_font, 6, 24, 12))
     if final_fontsize < 6:
@@ -392,6 +396,8 @@ def generate_ass(transcript, clip_start, clip_end, output_path,
     else:
         border_style = 1
         outline_colour = hex_to_ass_color(border_color, 1.0, fallback="000000")
+        # Calibrated to match the Remotion preview (which also uses ×1.5 on borderWidth):
+        # borderWidth×1.5 px on 1920px CSS canvas ↔ borderWidth×1.5×(288/1920) ASS units.
         outline_width = 0 if border_width <= 0 else max(1, int(round(border_width * 1.5 * 288 / 1920)))
 
     back_colour = hex_to_ass_color("#000000", 0.0)
@@ -563,9 +569,11 @@ def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
         ass_alignment = 2
 
     # Font size scaling matching Remotion preview on 1080x1920 video
+    # Libass renders visually ~1.5x smaller than CSS for the same nominal size,
+    # so we use a 2.7 (1.8 * 1.5) multiplier to make the exported video match the live preview.
     num_font = _clamp_number(fontsize, 5, 200, 44)
-    if num_font > 18:
-        final_fontsize = int(round(num_font * 1.8 * 288 / 1920))
+    if num_font > 12:
+        final_fontsize = int(round(num_font * 2.7 * 288 / 1920))
     else:
         final_fontsize = int(_clamp_number(num_font, 6, 24, 12))
     if final_fontsize < 6:
@@ -590,6 +598,8 @@ def burn_subtitles(video_path, srt_path, output_path, alignment=2, fontsize=16,
         # Outline mode: text border/outline
         border_style = 1
         outline_colour = hex_to_ass_color(border_color, 1.0, fallback="000000")
+        # Calibrated to match the Remotion preview (same formula as generate_ass):
+        # borderWidth×1.5 px on 1920px CSS canvas ↔ borderWidth×1.5×(288/1920) ASS units.
         outline_width = 0 if border_width <= 0 else max(1, int(round(border_width * 1.5 * 288 / 1920)))
 
     back_colour = hex_to_ass_color("#000000", 0.0)

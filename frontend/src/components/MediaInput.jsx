@@ -30,6 +30,7 @@ export default function MediaInput({ onProcess, isProcessing }) {
     const [layout, setLayout] = useState(() => {
         try { return localStorage.getItem('os_layout') || 'auto'; } catch { return 'auto'; }
     });
+    const [forceRerun, setForceRerun] = useState(false);
     const infoRef = useRef(null);
 
     useEffect(() => {
@@ -82,9 +83,9 @@ export default function MediaInput({ onProcess, isProcessing }) {
             localStorage.setItem('os_layout', layout);
         } catch { /* ignore */ }
         if (mode === 'url' && url) {
-            onProcess({ type: 'url', payload: url, acknowledged: true, outputFormat, ...advanced });
+            onProcess({ type: 'url', payload: url, acknowledged: true, outputFormat, forceRerun, ...advanced });
         } else if (mode === 'file' && file) {
-            onProcess({ type: 'file', payload: file, acknowledged: true, outputFormat, ...advanced });
+            onProcess({ type: 'file', payload: file, acknowledged: true, outputFormat, forceRerun, ...advanced });
         }
     };
 
@@ -169,6 +170,17 @@ export default function MediaInput({ onProcess, isProcessing }) {
                                 )}
                             </div>
                         </div>
+                        {url && (
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-muted hover:text-ink transition-colors select-none pt-1">
+                                <input
+                                    type="checkbox"
+                                    checked={forceRerun}
+                                    onChange={(e) => setForceRerun(e.target.checked)}
+                                    className="w-3.5 h-3.5 rounded border-rule bg-paper2 text-violet focus:ring-violet/30 cursor-pointer"
+                                />
+                                <span>Refazer do zero (ignorar projeto e cortes anteriores deste link)</span>
+                            </label>
+                        )}
                     </div>
                 ) : (
                     <div
