@@ -12,7 +12,7 @@ from ffmpeg_utils import video_encode_args, QUALITY, METADATA_SCRUB
 from core.text_utils import truncate_bytes
 
 FONT_URL = "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoSerif/NotoSerif-Bold.ttf"
-FONT_DIR = "fonts"
+FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
 FONT_PATH = os.path.join(FONT_DIR, "NotoSerif-Bold.ttf")
 
 # Codepoint ranges NotoSerif has no glyphs for (would render as tofu boxes).

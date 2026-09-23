@@ -86,7 +86,7 @@ class TestEmojiScaling:
 
     def _text_font(self, size=54):
         # A real scalable font so .size is meaningful.
-        return ImageFont.truetype(os.path.join("fonts", "NotoSerif-Bold.ttf"), size)
+        return ImageFont.truetype(os.path.join("backend", "fonts", "NotoSerif-Bold.ttf"), size)
 
     def test_scale_is_ratio_of_text_size_to_native_strike(self):
         font = self._text_font(54)
