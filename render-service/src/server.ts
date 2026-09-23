@@ -24,7 +24,7 @@ export const renderJobs = new Map<string, RenderJob>();
 // --- Request validation schema ---
 
 const renderRequestSchema = z.object({
-  jobId: z.string().min(1),
+  jobId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/, "Formato de jobId inválido"),
   clipIndex: z.number().int().min(0),
   props: z.object({
     videoUrl: z.string(),
@@ -76,6 +76,13 @@ app.post("/render", (req, res) => {
     return;
   }
 
+  const authHeader = req.headers.authorization;
+  const renderSecret = process.env.RENDER_SECRET;
+  if (renderSecret && authHeader !== `Bearer ${renderSecret}`) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const parsed = renderRequestSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -110,6 +117,17 @@ app.post("/render", (req, res) => {
   if (videoPathMatch) {
     resolvedVideoUrl = `http://localhost:${PORT}/output/${videoPathMatch[1]}/${videoPathMatch[2]}`;
     console.log(`[render] Resolved video URL: ${props.videoUrl} -> ${resolvedVideoUrl}`);
+  } else {
+    try {
+      const u = new URL(props.videoUrl);
+      if (['localhost', '127.0.0.1', '169.254.169.254'].includes(u.hostname) || u.hostname.startsWith('10.') || u.hostname.startsWith('192.168.')) {
+        res.status(400).json({ error: "Invalid videoUrl destination" });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: "Invalid videoUrl format" });
+      return;
+    }
   }
 
   // Fire and forget - render runs in background

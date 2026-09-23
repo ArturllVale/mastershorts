@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, Image, Loader2, Send, Check, Download, ArrowRight, ArrowLeft, Sparkles, Video, Type, X, Plus, MessageSquare, FileText, Youtube, AlertCircle, Settings } from 'lucide-react';
 import { getApiUrl } from '../config';
 import { apiFetch } from '../lib/api';
@@ -255,57 +255,6 @@ export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreat
     } finally {
       setIsDescribing(false);
     }
-  };
-
-  // --- Publish to YouTube ---
-  const handlePublish = async () => {
-    if (!managed && (!uploadPostKey || !uploadUserId)) return alert('Please configure your Upload-Post API key and user in Settings first.');
-    const finalTitle = selectedTitle || manualTitle;
-    if (!finalTitle) return alert('No title selected.');
-    if (!selectedThumbnail) return alert('Please select a thumbnail first.');
-    if (!description) return alert('Please generate or write a description first.');
-
-    setIsPublishing(true);
-        try {
-      // Submit the publish job — returns immediately with a publish_id
-      const data = await publishThumbnail({
-        session_id: sessionId,
-        title: finalTitle,
-        description: description,
-        thumbnail_url: selectedThumbnail,
-        api_key: uploadPostKey,
-        user_id: uploadUserId
-      });
-      const publish_id = data.publish_id;
-
-      // Poll for status every 2 seconds (upload can take minutes for large videos)
-      await new Promise((resolve, reject) => {
-        const interval = setInterval(async () => {
-          try {
-            const statusRes = await fetch(getApiUrl(`/api/thumbnail/publish/status/${publish_id}`));
-            if (!statusRes.ok) { clearInterval(interval); reject(new Error('Status check failed')); return; }
-            const statusData = await statusRes.json();
-
-            if (statusData.status === 'done') {
-              clearInterval(interval);
-              setPublishResult({ success: true, data: statusData.result });
-              resolve();
-            } else if (statusData.status === 'failed') {
-              clearInterval(interval);
-              reject(new Error(statusData.error || 'Upload failed'));
-            }
-            // 'uploading' → keep polling
-          } catch (e) {
-            clearInterval(interval);
-            reject(e);
-          }
-        }, 2000);
-      });
-
-    } catch (e) {
-      setPublishResult({ success: false, error: e.message });
-    } finally {
-          }
   };
 
   const handleReset = () => {

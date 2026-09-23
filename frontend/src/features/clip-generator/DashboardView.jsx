@@ -51,8 +51,6 @@ export default function DashboardView({
   handleBulkSubtitles,
   bulkSub
 }) {
-  if (activeTab !== 'dashboard') return null;
-
   const lastLog = logs && logs.length ? logs[logs.length - 1] : '';
   const isConnectionError = Boolean(logs && logs.some(l => 
     typeof l === 'string' && (
@@ -131,6 +129,8 @@ export default function DashboardView({
 
     return result;
   }, [logs, jobId]);
+
+  if (activeTab !== 'dashboard') return null;
 
   return (
     <>
