@@ -20,6 +20,7 @@ def local(monkeypatch):
     monkeypatch.setenv("LLM_BASE_URL", "http://llm.test/v1")
     monkeypatch.setenv("LLM_MODEL", "qwen2.5:14b")
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("LLM_MAX_RETRIES", raising=False)
 
 
 def _serve(handler, monkeypatch):
