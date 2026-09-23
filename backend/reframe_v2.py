@@ -647,7 +647,7 @@ def build_reframe_filtergraph(input_video, aspect_ratio, content_ranges=None,
         from scenedetect import FrameTimecode
         scenes = [(FrameTimecode(0, fps), FrameTimecode(total, fps))]
 
-    scene_boundaries = [(s.get_frames(), e.get_frames()) for s, e in scenes]
+    scene_boundaries = [(s.frame_num, e.frame_num) for s, e in scenes]
     passthrough = source_already_fits(orig_w, orig_h, aspect_ratio)
     if force_strategy:
         strategies = [force_strategy] * len(scenes)

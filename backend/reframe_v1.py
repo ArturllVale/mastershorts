@@ -109,7 +109,7 @@ def analyze_scenes_strategy(video_path, scenes):
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
 
     for start, end in tqdm(scenes, desc="   Analyzing Scenes"):
-        s_f, e_f = start.get_frames(), end.get_frames()
+        s_f, e_f = start.frame_num, end.frame_num
         margin = min(2, max(0, (e_f - s_f - 1) // 2))
         num_samples = 3 if (e_f - s_f) < 45 else 5
         frames_to_check = sorted(set(

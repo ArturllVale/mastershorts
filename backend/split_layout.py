@@ -241,7 +241,7 @@ def detect_split_scenes(video_path, scenes, strategies, samples=None):
         for i, (start, end) in enumerate(scenes):
             if i < len(strategies) and strategies[i] not in ('GENERAL', 'TRACK'):
                 continue
-            s_f, e_f = start.get_frames(), end.get_frames()
+            s_f, e_f = start.frame_num, end.frame_num
             duration = (e_f - s_f) / fps
             if duration < MIN_SCENE_SECONDS:
                 continue
