@@ -4,6 +4,7 @@ import time
 import cv2
 import numpy as np
 import subprocess
+import threading
 from tqdm import tqdm
 
 from cameraman import SmoothedCameraman, SpeakerTracker
@@ -78,11 +79,27 @@ def create_general_frame(frame, output_width, output_height):
 # that contain the failure mode; this corpus has almost none.
 
 
+_STRATEGY_CACHE = {}
+_STRATEGY_CACHE_LOCK = threading.Lock()
+
+
 def analyze_scenes_strategy(video_path, scenes):
     """
     Analyzes each scene to determine if it should be TRACK (Single person) or GENERAL (Group/Wide).
-    Returns list of strategies corresponding to scenes.
+    Returns list of strategies corresponding to scenes. Cached by video mtime and scene count.
     """
+    if not scenes:
+        return []
+
+    try:
+        abs_p = os.path.abspath(video_path)
+        cache_key = (abs_p, os.path.getmtime(abs_p), len(scenes))
+        with _STRATEGY_CACHE_LOCK:
+            if cache_key in _STRATEGY_CACHE:
+                return list(_STRATEGY_CACHE[cache_key])
+    except Exception:
+        cache_key = None
+
     cap = cv2.VideoCapture(video_path)
     strategies = []
 
@@ -93,11 +110,10 @@ def analyze_scenes_strategy(video_path, scenes):
 
     for start, end in tqdm(scenes, desc="   Analyzing Scenes"):
         s_f, e_f = start.get_frames(), end.get_frames()
-        # Sample 5 frames spread across the scene, clamped inside it (the old
-        # start+5/end-5 samples landed outside scenes shorter than ~10 frames).
         margin = min(2, max(0, (e_f - s_f - 1) // 2))
+        num_samples = 3 if (e_f - s_f) < 45 else 5
         frames_to_check = sorted(set(
-            int(round(f)) for f in np.linspace(s_f + margin, e_f - 1 - margin, 5)
+            int(round(f)) for f in np.linspace(s_f + margin, e_f - 1 - margin, num_samples)
         ))
 
         face_counts = []
@@ -143,6 +159,10 @@ def analyze_scenes_strategy(video_path, scenes):
         if (dur < max_flip_frames
                 and strategies[i - 1] == strategies[i + 1] != strategies[i]):
             strategies[i] = strategies[i - 1]
+
+    if cache_key is not None:
+        with _STRATEGY_CACHE_LOCK:
+            _STRATEGY_CACHE[cache_key] = list(strategies)
 
     return strategies
 

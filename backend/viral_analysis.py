@@ -2,6 +2,7 @@ import os
 import json
 import time
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from google import genai
 from google.genai import types as genai_types
 
@@ -224,13 +225,32 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
                     windows_json=json.dumps(_payload(ws), ensure_ascii=False))
 
             total_batches = (len(windows) + SCORE_BATCH - 1) // SCORE_BATCH
-            for batch_idx, b in enumerate(range(0, len(windows), SCORE_BATCH), 1):
-                batch_windows = windows[b:b + SCORE_BATCH]
-                print(f"📊 [Passo 1/2] Lote {batch_idx}/{total_batches}...")
+            score_batch_items = [
+                (batch_idx, windows[b:b + SCORE_BATCH])
+                for batch_idx, b in enumerate(range(0, len(windows), SCORE_BATCH), 1)
+            ]
+
+            def _run_score_batch(item):
+                batch_idx, batch_windows = item
+                print(f"📊 [Passo 1/2] Lote {batch_idx}/{total_batches}...", flush=True)
+                local_costs = []
                 batch_scored = _run_stage_split(
                     client, model_name, batch_windows, _score_prompt,
-                    gemini_worker.ScoreResponse, "windows", costs, "score")
-                scored.extend(batch_scored)
+                    gemini_worker.ScoreResponse, "windows", local_costs, "score")
+                return batch_idx, batch_scored, local_costs
+
+            if total_batches > 1:
+                with ThreadPoolExecutor(max_workers=min(4, total_batches)) as executor:
+                    score_results = list(executor.map(_run_score_batch, score_batch_items))
+                score_results.sort(key=lambda r: r[0])
+                for _, batch_scored, local_costs in score_results:
+                    scored.extend(batch_scored)
+                    costs.extend(local_costs)
+            else:
+                for item in score_batch_items:
+                    _, batch_scored, local_costs = _run_score_batch(item)
+                    scored.extend(batch_scored)
+                    costs.extend(local_costs)
 
             scored.sort(key=lambda w: w.get("score", 0), reverse=True)
             target = max(3, min(10, int(video_duration // 90) + 2))
@@ -243,9 +263,13 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
                 DETAIL_BATCH = 8
                 
             detail_batches = (len(shortlist) + DETAIL_BATCH - 1) // DETAIL_BATCH
+            detail_batch_items = [
+                (b_idx, shortlist[b:b + DETAIL_BATCH])
+                for b_idx, b in enumerate(range(0, len(shortlist), DETAIL_BATCH), 1)
+            ]
 
-            for b_idx, b in enumerate(range(0, len(shortlist), DETAIL_BATCH), 1):
-                batch_windows = shortlist[b:b + DETAIL_BATCH]
+            def _run_detail_batch(item):
+                b_idx, batch_windows = item
                 b_min = max(1, int(round(min_clips * len(batch_windows) / len(shortlist))))
                 b_max = max(b_min, int(round(max_clips * len(batch_windows) / len(shortlist))) + 1)
 
@@ -256,10 +280,24 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
                         min_secs=min_secs, max_secs=max_secs,
                         windows_json=json.dumps(_payload(ws), ensure_ascii=False))
 
-                print(f"🎯 [Passo 2/2] Lote {b_idx}/{detail_batches}...")
+                print(f"🎯 [Passo 2/2] Lote {b_idx}/{detail_batches}...", flush=True)
+                local_costs = []
                 batch_shorts = _run_stage_split(client, model_name, batch_windows, _detail_prompt,
-                                               gemini_worker.DetailResponse, "shorts", costs, "detail")
-                shorts.extend(batch_shorts)
+                                               gemini_worker.DetailResponse, "shorts", local_costs, "detail")
+                return b_idx, batch_shorts, local_costs
+
+            if detail_batches > 1:
+                with ThreadPoolExecutor(max_workers=min(4, detail_batches)) as executor:
+                    detail_results = list(executor.map(_run_detail_batch, detail_batch_items))
+                detail_results.sort(key=lambda r: r[0])
+                for _, batch_shorts, local_costs in detail_results:
+                    shorts.extend(batch_shorts)
+                    costs.extend(local_costs)
+            else:
+                for item in detail_batch_items:
+                    _, batch_shorts, local_costs = _run_detail_batch(item)
+                    shorts.extend(batch_shorts)
+                    costs.extend(local_costs)
                 
             if len(shorts) < min_clips:
                 print(f"ℹ️ Completando {len(shorts)} -> {min_clips}...")

@@ -273,11 +273,51 @@ def cut_clip(input_video, clip_temp_path, start, end, clip_number):
         else:
             end_f = start_f + 15.0
             
+    target_dur = end_f - start_f
+    stream_copy_enabled = os.environ.get("STREAM_COPY_CUT", "1").strip().lower() not in ("0", "false", "no")
+
+    # Fast stream-copy attempt (video copy + normalized AAC audio)
+    if stream_copy_enabled:
+        stream_cmd = [
+            'ffmpeg', '-y',
+            '-ss', str(start_f),
+            '-t', str(target_dur),
+            '-i', input_video,
+            '-c:v', 'copy',
+            *audio_encode_args(),
+            '-avoid_negative_ts', 'make_zero',
+            clip_temp_path
+        ]
+        try:
+            res = subprocess.run(stream_cmd, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.PIPE, text=True, errors="replace", timeout=60)
+            size = os.path.getsize(clip_temp_path) if os.path.exists(clip_temp_path) else 0
+            if res.returncode == 0 and size >= MIN_CUT_BYTES:
+                tol = float(os.environ.get("STREAM_COPY_TOLERANCE", "0.75"))
+                probe_cmd = [
+                    'ffprobe', '-v', 'error',
+                    '-show_entries', 'format=duration',
+                    '-of', 'default=noprint_wrappers=1:nokey=1',
+                    clip_temp_path
+                ]
+                p_res = subprocess.run(probe_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=10)
+                dur = float(p_res.stdout.strip()) if p_res.returncode == 0 and p_res.stdout.strip() else None
+                if dur is not None and abs(dur - target_dur) <= tol:
+                    return
+                if os.path.exists(clip_temp_path):
+                    os.remove(clip_temp_path)
+        except Exception:
+            if os.path.exists(clip_temp_path):
+                try:
+                    os.remove(clip_temp_path)
+                except OSError:
+                    pass
+
     encode_args = video_encode_args(QUALITY_FAST)
     command = [
         'ffmpeg', '-y',
         '-ss', str(start_f),
-        '-t', str(end_f - start_f),
+        '-t', str(target_dur),
         '-i', input_video,
         *encode_args,
         *audio_encode_args(),

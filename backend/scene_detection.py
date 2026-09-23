@@ -36,19 +36,38 @@ _TN2_W, _TN2_H = 48, 27
 _TN2_LOCK = threading.Lock()
 _tn2_model = None
 
+_SCENE_CACHE = {}
+_SCENE_CACHE_LOCK = threading.Lock()
+
 
 def detect_scenes(video_path):
-    """Detect scenes. Returns (scene_list, fps) where scene_list is a list of
+    """Detect scenes with caching. Returns (scene_list, fps) where scene_list is a list of
     (FrameTimecode, FrameTimecode) pairs — the same contract PySceneDetect's
     SceneManager.get_scene_list() has always given callers."""
+    try:
+        abs_p = os.path.abspath(video_path)
+        cache_key = (abs_p, os.path.getmtime(abs_p), os.path.getsize(abs_p))
+        with _SCENE_CACHE_LOCK:
+            if cache_key in _SCENE_CACHE:
+                return _SCENE_CACHE[cache_key]
+    except Exception:
+        cache_key = None
+
     engine = os.environ.get("SCENE_ENGINE", "transnetv2").strip().lower()
+    res = None
     if engine != "pyscenedetect":
         try:
-            return _detect_transnetv2(video_path)
+            res = _detect_transnetv2(video_path)
         except Exception as e:
             print(f"   ⚠️ TransNetV2 scene detection failed "
                   f"({type(e).__name__}: {e}) — falling back to PySceneDetect")
-    return _detect_pyscenedetect(video_path)
+    if res is None:
+        res = _detect_pyscenedetect(video_path)
+
+    if cache_key is not None and res is not None:
+        with _SCENE_CACHE_LOCK:
+            _SCENE_CACHE[cache_key] = res
+    return res
 
 
 # --- legacy engine ----------------------------------------------------------

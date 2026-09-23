@@ -9,10 +9,31 @@ DETECT_LOCK = threading.Lock()
 DETECT_STRIDE = max(int(os.environ.get("DETECT_STRIDE", "4")), 1)
 YOLO_FALLBACK_STRIDE = DETECT_STRIDE * 2
 
-model = YOLO(os.environ.get("YOLO_MODEL_PATH", "yolov8n.pt"))
+_model = None
+_face_detection = None
 
-mp_face_detection = mp.solutions.face_detection
-face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+
+def _get_face_detector():
+    global _face_detection
+    if _face_detection is None:
+        mp_face_detection = mp.solutions.face_detection
+        _face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+    return _face_detection
+
+
+def _get_yolo_model():
+    global _model
+    if _model is None:
+        _model = YOLO(os.environ.get("YOLO_MODEL_PATH", "yolov8n.pt"))
+    return _model
+
+
+def __getattr__(name):
+    if name == "model":
+        return _get_yolo_model()
+    if name == "face_detection":
+        return _get_face_detector()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 def _detection_frame(frame):
     h, w = frame.shape[:2]
@@ -28,7 +49,8 @@ def detect_face_candidates(frame):
     small, _scale = _detection_frame(frame)
     rgb_frame = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
     with DETECT_LOCK:
-        results = face_detection.process(rgb_frame)
+        detector = _get_face_detector()
+        results = detector.process(rgb_frame)
 
     candidates = []
     if not results.detections:
@@ -50,7 +72,8 @@ def detect_face_candidates(frame):
 def detect_person_yolo(frame):
     small, scale = _detection_frame(frame)
     with DETECT_LOCK:
-        results = model(small, verbose=False, classes=[0])
+        yolo = _get_yolo_model()
+        results = yolo(small, verbose=False, classes=[0])
 
     if not results:
         return None

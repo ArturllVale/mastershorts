@@ -55,15 +55,13 @@ import unicodedata
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from scenedetect import open_video, SceneManager
-from scenedetect.detectors import ContentDetector
-from ultralytics import YOLO
 import torch
 import os
 import math
 import numpy as np
 from tqdm import tqdm
 import yt_dlp
-import mediapipe as mp
+
 # import whisper (replaced by faster_whisper inside function)
 from google import genai
 from google.genai import types as genai_types
@@ -92,19 +90,9 @@ ASPECT_RATIO = 9 / 16
 from core.prompts import GEMINI_PROMPT_TEMPLATE
 from cameraman import SmoothedCameraman, SpeakerTracker
 
-# Load the YOLO model once (Keep for backup or scene analysis if needed)
-# YOLO_MODEL_PATH lets deployments point at a pre-downloaded weights file so a
-# volume mounted over the workdir doesn't trigger a re-download at startup.
-model = YOLO(os.environ.get("YOLO_MODEL_PATH", "yolov8n.pt"))
-
-# --- MediaPipe Setup ---
-# Use standard Face Detection (BlazeFace) for speed
-mp_face_detection = mp.solutions.face_detection
-face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
-
-# Consecutive detections a large target move must survive before the camera
-# follows it (see SmoothedCameraman.update_target). Env-overridable so the
-# damping can be dialled back without a deploy; 1 restores the old behaviour.
+# JUMP_CONFIRM_FRAMES: Consecutive detections a large target move must survive
+# before the camera follows it (see SmoothedCameraman.update_target). Env-overridable
+# so the damping can be dialled back without a deploy; 1 restores the old behaviour.
 JUMP_CONFIRM_FRAMES = max(int(os.environ.get("JUMP_CONFIRM_FRAMES", "3")), 1)
 
 from reframe_v1 import process_video_to_vertical, create_general_frame, analyze_scenes_strategy, detect_scenes, get_video_resolution
@@ -349,11 +337,9 @@ if __name__ == '__main__':
                     "Clip detection failed — the AI model did not return usable clips for this video.")
             else:
                 print(f"🔥 {len(clips_data['shorts'])} momentos virais identificados!", flush=True)
-                from clip_metadata import clean_or_generate_clip_metadata
-                for c in clips_data.get('shorts', []):
-                    clean_or_generate_clip_metadata(
-                        c, transcript=transcript, start=c.get('start'), end=c.get('end'),
-                        video_title=video_title)
+                # NOTE: clean_or_generate_clip_metadata() is already called in parallel
+                # for all clips inside get_viral_clips() (viral_analysis.py). Calling
+                # it again here was redundant serial overhead — removed (P0 perf fix).
 
                 # Save metadata. Silent videos have no transcript → no subtitles,
                 # which is correct (there's no speech to caption).

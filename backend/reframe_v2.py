@@ -20,6 +20,7 @@ so they stay unit-testable in CI.
 import os
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 
 import active_speaker
 import camera_inset
@@ -527,7 +528,8 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
     workdir = tempfile.mkdtemp(prefix="reframe_v2_")
     segments = []
     try:
-        for idx, (start_f, end_f, strategy) in enumerate(ranges):
+        def _render_segment(item):
+            idx, (start_f, end_f, strategy) = item
             seg_path = os.path.join(workdir, f"seg_{idx:03d}.mp4")
             ss = start_f / fps
             dur = (end_f - start_f) / fps
@@ -562,14 +564,9 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
                     init = f"w={first[0]}:h={first[1]}:x={first[2]}:y={first[3]}"
                 else:
                     lines = dedupe_sendcmd_lines(seg_xs, fps)
-                    # sendcmd only ever moves x, so y is whatever it starts as.
-                    # crop_h equals the source height on any landscape input,
-                    # making this 0; it only bites on a source TALLER than the
-                    # target, where y=0 threw away the bottom of the frame
-                    # instead of trimming both ends.
                     crop_y = max(0, (orig_h - crop_h) // 2)
                     init = f"w={crop_w}:h={crop_h}:x={seg_xs[0]}:y={crop_y}"
-                with open(cmd_path, "w") as f:
+                with open(cmd_path, "w", encoding="utf-8") as f:
                     f.write("\n".join(lines) + "\n")
                 graph = (
                     f"[0:v]sendcmd=f='{escape_filter_value(cmd_path)}',"
@@ -583,10 +580,19 @@ def render(input_video, final_output_video, aspect_ratio, content_ranges=None,
                 "-filter_complex", graph, "-map", "[v]",
                 *video_encode_args(QUALITY_FAST), "-an", seg_path,
             ])
-            segments.append(seg_path)
+            return idx, seg_path
+
+        scene_workers = max(1, int(os.environ.get("SCENE_WORKERS", "4")))
+        if len(ranges) > 1 and scene_workers > 1:
+            with ThreadPoolExecutor(max_workers=min(scene_workers, len(ranges))) as executor:
+                rendered = list(executor.map(_render_segment, enumerate(ranges)))
+            rendered.sort(key=lambda x: x[0])
+            segments = [p for _, p in rendered]
+        else:
+            segments = [_render_segment(item)[1] for item in enumerate(ranges)]
 
         list_path = os.path.join(workdir, "concat.txt")
-        with open(list_path, "w") as f:
+        with open(list_path, "w", encoding="utf-8") as f:
             f.write(concat_list_content(segments))
 
         # Concat video segments (stream copy) + audio straight from the clip.
