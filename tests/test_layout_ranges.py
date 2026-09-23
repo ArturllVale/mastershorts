@@ -9,6 +9,7 @@ import pytest
 
 import layout_ranges
 import subtitles
+import postprocessing
 
 
 def _transcript(words):

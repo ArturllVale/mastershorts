@@ -70,7 +70,7 @@ async def call_render_service(job_id: str, clip_index: int, video_url: str, dura
                 import os
                 from core.config import OUTPUT_DIR
                 rel_path = sdata.get("outputUrl")
-                if rel_path and not os.path.isabs(rel_path):
+                if rel_path and not rel_path.startswith(("http://", "https://")) and not os.path.isabs(rel_path):
                     return os.path.normpath(os.path.join(OUTPUT_DIR, rel_path))
                 return rel_path
             elif status == "error":

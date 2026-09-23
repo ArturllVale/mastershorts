@@ -313,6 +313,11 @@ COPY RULES:
 - `video_title_for_youtube_short`: A powerful, curiosity-driven YouTube Shorts title (max 70 chars, in {language}).
   CRITICAL: Do NOT copy a random spoken sentence or quote verbatim from the transcript! Craft a high-CTR, scroll-stopping headline that sparks curiosity, emotion, or promises a revelation (e.g., "O Segredo Que Ninguém Te Conta Sobre o Medo 😱", "Você Comete Esse Erro Sem Perceber? ⚠️", "A Verdade Que Mudou Minha Mente...").
 - `viral_hook_text`: 3 to 7 punchy words for the on-screen hook overlay with an emoji (e.g. "Você vive com medo? 👀", "Pare de fazer isso agora! ⚠️").
+  ABOUT THIS MOMENT, NOT THE VIDEO: the hook and the title name the concrete
+  thing that happens inside this clip — the tool being set up, the action,
+  the number, the claim, the name. A line that could sit on any clip of this
+  video is wrong. If nothing concrete can be named, quote the clip's strongest
+  sentence instead of summarising the topic.
 - `video_description_for_tiktok`: Ready-to-publish TikTok post caption in {language}. Include:
   1) An attention-grabbing hook line with emojis
   2) A 1-2 sentence compelling summary of the core insight/takeaway

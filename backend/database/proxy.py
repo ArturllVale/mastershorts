@@ -87,9 +87,22 @@ async def _ensure_tables(prisma):
             """CREATE TABLE IF NOT EXISTS "WebhookDelivery" (
                 "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 "job_id" TEXT NOT NULL,
-                "status_code" INTEGER NOT NULL,
-                "response_body" TEXT,
+                "url" TEXT NOT NULL,
+                "payload" TEXT NOT NULL,
+                "attempts" INTEGER NOT NULL DEFAULT 0,
+                "status" TEXT NOT NULL DEFAULT 'pending',
+                "next_attempt_at" DATETIME NOT NULL,
+                "last_error" TEXT,
+                "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT "WebhookDelivery_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "Job" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+            );""",
+            """CREATE TABLE IF NOT EXISTS "FeatureCache" (
+                "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                "source_hash" TEXT NOT NULL,
+                "feature_type" TEXT NOT NULL,
+                "payload" TEXT NOT NULL,
+                "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             );"""
         ]
         for stmt in ddl:
@@ -102,6 +115,14 @@ async def _ensure_tables(prisma):
     for col_stmt in [
         'ALTER TABLE "Job" ADD COLUMN "source_hash" TEXT;',
         'ALTER TABLE "Job" ADD COLUMN "config_hash" TEXT;',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "url" TEXT;',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "payload" TEXT;',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "attempts" INTEGER DEFAULT 0;',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "status" TEXT DEFAULT \'pending\';',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "next_attempt_at" DATETIME;',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "last_error" TEXT;',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "created_at" DATETIME DEFAULT CURRENT_TIMESTAMP;',
+        'ALTER TABLE "WebhookDelivery" ADD COLUMN "updated_at" DATETIME DEFAULT CURRENT_TIMESTAMP;',
     ]:
         try:
             await prisma.execute_raw(col_stmt)
@@ -325,13 +346,26 @@ class LogListProxy(list):
     def __init__(self, job_id, data):
         super().__init__(data)
         self.job_id = job_id
+        self._data_ref = data
         
     def append(self, val):
         super().append(val)
+        if isinstance(self._data_ref, list) and self._data_ref is not self:
+            self._data_ref.append(val)
         if HAS_PRISMA:
             run_async(_append_job_log(self.job_id, val))
         else:
             _sqla_append_job_log(self.job_id, val)
+
+    def extend(self, vals):
+        super().extend(vals)
+        if isinstance(self._data_ref, list) and self._data_ref is not self:
+            self._data_ref.extend(vals)
+        for val in vals:
+            if HAS_PRISMA:
+                run_async(_append_job_log(self.job_id, val))
+            else:
+                _sqla_append_job_log(self.job_id, val)
 
 class SubDictProxy(dict):
     def __init__(self, job_id, field, data):

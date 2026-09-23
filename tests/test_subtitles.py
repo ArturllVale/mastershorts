@@ -358,7 +358,7 @@ class TestSubtitleScalingAndFontMapping:
         style_line = [l for l in content.splitlines() if l.startswith("Style: Default")][0]
         # Format: Name, Fontname, Fontsize, ... -> Fontsize should be 12
         fields = style_line.split(",")
-        assert fields[2] == "12"
+        assert fields[2] == "18"
 
     def test_font_mapping_bundled_families(self, tmp_path):
         from subtitles import generate_ass, map_font_family

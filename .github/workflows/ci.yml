@@ -22,12 +22,16 @@ jobs:
           pip install -U pip
           pip install pytest pillow httpx pydantic sqlalchemy numpy opencv-python-headless python-dotenv google-genai fastapi boto3 PyJWT email-validator python-multipart aiofiles prisma nest_asyncio
 
-      - name: Generate Prisma Client (No DB connection needed)
-        run: prisma generate --schema=backend/prisma/schema.prisma
-
-      - name: Run tests (Ignore DB integration tests if they require a real DB)
+      - name: Generate Prisma Client & Push Schema
         env:
-          # Keep minimal env vars that might be required
+          DATABASE_URL: "file:./backend/dev.db"
+        run: |
+          prisma generate --schema=backend/prisma/schema.prisma
+          prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss
+
+      - name: Run tests
+        env:
+          DATABASE_URL: "file:./backend/dev.db"
           TESTING: "true"
         run: pytest tests/ -v
 

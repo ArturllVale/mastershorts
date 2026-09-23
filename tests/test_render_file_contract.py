@@ -6,14 +6,17 @@ from unittest.mock import patch, MagicMock
 
 import httpx
 
-# Mock environment before importing config
-os.environ["SHARED_OUTPUT_DIR"] = "/mock/shared/output"
 import core.config
-core.config.OUTPUT_DIR = "/mock/shared/output"
-
 from services.renderer import call_render_service
 
 class TestRenderFileContract(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self._orig_output_dir = core.config.OUTPUT_DIR
+        core.config.OUTPUT_DIR = "/mock/shared/output"
+
+    async def asyncTearDown(self):
+        core.config.OUTPUT_DIR = self._orig_output_dir
+
     @patch("httpx.AsyncClient")
     async def test_single_render_success_relative_path(self, mock_client_cls):
         """Testa o contrato de resolução de caminhos relativos de um render."""
