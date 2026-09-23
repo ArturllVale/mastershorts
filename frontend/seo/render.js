@@ -301,7 +301,7 @@ const DEFAULT_CTA = {
 
 const ctaBlock = (page) => {
   const c = { ...DEFAULT_CTA, ...(page.cta || {}) }
-  const slug = page.path.replace(/^\//, '').replace(/\//g, '-') || 'home'
+  const _slug = page.path.replace(/^\//, '').replace(/\//g, '-') || 'home'
   const href = `${SITE.url}/`
   return `
 <div class="cta-box">

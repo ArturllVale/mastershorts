@@ -1,8 +1,8 @@
-export function track(eventName, properties) {
+export function track(_eventName, _properties) {
   // stub
 }
 
-export function identify(userId, traits) {
+export function identify(_userId, _traits) {
   // stub
 }
 

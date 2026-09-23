@@ -12,9 +12,13 @@
     "install:renderer": "npm --prefix render-service install",
     "install:remotion": "npm --prefix remotion install",
     "install:backend": "node scripts/install-backend.js",
-    "install:all": "npm install && npm run install:frontend && npm run install:renderer && npm run install:remotion && npm run install:backend"
+    "install:all": "npm install && npm run install:frontend && npm run install:renderer && npm run install:remotion && npm run install:backend",
+    "lint": "eslint ."
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^8.2.2",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0"
   }
 }

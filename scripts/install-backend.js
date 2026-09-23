@@ -25,7 +25,7 @@ function findPythonOrPip() {
 }
 
 const runner = findPythonOrPip();
-let args = [];
+let args;
 
 if (runner.isPython) {
   args = ['-m', 'pip', 'install', '-r', 'backend/requirements.txt', ...process.argv.slice(2)];

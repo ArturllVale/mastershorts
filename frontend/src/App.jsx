@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, Sparkles, Youtube, Instagram, Share2, ChevronDown, Check, Activity, LayoutDashboard, Settings, Plus, History, X, Terminal, Shield, Image, Globe, RotateCcw, AlertTriangle, KeyRound, Bot, Users, Smartphone, ExternalLink, Copy, CheckCircle2, Mail, Loader2, Download, Menu, Lock } from 'lucide-react';
 import KeyInput from './components/KeyInput';
 import MediaInput from './components/MediaInput';
@@ -20,14 +20,6 @@ import HistoryTab from './components/HistoryTab';
 import ProfileMenu from './components/ProfileMenu';
 import Modal from './components/ui/Modal';
 import { useAuth } from './contexts/AuthContext';
-import { apiFetch, apiJson, QuotaError } from './lib/api';
-import { track } from './lib/analytics';
-import { encrypt, decrypt } from './lib/crypto';
-import { submitJob, pollJobStatus, downloadAllClips } from './services/jobService';
-import { restoreProject as restoreProjectApi, saveProjectState, fetchDurableMap } from './services/projectService';
-import { applySubtitles } from './services/clipService';
-import { fetchUserProfiles as fetchUserProfilesService } from './services/socialService';
-import { useApiKeys } from './hooks/useApiKeys';
 import { useBilling } from './hooks/useBilling';
 import UserProfileSelector from './components/UserProfileSelector';
 import Sidebar from './layout/Sidebar';
@@ -45,33 +37,31 @@ const SESSION_MAX_AGE = 86400000; // 24 hours
 
 function App() {
   // Cloud auth/billing session (inert when billing is disabled).
-  const { billingEnabled, isManaged, isSignedIn, me, plan, refreshMe, localLlm } = useAuth();
+  const { billingEnabled, isManaged, isSignedIn, plan, refreshMe } = useAuth();
   const { showLogin, setShowLogin, showTopUp, setShowTopUp, showPlanChoice, setShowPlanChoice, showTrialUpgrade, setShowTrialUpgrade, topUpInfo, setTopUpInfo } = useBilling();
   const {
-    tutorialPhase, setTutorialPhase,
-    partialJob, setPartialJob,
-    durableClips, setDurableClips,
+    tutorialPhase,
+    partialJob,
+    durableClips,
     showKeyModal, setShowKeyModal,
-    jobId, setJobId,
-    status, setStatus,
-    results, setResults,
+    jobId,
+    status,
+    results,
     rankedClips,
-    bulkSub, setBulkSub,
-    downloadingAll, setDownloadingAll,
+    bulkSub,
+    downloadingAll,
     qualityGate, setQualityGate,
-    logs, setLogs,
+    logs,
     logsVisible, setLogsVisible,
-    processingMedia, setProcessingMedia,
+    processingMedia,
     activeTab, setActiveTab,
     navOpen, setNavOpen,
-    projectState, setProjectState,
-    noSource, setNoSource,
+    projectState,
     sessionRecovered, setSessionRecovered,
-    syncedTime, setSyncedTime,
-    isSyncedPlaying, setIsSyncedPlaying,
-    syncTrigger, setSyncTrigger,
+    syncedTime,
+    isSyncedPlaying,
+    syncTrigger,
     handleClipPlay, handleClipPause,
-    fetchCurrentDurableMap,
     restoreProject,
     handleBulkSubtitles,
     handleDownloadAll,
@@ -79,7 +69,6 @@ function App() {
     tutorialLock, finishTutorial, startTutorial, skipTutorial,
     handleProcess,
     handleReset,
-    loadUserProfiles,
     apiKey, setApiKey,
     llmProvider, setLlmProvider,
     llmBaseUrl, setLlmBaseUrl,
@@ -88,11 +77,10 @@ function App() {
     llmFallbackModels, setLlmFallbackModels,
     openrouterApiKey, setOpenrouterApiKey,
     mistralApiKey, setMistralApiKey,
-    uploadPostKey, setUploadPostKey, saveUploadPostKey,
-    falKey, setFalKey, saveFalKey,
-    handleClipStateChange, handleClipRerendered, flushClipState,
+    handleClipStateChange, handleClipRerendered,
     handleRetry, isRetrying,
-    handleDeleteProject, isDeleting
+    handleDeleteProject, isDeleting,
+    peekPendingJob
   } = useAppController();
 
   // Clip editor overlay: index of the clip being edited, or null.
@@ -123,7 +111,7 @@ function App() {
     const onKey = (e) => { if (e.key === 'Escape') setNavOpen(false); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [navOpen]);
+  }, [navOpen, setNavOpen]);
 
   const goToTab = (id) => {
     if (tutorialLock && id !== 'dashboard') return;

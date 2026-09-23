@@ -25,7 +25,7 @@ function findPythonOrUvicorn() {
 }
 
 const runner = findPythonOrUvicorn();
-let args = [];
+let args;
 
 if (runner.isPython) {
   args = ['-m', 'uvicorn', 'app:app', '--app-dir', 'backend', '--host', '127.0.0.1', '--port', '8000', '--reload', ...process.argv.slice(2)];

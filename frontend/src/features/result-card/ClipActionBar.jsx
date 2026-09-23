@@ -16,7 +16,7 @@ export default function ClipActionBar({
     setShowWatermarkModal,
     downloadClip,
     downloadPct,
-    setShowModal
+    _setShowModal
 }) {
     return (
         <div className="mt-auto pt-3 border-t border-rule space-y-2.5">

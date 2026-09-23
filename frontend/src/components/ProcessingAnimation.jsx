@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Scan, Scissors, Activity, Radio, CheckCircle } from 'lucide-react';
 import { getApiUrl } from '../config';
-import { apiFetch } from '../lib/api';
 import { fetchSourceUrl } from '../services/jobService';
 
 const ProcessingAnimation = ({ media, isComplete, syncedTime, isSyncedPlaying, syncTrigger }) => {

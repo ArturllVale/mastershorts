@@ -186,25 +186,28 @@ export default function PricingPage({ onRequireLogin }) {
           </div>
 
           <div className="divide-y divide-border border-b border-border">
-            {HOSTED_VS_SELF.map(({ icon: Icon, label, hosted, self }) => (
-              <div key={label} className="py-4 grid gap-2 md:grid-cols-[9rem_1fr_1fr] md:gap-x-6 md:items-start">
-                <div className="flex items-center gap-2 text-text-primary">
-                  <Icon size={15} className="text-text-tertiary shrink-0" />
-                  <span className="text-sm font-medium">{label}</span>
+            {HOSTED_VS_SELF.map((row) => {
+              const Icon = row.icon;
+              return (
+                <div key={row.label} className="py-4 grid gap-2 md:grid-cols-[9rem_1fr_1fr] md:gap-x-6 md:items-start">
+                  <div className="flex items-center gap-2 text-text-primary">
+                    <Icon size={15} className="text-text-tertiary shrink-0" />
+                    <span className="text-sm font-medium">{row.label}</span>
+                  </div>
+                  <div>
+                    <span className="eyebrow block mb-1 md:hidden">Hospedado na nuvem</span>
+                    <p className="text-sm text-text-primary leading-relaxed">
+                      <Check size={14} className="text-success inline-block mr-1.5 -mt-0.5" />
+                      {row.hosted}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="eyebrow block mb-1 mt-2 md:hidden">Auto-hospedado (Local)</span>
+                    <p className="text-sm text-text-secondary leading-relaxed">{row.self}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="eyebrow block mb-1 md:hidden">Hospedado na nuvem</span>
-                  <p className="text-sm text-text-primary leading-relaxed">
-                    <Check size={14} className="text-success inline-block mr-1.5 -mt-0.5" />
-                    {hosted}
-                  </p>
-                </div>
-                <div>
-                  <span className="eyebrow block mb-1 mt-2 md:hidden">Auto-hospedado (Local)</span>
-                  <p className="text-sm text-text-secondary leading-relaxed">{self}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">

@@ -1,6 +1,6 @@
 export function applyConsent() {
   const consent = localStorage.getItem('cookie_consent');
-  if (consent === 'accepted') {}
+  if (consent === 'accepted') { /* empty */ }
 }
 export function getConsent() { return {}; }
 export function hasDecided() { return true; }

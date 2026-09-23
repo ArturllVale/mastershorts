@@ -5,7 +5,7 @@ import {
     PanelLeft, PanelLeftClose, Film,
 } from 'lucide-react';
 import { getApiUrl } from '../config';
-import { apiFetch, apiJson, QuotaError } from '../lib/api';
+import { QuotaError } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { fmt, totalOf } from '../lib/clipUtils';
 import { fetchEDL, rerenderClip } from '../services/clipService';
@@ -498,10 +498,8 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
 
     const {
         playSpanRef,
-        stepPlayback,
         onClipTimeUpdate,
         stopPlayLoop,
-        startPlayLoop,
         onClipSeeked,
         onClipPlay
     } = useVideoSeek({

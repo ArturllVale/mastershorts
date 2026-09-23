@@ -18,7 +18,7 @@ const SESSION_KEY = 'Master Shorts_session';
 const SESSION_MAX_AGE = 86400000; // 24 hours
 
 export function useAppController() {
-  const { billingEnabled, isManaged, isSignedIn, me, plan, refreshMe, localLlm } = useAuth();
+  const { billingEnabled, isManaged, isSignedIn, me, refreshMe, localLlm } = useAuth();
   const { setShowLogin, setShowTopUp, setShowPlanChoice, setShowTrialUpgrade, setTopUpInfo } = useBilling();
   const [tutorialPhase, setTutorialPhase] = useState(null); 
   const [partialJob, setPartialJob] = useState(null);
@@ -141,7 +141,7 @@ export function useAppController() {
     try {
       const data = await pollJobStatus(jobId);
       if (data.result) setResults(data.result);
-    } catch { }
+    } catch { /* empty */ }
   };
 
   const handleDownloadAll = async () => {
@@ -204,8 +204,8 @@ export function useAppController() {
         activeTab, noSource, projectState, timestamp: Date.now()
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-    } catch (e) { }
-  }, [jobId, status, results, activeTab, noSource, projectState]);
+    } catch { /* empty */ }
+  }, [jobId, status, results, processingMedia, activeTab, noSource, projectState]);
 
   useEffect(() => {
     if (!isManaged || !jobId || !(results?.clips?.length)) { setDurableClips({}); return; }
@@ -380,7 +380,7 @@ export function useAppController() {
     resumedStampRef.current = pending.stamp;
     track('JobResumedAfterSignin', { props: { type: pending.data?.type || 'unknown' } });
     handleProcessRef.current(pending.data);
-  }, [billingEnabled, isSignedIn]);
+  }, [billingEnabled, isSignedIn, peekPendingJob]);
 
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -430,7 +430,7 @@ export function useAppController() {
     setIsDeleting(true);
     try {
       if (processingMedia?.type === 'url' && processingMedia.payload) {
-        try { localStorage.setItem('os_pending_url', processingMedia.payload); } catch (_) {}
+        try { localStorage.setItem('os_pending_url', processingMedia.payload); } catch { /* empty */ }
       }
       await deleteJob(target);
       handleReset();
@@ -488,6 +488,7 @@ export function useAppController() {
     mistralApiKey, setMistralApiKey,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey,
-    handleClipStateChange, handleClipRerendered, flushClipState
+    handleClipStateChange, handleClipRerendered, flushClipState,
+    peekPendingJob
   };
 }

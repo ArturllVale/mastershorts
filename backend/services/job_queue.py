@@ -1552,11 +1552,14 @@ def delete_single_job(job_id: str) -> bool:
                 except Exception:
                     pass
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
                 asyncio.create_task(_db_cleanup())
             else:
-                loop.run_until_complete(_db_cleanup())
+                asyncio.run(_db_cleanup())
         except Exception:
             pass
     except Exception:

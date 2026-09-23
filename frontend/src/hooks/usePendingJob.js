@@ -33,7 +33,7 @@ export function usePendingJob() {
       const entry = { data, stamp: Date.now() };
       localStorage.setItem(PENDING_JOB_KEY, JSON.stringify(entry));
       pendingJobInMemory = null;
-    } catch (e) { }
+    } catch { /* empty */ }
   };
 
   const peekPendingJob = () => {
@@ -46,7 +46,7 @@ export function usePendingJob() {
         }
         localStorage.removeItem(PENDING_JOB_KEY);
       }
-    } catch (e) { }
+    } catch { /* empty */ }
 
     if (pendingJobInMemory && Date.now() - pendingJobInMemory.stamp < PENDING_JOB_TTL_MS) {
       return pendingJobInMemory.data;

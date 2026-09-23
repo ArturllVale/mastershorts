@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Image, Loader2, Send, Check, Download, ArrowRight, ArrowLeft, Sparkles, Video, Type, X, Plus, MessageSquare, FileText, Youtube, AlertCircle, Settings } from 'lucide-react';
 import { getApiUrl } from '../config';
-import { apiFetch } from '../lib/api';
 import StepIndicator from './ui/StepIndicator';
 import SegmentedControl from './ui/SegmentedControl';
 import {
@@ -11,7 +10,6 @@ import {
   generateThumbnails,
   generateDescription,
   fetchFrames,
-  publishThumbnail,
 } from '../services/thumbnailService';
 
 const STEPS = ['Entrada', 'Títulos', 'Miniatura', 'Descrição'];
@@ -19,7 +17,7 @@ const STEPS = ['Entrada', 'Títulos', 'Miniatura', 'Descrição'];
 import DragDropZone from '../features/thumbnail-studio/DragDropZone';
 import StepInput from '../features/thumbnail-studio/StepInput';
 
-export default function ThumbnailStudio({ geminiApiKey, managed = false, onCreateClips = null }) {
+export default function ThumbnailStudio({ geminiApiKey, managed = false, _onCreateClips = null }) {
   // Managed (hosted plan): Gemini runs server-side via the bearer token, no BYOK key.
   // Only send X-Gemini-Key for self-host BYOK. apiFetch attaches the bearer token.
   const keyHeader = geminiApiKey ? { 'X-Gemini-Key': geminiApiKey } : {};

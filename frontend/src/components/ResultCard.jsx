@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Share2, Instagram, Youtube, Video, AlertCircle, Loader2, Copy, Check, Wand2, Type, Calendar, FileText, Link2, Scissors, Crosshair, TrendingUp } from 'lucide-react';
 import { getApiUrl } from '../config';
-import { apiFetch } from '../lib/api';
 import SubtitleModal from './SubtitleModal';
 import ReframeEditor from './ReframeEditor';
 import ViralHUD from '../features/result-card/ViralHUD';
@@ -11,11 +10,10 @@ import SocialPostModal from '../features/result-card/SocialPostModal';
 import HookModal from './HookModal';
 import Modal from './ui/Modal';
 import SegmentedControl from './ui/SegmentedControl';
-import WatermarkModal, { watermarkNoticeDismissed } from './WatermarkModal';
+import WatermarkModal from './WatermarkModal';
 import { useAuth } from '../contexts/AuthContext';
 import { renderInBrowser } from '../lib/renderInBrowser';
 import { applySubtitles, applyHook, autoEditClip, fetchClipTranscript, removeSubtitles } from '../services/clipService';
-import { postToSocial } from '../services/socialService';
 import { useStreamDownload } from '../hooks/useStreamDownload';
 import { useSocialPost } from '../hooks/useSocialPost';
 import { useDurableVideo } from '../hooks/useDurableVideo';
@@ -58,11 +56,9 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
         durableSrc,
         durableFailed,
         setDurableFailed,
-        hasPlayed,
         setHasPlayed,
         serverVideoFile,
         setServerVideoFile,
-        videoErrored,
         setVideoErrored
     } = useDurableVideo({ clip, durable, initialState });
 
@@ -210,38 +206,34 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
 
             // Try autoEditClip service
             if (!hasServerBurns) {
-                try {
-                    const result = await autoEditClip({
-                        job_id: jobId,
-                        clip_index: index,
-                        input_filename: serverVideoFile,
-                        geminiHeaders
-                    });
+                const result = await autoEditClip({
+                    job_id: jobId,
+                    clip_index: index,
+                    input_filename: serverVideoFile,
+                    geminiHeaders
+                });
 
-                    if (result.type === 'effects') {
-                        const newLayers = { ...activeLayers, effects: result.data.effects };
-                        setActiveLayers(newLayers);
-                        const blobUrl = await renderInBrowser({
-                            videoUrl: originalVideoUrl,
-                            durationInSeconds: clipDuration,
-                            subtitles: newLayers.subtitles,
-                            hook: newLayers.hook,
-                            effects: newLayers.effects,
-                        });
-                        setCurrentVideoUrl(blobUrl);
-                        if (videoRef.current) videoRef.current.load();
-                        return;
-                    } else if (result.type === 'edit') {
-                        if (result.data.new_video_url) {
-                            setCurrentVideoUrl(getApiUrl(result.data.new_video_url));
-                            setServerVideoFile(result.data.new_video_url.split('/').pop());
-                            if (videoRef.current) {
-                                videoRef.current.load();
-                            }
+                if (result.type === 'effects') {
+                    const newLayers = { ...activeLayers, effects: result.data.effects };
+                    setActiveLayers(newLayers);
+                    const blobUrl = await renderInBrowser({
+                        videoUrl: originalVideoUrl,
+                        durationInSeconds: clipDuration,
+                        subtitles: newLayers.subtitles,
+                        hook: newLayers.hook,
+                        effects: newLayers.effects,
+                    });
+                    setCurrentVideoUrl(blobUrl);
+                    if (videoRef.current) videoRef.current.load();
+                    return;
+                } else if (result.type === 'edit') {
+                    if (result.data.new_video_url) {
+                        setCurrentVideoUrl(getApiUrl(result.data.new_video_url));
+                        setServerVideoFile(result.data.new_video_url.split('/').pop());
+                        if (videoRef.current) {
+                            videoRef.current.load();
                         }
                     }
-                } catch (e) {
-                    throw e;
                 }
             } else {
                 // Legacy FFmpeg route (server-burned files can't use Remotion effects safely yet)
@@ -463,7 +455,7 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
         }
     };
 
-    const { posting, postResult, setPostResult, canPost, handlePost } = useSocialPost({
+    const { posting, setPostResult, canPost, handlePost } = useSocialPost({
         isManaged,
         uploadPostKey,
         uploadUserId,

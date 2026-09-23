@@ -124,7 +124,7 @@ export default function OpenAiEndpointInput({
             setAvailableModels(ids);
             count = ids.length;
           }
-        } catch (_) { }
+        } catch (_) { /* empty */ }
         setTestStatus('ok');
         setTestMessage(count > 0 ? `Conexão bem-sucedida! (${count} modelos detectados)` : 'Endpoint acessível!');
       } else if (res) {

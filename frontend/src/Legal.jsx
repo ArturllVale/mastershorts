@@ -81,22 +81,25 @@ export default function Legal() {
                 </div>
 
                 <div className="space-y-3 mb-12">
-                    {DOCS.map(({ icon: Icon, title, desc, href, es }) => (
-                        <a
-                            key={href}
-                            href={href}
-                            className="flex items-start gap-4 p-4 border border-rule rounded-card hover:border-brass transition-colors"
-                        >
-                            <Icon size={18} className="text-brass shrink-0 mt-0.5" />
-                            <span>
-                                <span className="block text-ink font-medium">{title}</span>
-                                <span className="block text-sm text-muted mt-1">{desc}</span>
-                                <span className="block text-xs text-muted mt-1 underline underline-offset-2">
-                                    también en español: {es}
+                    {DOCS.map((doc) => {
+                        const Icon = doc.icon;
+                        return (
+                            <a
+                                key={doc.href}
+                                href={doc.href}
+                                className="flex items-start gap-4 p-4 border border-rule rounded-card hover:border-brass transition-colors"
+                            >
+                                <Icon size={18} className="text-brass shrink-0 mt-0.5" />
+                                <span>
+                                    <span className="block text-ink font-medium">{doc.title}</span>
+                                    <span className="block text-sm text-muted mt-1">{doc.desc}</span>
+                                    <span className="block text-xs text-muted mt-1 underline underline-offset-2">
+                                        también en español: {doc.es}
+                                    </span>
                                 </span>
-                            </span>
-                        </a>
-                    ))}
+                            </a>
+                        );
+                    })}
                 </div>
 
                 <p className="text-sm text-muted">

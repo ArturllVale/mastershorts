@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Loader2, Crosshair, RotateCcw, AlertCircle, Play, Pause, Columns2 } from 'lucide-react';
-import { getApiUrl } from '../config';
-import { apiJson } from '../lib/api';
 import { fetchScenes, reframeClip } from '../services/clipService';
 import SceneRow from '../features/reframe-editor/SceneRow';
 
@@ -18,12 +16,6 @@ import SceneRow from '../features/reframe-editor/SceneRow';
 //     with sound, and the rectangle stays overlaid while it plays.
 //   - Whether one window is even enough. A scene can be split into two stacked
 //     regions, positioned independently.
-
-const fmt = (s) => {
-    const m = Math.floor(s / 60);
-    const r = Math.floor(s % 60);
-    return `${m}:${String(r).padStart(2, '0')}`;
-};
 
 export default function ReframeEditor({ jobId, clipIndex, clipTitle, onClose, onReframed }) {
     const [loading, setLoading] = useState(true);

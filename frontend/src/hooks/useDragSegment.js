@@ -77,7 +77,7 @@ export function useDragSegment({
     e.stopPropagation();
     const rect = trackEl?.getBoundingClientRect();
     if (!rect || !secondsOnTrack) return;
-    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { }
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* empty */ }
     
     const scrub = trackEl === sourceTrackRef.current;
     if (scrub) {
@@ -130,7 +130,7 @@ export function useDragSegment({
     e.preventDefault();
     const t0 = ((e.clientX - rect.left) / rect.width) * sourceDuration;
     seekSource(t0);
-    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { }
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* empty */ }
     dragRef.current = {
       kind: 'ghost', startX: e.clientX, pxPerSec: rect.width / sourceDuration,
       t0, duration: sourceDuration, range: null, snap: snapEdge, minSeg,
