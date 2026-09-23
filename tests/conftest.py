@@ -22,6 +22,17 @@ if "DATABASE_URL" not in os.environ:
 import pytest
 
 @pytest.fixture(autouse=True)
+def clear_jobs():
+    if "core.state" in sys.modules and hasattr(sys.modules["core.state"], "jobs"):
+        jobs_dict = sys.modules["core.state"].jobs
+        for k in list(jobs_dict.keys()):
+            del jobs_dict[k]
+    elif "app" in sys.modules and hasattr(sys.modules["app"], "jobs"):
+        jobs_dict = sys.modules["app"].jobs
+        for k in list(jobs_dict.keys()):
+            del jobs_dict[k]
+
+@pytest.fixture(autouse=True)
 def _sync_app_monkeypatch(monkeypatch):
     orig_setattr = monkeypatch.setattr
 

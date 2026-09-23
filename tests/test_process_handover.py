@@ -45,6 +45,12 @@ def _post_process(json_body):
     return asyncio.run(_do())
 
 
+@pytest.fixture(autouse=True)
+def clear_jobs():
+    for k in list(app_module.jobs.keys()):
+        del app_module.jobs[k]
+
+
 @pytest.fixture()
 def dirs(tmp_path, monkeypatch):
     out_root = tmp_path / "output"

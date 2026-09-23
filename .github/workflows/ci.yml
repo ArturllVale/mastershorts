@@ -97,7 +97,7 @@ jobs:
           DATABASE_URL: "file:./ci.db"
         run: pytest tests/ -v
 
-  frontend-build:
+  frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
