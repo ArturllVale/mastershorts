@@ -1,5 +1,45 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+from datetime import datetime
+from enum import Enum
+
+class JobStatus(str, Enum):
+    queued = "queued"
+    processing = "processing"
+    partial = "partial"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+
+class JobResult(BaseModel):
+    clips: List[Dict[str, Any]]
+    cost_analysis: Optional[Dict[str, Any]] = None
+
+class JobRecord(BaseModel):
+    id: str
+    status: JobStatus
+    source_hash: Optional[str] = None
+    config_hash: Optional[str] = None
+    output_dir: str
+    user_id: Optional[str] = None
+    reservation_id: Optional[str] = None
+    result: Optional[JobResult] = None
+    created_at: datetime
+    
+    logs: List[str] = []
+    cmd: List[str] = []
+    env: Dict[str, str] = {}
+    attestation: Optional[Dict[str, Any]] = None
+    watermark: bool = False
+    partial: Optional[Dict[str, Any]] = None
+    webhook_url: Optional[str] = None
+    webhook_secret: Optional[str] = None
+    base_url: Optional[str] = None
+    proxy_bytes: Optional[int] = None
+    proxy_route: Optional[Dict[str, Any]] = None
+    ready_files: Dict[int, str] = {}
+    error: Optional[Dict[str, Any]] = None
+
 
 class ProcessRequest(BaseModel):
     url: str

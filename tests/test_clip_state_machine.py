@@ -91,9 +91,11 @@ class TestMakeClipError:
             raise TypeError("bad type")
         except TypeError as e:
             line = encode_clip_failed_marker(2, e)
-        assert line.startswith("CLIP_FAILED 2 ")
-        payload = json.loads(line[len("CLIP_FAILED 2 "):])
-        assert payload["exc_type"] == "TypeError"
+        payload = json.loads(line)
+        assert payload["v"] == 1
+        assert payload["type"] == "clip.failed"
+        assert payload["index"] == 2
+        assert payload["error"]["exc_type"] == "TypeError"
 
 
 # ===========================================================================
@@ -121,30 +123,30 @@ class TestEnqueueOutputParsesNewMarkers:
         _clip_error_cache.pop(self.job_id, None)
 
     def test_clip_queued_sets_state(self):
-        _feed(self.job_id, "CLIP_QUEUED 0", "CLIP_QUEUED 1")
+        _feed(self.job_id, '{"v":1,"type":"clip.queued","index":0}', '{"v":1,"type":"clip.queued","index":1}')
         states = _clip_state_cache.get(self.job_id, {})
         assert states.get(0) == "queued"
         assert states.get(1) == "queued"
 
     def test_clip_rendering_transitions_state(self):
-        _feed(self.job_id, "CLIP_QUEUED 0", "CLIP_RENDERING 0")
+        _feed(self.job_id, '{"v":1,"type":"clip.queued","index":0}', '{"v":1,"type":"clip.rendering","index":0}')
         states = _clip_state_cache.get(self.job_id, {})
         assert states.get(0) == "rendering"
 
     def test_clip_ready_sets_ready_state(self):
-        _feed(self.job_id, "CLIP_READY 0 my_video_clip_1.mp4")
+        _feed(self.job_id, '{"v":1,"type":"clip.ready","index":0,"filename":"my_video_clip_1.mp4"}')
         states = _clip_state_cache.get(self.job_id, {})
         assert states.get(0) == "ready"
         # Also populates ready_files as before (no regression)
-        assert app.jobs[self.job_id]["ready_files"].get(0) == "my_video_clip_1.mp4"
+        assert app.jobs[self.job_id].ready_files.get(0) == "my_video_clip_1.mp4"
 
     def test_clip_failed_sets_failed_state_and_error(self):
-        err_payload = json.dumps({
+        err_payload = {
             "exc_type": "RuntimeError",
             "message": "ffmpeg died",
             "traceback": "Traceback...",
-        })
-        _feed(self.job_id, f"CLIP_FAILED 1 {err_payload}")
+        }
+        _feed(self.job_id, json.dumps({"v":1,"type":"clip.failed","index":1,"error":err_payload}))
         states = _clip_state_cache.get(self.job_id, {})
         errors = _clip_error_cache.get(self.job_id, {})
         assert states.get(1) == "failed"
@@ -152,28 +154,24 @@ class TestEnqueueOutputParsesNewMarkers:
         assert "ffmpeg died" in errors.get(1, {}).get("message", "")
 
     def test_malformed_clip_failed_does_not_raise(self):
-        _feed(self.job_id, "CLIP_FAILED notanumber {bad json}")
+        _feed(self.job_id, '{"v":1,"type":"clip.failed","index":"notanumber"}')
         # Must not crash — state simply not recorded
 
     def test_new_markers_never_reach_user_log(self):
-        err_payload = json.dumps({"exc_type": "E", "message": "m", "traceback": "t"})
+        err_payload = {"exc_type": "E", "message": "m", "traceback": "t"}
         _feed(
             self.job_id,
-            "CLIP_QUEUED 0",
-            "CLIP_RENDERING 0",
-            "CLIP_READY 0 file.mp4",
-            f"CLIP_FAILED 1 {err_payload}",
-            "JOB_CLIPS_DONE 1 1",
+            '{"v":1,"type":"clip.queued","index":0}',
+            '{"v":1,"type":"clip.rendering","index":0}',
+            '{"v":1,"type":"clip.ready","index":0,"filename":"file.mp4"}',
+            json.dumps({"v":1,"type":"clip.failed","index":1,"error":err_payload}),
+            '{"v":1,"type":"job.done","ready":1,"failed":1}',
             "Normal log line",
         )
         # Only the plain log line must appear in user-visible logs
-        logs = list(app.jobs[self.job_id].get("logs", []))
+        logs = list(app.getattr(jobs[self.job_id], "logs", []))
         for entry in logs:
-            assert not entry.startswith("CLIP_QUEUED")
-            assert not entry.startswith("CLIP_RENDERING")
-            assert not entry.startswith("CLIP_READY")
-            assert not entry.startswith("CLIP_FAILED")
-            assert not entry.startswith("JOB_CLIPS_DONE")
+            assert not entry.startswith('{"v":1')
         assert any("Normal log line" in e for e in logs)
 
 
@@ -206,26 +204,26 @@ class TestPartialJobScenario:
         _clip_error_cache.pop(self.job_id, None)
 
     def _feed_3clip_scenario(self):
-        err_payload = json.dumps({
+        err_payload = {
             "exc_type": "RuntimeError",
             "message": "simulated render crash",
             "traceback": "Traceback (most recent call last):\n  ...\nRuntimeError: simulated render crash",
-        })
+        }
         _feed(
             self.job_id,
             # queued phase
-            "CLIP_QUEUED 0",
-            "CLIP_QUEUED 1",
-            "CLIP_QUEUED 2",
+            '{"v":1,"type":"clip.queued","index":0}',
+            '{"v":1,"type":"clip.queued","index":1}',
+            '{"v":1,"type":"clip.queued","index":2}',
             # rendering phase
-            "CLIP_RENDERING 0",
-            "CLIP_RENDERING 1",
-            "CLIP_RENDERING 2",
+            '{"v":1,"type":"clip.rendering","index":0}',
+            '{"v":1,"type":"clip.rendering","index":1}',
+            '{"v":1,"type":"clip.rendering","index":2}',
             # outcomes
-            "CLIP_READY 0 video_clip_1.mp4",
-            f"CLIP_FAILED 1 {err_payload}",
-            "CLIP_READY 2 video_clip_3.mp4",
-            "JOB_CLIPS_DONE 2 1",
+            '{"v":1,"type":"clip.ready","index":0,"filename":"video_clip_1.mp4"}',
+            json.dumps({"v":1,"type":"clip.failed","index":1,"error":err_payload}),
+            '{"v":1,"type":"clip.ready","index":2,"filename":"video_clip_3.mp4"}',
+            '{"v":1,"type":"job.done","ready":2,"failed":1}',
         )
 
     def test_job_status_is_partial(self):

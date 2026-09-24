@@ -580,7 +580,7 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
                     </h3>
                     
                     {/* Virality Score Explanation Box */}
-                    <ViralHUD score={clip.predicted_score} explanation={clip.explanation} />
+                    <ViralHUD score={clip.predicted_score} explanation={clip.explanation} reasons={clip.reasons} risks={clip.risks} />
 
                     <div className="flex flex-wrap items-center gap-1.5 mb-1">
                         {durationReadout && <span className="readout bg-paper3 border border-rule px-2 py-0.5 rounded-full shrink-0 font-medium text-[10px]">{durationReadout}</span>}

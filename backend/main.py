@@ -389,11 +389,11 @@ if __name__ == '__main__':
 
             if existing_ready:
                 print(f"♻️ Corte {i+1} já concluído anteriormente ({existing_ready}) — pulando re-renderização!", flush=True)
-                print(f"CLIP_READY {i} {existing_ready}", flush=True)
+                print(_json.dumps({"v":1, "type":"clip.ready", "index":i, "filename":existing_ready}), flush=True)
                 return True
 
             # Signal to the parent process that this clip is now being rendered.
-            print(f"CLIP_RENDERING {i}", flush=True)
+            print(_json.dumps({"v":1, "type":"clip.rendering", "index":i}), flush=True)
 
             start = clip['start']
             end = clip['end']
@@ -437,8 +437,7 @@ if __name__ == '__main__':
                         deliver_path, transcript, start, end,
                         split_ranges=_layouts.split_ranges(clip['layout_ranges']))
                     print(f"   ✅ Corte {i+1} pronto!", flush=True)
-                    print(f"CLIP_READY {i} "
-                          f"{os.path.basename(captioned or deliver_path)}", flush=True)
+                    print(_json.dumps({"v": 1, "type": "clip.ready", "index": i, "filename": os.path.basename(captioned or deliver_path)}), flush=True)
                 return success
             finally:
                 if os.path.exists(clip_temp_path):
@@ -448,7 +447,7 @@ if __name__ == '__main__':
         # Mark all clips as queued before submitting to the executor so the
         # parent process sees an explicit initial state for every clip.
         for _qi in range(len(shorts)):
-            print(f"CLIP_QUEUED {_qi}", flush=True)
+            print(_json.dumps({"v":1, "type":"clip.queued", "index":_qi}), flush=True)
         with ThreadPoolExecutor(max_workers=min(clip_workers, len(shorts))) as pool:
             futures = {pool.submit(_process_one_clip, i, clip): i
                        for i, clip in enumerate(shorts)}
@@ -466,12 +465,12 @@ if __name__ == '__main__':
                     # can record exc_type, message and truncated traceback per clip
                     # without swallowing the exception silently.
                     _tb_text = _traceback.format_exc()[:2000]
-                    _err_payload = _json.dumps({
+                    _err_payload = {
                         "exc_type": type(e).__name__,
                         "message": str(e)[:500],
                         "traceback": _tb_text,
-                    }, ensure_ascii=False)
-                    print(f"CLIP_FAILED {i} {_err_payload}", flush=True)
+                    }
+                    print(_json.dumps({"v": 1, "type": "clip.failed", "index": i, "error": _err_payload}, ensure_ascii=False), flush=True)
                     print(f"   ❌ Clip {i+1} failed: {type(e).__name__}: {e}")
 
         # Signal to the parent how many clips landed in each terminal state
@@ -479,7 +478,7 @@ if __name__ == '__main__':
         # the filesystem (which is unreliable when clips are still being written).
         _n_ready = sum(1 for s in _clip_outcomes.values() if s == "ready")
         _n_failed = sum(1 for s in _clip_outcomes.values() if s == "failed")
-        print(f"JOB_CLIPS_DONE {_n_ready} {_n_failed}", flush=True)
+        print(_json.dumps({"v": 1, "type": "job.done", "ready": _n_ready, "failed": _n_failed}), flush=True)
 
 
         # Persist per-clip render results added by the workers (auto_hook)

@@ -33,34 +33,36 @@ class TestClipReadyMarker:
 
     def test_records_the_file_to_serve_per_clip(self):
         _feed(self.job_id,
-              "CLIP_READY 0 subtitled_1_hooked_2_My_Video_clip_1.mp4",
-              "CLIP_READY 2 hooked_3_My_Video_clip_3.mp4")
-        assert app.jobs[self.job_id]["ready_files"] == {
+              '{"v":1,"type":"clip.ready","index":0,"filename":"subtitled_1_hooked_2_My_Video_clip_1.mp4"}',
+              '{"v":1,"type":"clip.ready","index":2,"filename":"hooked_3_My_Video_clip_3.mp4"}')
+        assert app.jobs[self.job_id].ready_files == {
             0: "subtitled_1_hooked_2_My_Video_clip_1.mp4",
+            "0": "subtitled_1_hooked_2_My_Video_clip_1.mp4",
             2: "hooked_3_My_Video_clip_3.mp4",
+            "2": "hooked_3_My_Video_clip_3.mp4",
         }
 
     def test_the_marker_never_reaches_the_user_log(self):
         _feed(self.job_id,
               "🎬 Processing Clip 1",
-              "CLIP_READY 0 subtitled_1_My_Video_clip_1.mp4")
-        assert app.jobs[self.job_id]["logs"] == ["🎬 Processing Clip 1"]
+              '{"v":1,"type":"clip.ready","index":0,"filename":"subtitled_1_My_Video_clip_1.mp4"}')
+        assert app.jobs[self.job_id].logs == ["🎬 Processing Clip 1"]
 
     def test_clips_arriving_out_of_order_keep_their_own_index(self):
         # CLIP_WORKERS renders three clips at once, so clip 3 can finish first.
         _feed(self.job_id,
-              "CLIP_READY 2 subtitled_9_My_Video_clip_3.mp4",
-              "CLIP_READY 0 subtitled_7_My_Video_clip_1.mp4")
-        ready = app.jobs[self.job_id]["ready_files"]
+              '{"v":1,"type":"clip.ready","index":2,"filename":"subtitled_9_My_Video_clip_3.mp4"}',
+              '{"v":1,"type":"clip.ready","index":0,"filename":"subtitled_7_My_Video_clip_1.mp4"}')
+        ready = app.jobs[self.job_id].ready_files
         assert ready[2].endswith("_clip_3.mp4")
         assert ready[0].endswith("_clip_1.mp4")
 
     def test_a_malformed_marker_is_ignored_not_fatal(self):
-        _feed(self.job_id, "CLIP_READY notanumber file.mp4", "CLIP_READY 1 ok.mp4")
-        assert app.jobs[self.job_id]["ready_files"] == {1: "ok.mp4"}
+        _feed(self.job_id, '{"v":1,"type":"clip.ready","index":"notanumber","filename":"file.mp4"}', '{"v":1,"type":"clip.ready","index":1,"filename":"ok.mp4"}')
+        assert app.jobs[self.job_id].ready_files == {1: "ok.mp4", "1": "ok.mp4"}
 
     def test_an_unknown_job_does_not_raise(self):
-        _feed("no-such-job", "CLIP_READY 0 whatever.mp4")
+        _feed("no-such-job", '{"v":1,"type":"clip.ready","index":0,"filename":"whatever.mp4"}')
 
 
 class TestMainAnnouncesTheDeliveredFile:

@@ -1,9 +1,10 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Youtube, Instagram, Activity, Loader2, Terminal, ChevronDown, Download, RotateCcw, Play, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
 import MediaInput from '../../components/MediaInput';
 import ProcessingAnimation from '../../components/ProcessingAnimation';
 import StarBanner from '../../components/StarBanner';
 import ResultCard from '../../components/ResultCard';
+import PreflightModal from '../../components/PreflightModal';
 
 const TikTokIcon = ({ size = 16, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -52,6 +53,7 @@ export default function DashboardView({
   bulkSub,
   onRerendered
 }) {
+  const [showPreflight, setShowPreflight] = useState(false);
   const lastLog = logs && logs.length ? logs[logs.length - 1] : '';
   const isConnectionError = Boolean(logs && logs.some(l => 
     typeof l === 'string' && (
@@ -131,6 +133,22 @@ export default function DashboardView({
     return result;
   }, [logs, jobId]);
 
+  const processingTime = useMemo(() => {
+    if (results?.processing_time_sec) {
+      const m = Math.floor(results.processing_time_sec / 60);
+      const s = Math.floor(results.processing_time_sec % 60);
+      return m > 0 ? `${m}m ${s.toString().padStart(2, '0')}s` : `${s}s`;
+    }
+    if (logs && logs.length > 0) {
+      const match = logs.find(l => typeof l === 'string' && l.includes('Tempo total de processamento:'));
+      if (match) {
+         const m = match.match(/Tempo total de processamento:\s*(.+?)(?:\s*\([^)]+\))?$/);
+         if (m) return m[1].trim();
+      }
+    }
+    return null;
+  }, [results, logs]);
+
   if (activeTab !== 'dashboard') return null;
 
   return (
@@ -159,7 +177,19 @@ export default function DashboardView({
                 </a>
               </p>
               )}
+              <p className="text-xs text-muted flex items-center justify-center gap-1.5 pt-0.5">
+                <span>Status do Ambiente:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowPreflight(true)}
+                  className="text-ink underline underline-offset-2 hover:text-violet transition-colors font-medium cursor-pointer"
+                >
+                  Checar Preflight (FFmpeg, Remotion, GPU, etc.) →
+                </button>
+              </p>
             </div>
+
+            <PreflightModal isOpen={showPreflight} onClose={() => setShowPreflight(false)} />
 
             <MediaInput onProcess={handleProcess} isProcessing={status === 'processing'} />
 
@@ -386,6 +416,11 @@ export default function DashboardView({
                 {results?.clips?.length > 0 && (
                   <span className="readout bg-paper3 border border-rule px-2 py-0.5 rounded-full text-xs">
                     {results.clips.length} Clipes
+                  </span>
+                )}
+                {processingTime && (
+                  <span className="readout bg-paper3 border border-rule px-2 py-0.5 rounded-full text-xs text-violet">
+                    ⏱️ {processingTime}
                   </span>
                 )}
                 {results?.cost_analysis && !isManaged && (

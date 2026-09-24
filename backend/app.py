@@ -262,7 +262,7 @@ async def reserve_process_minutes(request, url, input_path, job_id, max_minutes=
     # Per-user simultaneous job cap.
     limit = _cloud_config.PLAN_JOB_LIMIT.get(user.plan, 2)
     active = sum(1 for j in jobs.values()
-                 if j.get('user_id') == user.id and j.get('status') in ('queued', 'processing'))
+                 if getattr(j, "user_id", None) == user.id and getattr(j, "status", None) in ('queued', 'processing'))
     if active >= limit:
         raise HTTPException(status_code=429,
                             detail="You already have the maximum number of jobs running. Please wait.")
@@ -753,9 +753,11 @@ _scenes_locks: Dict[str, asyncio.Lock] = {}
 from routes.thumbnails import router as thumbnails_router
 from routes.clips import router as clips_router
 from routes.process import router as process_router
+from routes.preflight import router as preflight_router
 app.include_router(thumbnails_router)
 app.include_router(clips_router)
 app.include_router(process_router)
+app.include_router(preflight_router)
 from routes.process import (
     _probe_youtube_quality, _media_duration_seconds, _source_signature,
     _signed_source_url, _presented_status, layout_env,

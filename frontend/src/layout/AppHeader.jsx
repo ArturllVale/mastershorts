@@ -1,7 +1,9 @@
-import React from 'react';
-import { Menu, Plus, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Menu, Plus, AlertTriangle, Activity } from 'lucide-react';
 import UsageMeter from '../components/UsageMeter';
 import ProfileMenu from '../components/ProfileMenu';
+import PreflightModal from '../components/PreflightModal';
+import { getApiUrl } from '../config';
 
 export default function AppHeader({
   setNavOpen,
@@ -19,6 +21,39 @@ export default function AppHeader({
   keysMissing,
   goToTab
 }) {
+  const [showPreflight, setShowPreflight] = useState(false);
+  const [preflightStatus, setPreflightStatus] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const headers = {};
+    const llmProvider = localStorage.getItem('llm_provider');
+    const gemini = localStorage.getItem('gemini_key');
+    const llmKey = localStorage.getItem('llm_api_key');
+    const mistral = localStorage.getItem('mistral_api_key');
+    const openrouter = localStorage.getItem('openrouter_api_key');
+    const llmBaseUrl = localStorage.getItem('llm_base_url');
+    
+    if (llmProvider) headers['x-llm-provider'] = llmProvider;
+    if (gemini) headers['x-llm-api-key'] = gemini;
+    if (llmKey && llmProvider === 'openai') headers['x-llm-api-key'] = llmKey;
+    if (mistral) headers['x-mistral-key'] = mistral;
+    if (openrouter) headers['x-openrouter-key'] = openrouter;
+    if (llmBaseUrl) headers['x-llm-base-url'] = llmBaseUrl;
+
+    fetch(getApiUrl('/api/preflight'), { headers })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (isMounted && d) setPreflightStatus(d.status);
+      })
+      .catch(() => {
+        if (isMounted) setPreflightStatus('error');
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <header className="h-14 border-b border-rule bg-paper flex items-center justify-between gap-2 px-3 sm:px-6 shrink-0 z-10">
       <div className="flex items-center gap-2 sm:gap-4 min-w-0">
@@ -78,6 +113,29 @@ export default function AppHeader({
             <span className="md:hidden">Chaves Ausentes</span>
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => setShowPreflight(true)}
+          className={`px-2.5 py-1 rounded-full text-xs font-mono font-medium flex items-center gap-1.5 transition-colors border select-none cursor-pointer ${
+            preflightStatus === 'ok'
+              ? 'bg-ok/10 border-ok/30 text-ok hover:bg-ok/20'
+              : preflightStatus === 'warn'
+              ? 'bg-brass/10 border-brass/30 text-brass hover:bg-brass/20'
+              : preflightStatus === 'error'
+              ? 'bg-danger/10 border-danger/30 text-danger hover:bg-danger/20'
+              : 'bg-paper3 border-rule text-muted hover:text-ink'
+          }`}
+          title="Abrir diagnóstico do ambiente e pré-voo (FFmpeg, Remotion, GPU, etc.)"
+        >
+          <Activity size={12} className={preflightStatus && preflightStatus !== 'ok' ? 'animate-pulse' : ''} />
+          <span className="hidden sm:inline">Preflight</span>
+          <span className="text-[10px] uppercase font-semibold">
+            {preflightStatus === 'ok' ? 'OK' : preflightStatus === 'warn' ? 'Aviso' : preflightStatus === 'error' ? 'Erro' : '...'}
+          </span>
+        </button>
+
+        <PreflightModal isOpen={showPreflight} onClose={() => setShowPreflight(false)} />
       </div>
     </header>
   );

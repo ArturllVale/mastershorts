@@ -464,10 +464,10 @@ def retry_job(job_id: str, overrides: dict = None) -> dict:
         }
         jobs[job_id] = job
 
-    if job.get('status') in ('processing', 'queued') and job_id in _running_jobs:
+    if getattr(job, "status", None) in ('processing', 'queued') and job_id in _running_jobs:
         return job
 
-    env = dict(job.get("env") or {})
+    env = dict(getattr(job, "env", None) or {})
     if overrides:
         if overrides.get("llm_base_url"):
             env["LLM_PROVIDER"] = "openai"
@@ -478,14 +478,14 @@ def retry_job(job_id: str, overrides: dict = None) -> dict:
             env["LLM_API_KEY"] = overrides["llm_api_key"].strip()
         if overrides.get("gemini_api_key"):
             env["GEMINI_API_KEY"] = overrides["gemini_api_key"].strip()
-    job["env"] = env
+    job.env = env
 
-    job['status'] = 'queued'
-    job['logs'].append("🔄 Retomando processamento do vídeo...")
+    job.status = 'queued'
+    job.logs.append("🔄 Retomando processamento do vídeo...")
     
     # Preserve and recover any already rendered clips from disk
-    output_dir = job.get('output_dir') or os.path.join(OUTPUT_DIR, job_id)
-    ready_files = dict(job.get('ready_files') or {})
+    output_dir = getattr(job, "output_dir", None) or os.path.join(OUTPUT_DIR, job_id)
+    ready_files = dict(getattr(job, "ready_files", None) or {})
     try:
         json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
         if json_files:
@@ -504,17 +504,17 @@ def retry_job(job_id: str, overrides: dict = None) -> dict:
                     clip_copy['video_url'] = f"/videos/{job_id}/{cfile}"
                     recovered_clips.append(clip_copy)
             if recovered_clips:
-                job['ready_files'] = ready_files
-                job['result'] = {'clips': recovered_clips, 'cost_analysis': mdata.get('cost_analysis')}
+                job.ready_files = ready_files
+                job.result = {'clips': recovered_clips, 'cost_analysis': mdata.get('cost_analysis')}
     except Exception as e:
         print(f"⚠️ Notice: Could not inspect existing clips on retry: {e}")
 
-    priority = job.get('priority', 0)
+    priority = getattr(job, "priority", 0)
     _write_resume_manifest(
-        job_id, job['cmd'], priority, job.get('user_id'), job.get('reservation_id'),
-        watermark=job.get('watermark', False), webhook_url=job.get('webhook_url'),
-        webhook_secret=job.get('webhook_secret'), base_url=job.get('base_url'),
-        partial=job.get('partial'), env=job.get('env')
+        job_id, job.cmd, priority, getattr(job, "user_id", None), getattr(job, "reservation_id", None),
+        watermark=getattr(job, "watermark", False), webhook_url=getattr(job, "webhook_url", None),
+        webhook_secret=getattr(job, "webhook_secret", None), base_url=getattr(job, "base_url", None),
+        partial=getattr(job, "partial", None), env=getattr(job, "env", None)
     )
     from core.state import _enqueue_job
     _enqueue_job(job_id, priority)
@@ -710,41 +710,25 @@ def _sweep_retained_sources(now=None):
         except Exception:
             continue
 
-async def cleanup_jobs():
-    from app import _sweep_pending_uploads
-    print("🧹 Cleanup task started.")
-    while True:
+def sweep_old_jobs(now):
+    for job_id in os.listdir(OUTPUT_DIR):
+        if job_id == os.path.basename(THUMBNAILS_DIR):
+            continue
+        job_path = os.path.join(OUTPUT_DIR, job_id)
+        if os.path.isdir(job_path):
+            if now - os.path.getmtime(job_path) > JOB_RETENTION_SECONDS:
+                print(f"🧹 Purging old job: {job_id}")
+                shutil.rmtree(job_path, ignore_errors=True)
+                if job_id in jobs:
+                    del jobs[job_id]
+
+def sweep_upload_dir(now):
+    for filename in os.listdir(UPLOAD_DIR):
+        file_path = os.path.join(UPLOAD_DIR, filename)
         try:
-            await asyncio.sleep(300)
-            now = time.time()
-            for job_id in os.listdir(OUTPUT_DIR):
-                if job_id == os.path.basename(THUMBNAILS_DIR):
-                    continue
-                job_path = os.path.join(OUTPUT_DIR, job_id)
-                if os.path.isdir(job_path):
-                    if now - os.path.getmtime(job_path) > JOB_RETENTION_SECONDS:
-                        print(f"🧹 Purging old job: {job_id}")
-                        shutil.rmtree(job_path, ignore_errors=True)
-                        if job_id in jobs:
-                            del jobs[job_id]
-
-            for job_id in _sweep_retained_sources(now):
-                print(f"🧹 Dropped retained source for job {job_id}")
-
-            _enforce_output_size_cap()
-            _enforce_uploads_size_cap()
-
-            for uid in _sweep_pending_uploads(now):
-                print(f"🧹 Expired agent upload slot {uid}")
-
-            for filename in os.listdir(UPLOAD_DIR):
-                file_path = os.path.join(UPLOAD_DIR, filename)
-                try:
-                    if now - os.path.getmtime(file_path) > JOB_RETENTION_SECONDS:
-                         os.remove(file_path)
-                except Exception: pass
-        except Exception as e:
-            print(f"⚠️ Cleanup error: {e}")
+            if now - os.path.getmtime(file_path) > JOB_RETENTION_SECONDS:
+                 os.remove(file_path)
+        except Exception: pass
 
 async def process_queue():
     print(f"🚀 Job Queue Worker started with {MAX_CONCURRENT_JOBS} concurrent slots.")
@@ -784,13 +768,13 @@ def _job_source_url(job) -> Optional[str]:
 
 async def _track_proxy_usage(job_id):
     job = jobs.get(job_id) or {}
-    if BILLING_ENABLED and job.get("proxy_route"):
+    if BILLING_ENABLED and getattr(job, "proxy_route", None):
         try:
             from cloud import proxy_ledger as _pl
-            await _pl.record_download(job_id, job.get("proxy_route"), _job_source_url(job))
+            await _pl.record_download(job_id, getattr(job, "proxy_route", None), _job_source_url(job))
         except Exception as e:
             print(f"⚠️ proxy ledger failed for {job_id}: {e}")
-    nbytes = job.get("proxy_bytes") or 0
+    nbytes = getattr(job, "proxy_bytes", None) or 0
     if not nbytes:
         return
     month = datetime.now(timezone.utc).strftime("%Y-%m")
@@ -834,13 +818,13 @@ async def _archive_managed_job(job_id):
     if not BILLING_ENABLED:
         return
     job = jobs.get(job_id) or {}
-    if not job.get("user_id") or job.get("status") != "completed":
+    if not getattr(job, "user_id", None) or getattr(job, "status", None) != "completed":
         return
-    clips = (job.get("result") or {}).get("clips") or []
+    clips = (getattr(job, "result", None) or {}).get("clips") or []
     if not clips:
         return
     try:
-        await cloud.videos.archive_job(job["user_id"], job_id, clips, job["output_dir"])
+        await cloud.videos.archive_job(job.user_id, job_id, clips, job.output_dir)
     except Exception as e:
         print(f"⚠️  R2 archive error for {job_id}: {e}")
 
@@ -864,19 +848,19 @@ async def _notify_clips_ready(job_id):
     if not BILLING_ENABLED:
         return
     job = jobs.get(job_id) or {}
-    if not job.get("user_id") or job.get("status") != "completed" or job.get("email_sent"):
+    if not getattr(job, "user_id", None) or getattr(job, "status", None) != "completed" or getattr(job, "email_sent", None):
         return
-    clips = (job.get("result") or {}).get("clips") or []
+    clips = (getattr(job, "result", None) or {}).get("clips") or []
     if not clips:
         return
-    job["email_sent"] = True
+    job.email_sent = True
     try:
         from cloud.database import session as cloud_session
         from cloud.models import User
         from cloud.emails import send_clips_ready_email
         from app import _cloud_config
         async with cloud_session() as s:
-            user = await s.get(User, job["user_id"])
+            user = await s.get(User, job.user_id)
         if not user or not user.email:
             return
         title = clips[0].get("video_title_for_youtube_short") or clips[0].get("title") or "Your video"
@@ -889,9 +873,9 @@ async def _notify_clip_activity(job_id):
     if not BILLING_ENABLED:
         return
     job = jobs.get(job_id) or {}
-    if not job.get("user_id") or job.get("status") != "completed":
+    if not getattr(job, "user_id", None) or getattr(job, "status", None) != "completed":
         return
-    clips = (job.get("result") or {}).get("clips") or []
+    clips = (getattr(job, "result", None) or {}).get("clips") or []
     if not clips:
         return
     try:
@@ -899,7 +883,7 @@ async def _notify_clip_activity(job_id):
         from cloud.models import User
         from cloud import metering
         async with cloud_session() as s:
-            user = await s.get(User, job["user_id"])
+            user = await s.get(User, job.user_id)
             if not user:
                 return
             sub = await metering._active_subscription(s, user.id)
@@ -930,10 +914,10 @@ async def _record_job_alert(job_id):
     if not BILLING_ENABLED:
         return
     job = jobs.get(job_id) or {}
-    if not job.get("user_id"):
+    if not getattr(job, "user_id", None):
         return
-    ok = job.get("status") == "completed"
-    err = "" if ok else _job_error_text(job.get("logs", []))
+    ok = getattr(job, "status", None) == "completed"
+    err = "" if ok else _job_error_text(getattr(job, "logs", []))
     try:
         await _alerts.record_job_outcome(ok, err)
     except Exception as e:
@@ -945,7 +929,7 @@ async def _track_job_outcome(job, ok, err):
         from cloud import analytics as _an
         from sqlalchemy import text as _sa_text
         from cloud import database as _db
-        user_id = job.get("user_id")
+        user_id = getattr(job, "user_id", None)
         job_index = None
         try:
             async with _db.session() as s:
@@ -955,14 +939,14 @@ async def _track_job_outcome(job, ok, err):
                     {"uid": user_id})).scalar()
         except Exception:
             pass
-        clips = len(((job.get("result") or {}).get("clips")) or [])
+        clips = len(((getattr(job, "result", None) or {}).get("clips")) or [])
         _an.track(
             "ClipsDelivered" if ok else "JobFailed",
             user_id=user_id,
             job_index=job_index,
             clips=clips if ok else None,
-            plan=job.get("user_plan"),
-            source="url" if job.get("url") else "upload",
+            plan=getattr(job, "user_plan", None),
+            source="url" if getattr(job, "url", None) else "upload",
             reason=(_alerts._classify_failure(err) if not ok and err else None),
         )
     except Exception as e:
@@ -976,32 +960,19 @@ async def cleanup_jobs():
         try:
             await asyncio.sleep(300)
             now = time.time()
-            for job_id in os.listdir(OUTPUT_DIR):
-                if job_id == os.path.basename(THUMBNAILS_DIR):
-                    continue
-                job_path = os.path.join(OUTPUT_DIR, job_id)
-                if os.path.isdir(job_path):
-                    if now - os.path.getmtime(job_path) > JOB_RETENTION_SECONDS:
-                        print(f"🧹 Purging old job: {job_id}")
-                        shutil.rmtree(job_path, ignore_errors=True)
-                        if job_id in jobs:
-                            del jobs[job_id]
-
+            
+            sweep_old_jobs(now)
+            
             for job_id in _sweep_retained_sources(now):
                 print(f"🧹 Dropped retained source for job {job_id}")
-
+                
             _enforce_output_size_cap()
             _enforce_uploads_size_cap()
-
+            
             for uid in _sweep_pending_uploads(now):
                 print(f"🧹 Expired agent upload slot {uid}")
-
-            for filename in os.listdir(UPLOAD_DIR):
-                file_path = os.path.join(UPLOAD_DIR, filename)
-                try:
-                    if now - os.path.getmtime(file_path) > JOB_RETENTION_SECONDS:
-                         os.remove(file_path)
-                except Exception: pass
+                
+            sweep_upload_dir(now)
         except Exception as e:
             print(f"⚠️ Cleanup error: {e}")
 
@@ -1057,81 +1028,39 @@ def enqueue_output(out, job_id):
                 # for subsequent clips.  Module-level dicts are schema-free and
                 # never raise.  The data is merged into the job dict once, at
                 # finalization, after the subprocess exits.
-                if decoded_line.startswith("CLIP_QUEUED "):
+                if decoded_line.startswith('{"v":1') or decoded_line.startswith('{"v": 1'):
                     try:
-                        idx = int(decoded_line.split()[1])
-                        _clip_state_cache.setdefault(job_id, {})[idx] = 'queued'
-                    except Exception:
-                        pass
-                    continue
-                if decoded_line.startswith("CLIP_RENDERING "):
-                    try:
-                        idx = int(decoded_line.split()[1])
-                        _clip_state_cache.setdefault(job_id, {})[idx] = 'rendering'
-                    except Exception:
-                        pass
-                    continue
-                if decoded_line.startswith("CLIP_READY "):
-                    # ready_files: keep in its own try so a clip_states error
-                    # can NEVER prevent ready_files from being recorded.
-                    try:
-                        _, index, filename = decoded_line.split(" ", 2)
-                        if job_id in jobs:
-                            rf = jobs[job_id].setdefault('ready_files', {})
-                            rf[int(index)] = filename
-                            rf[str(index)] = filename
-                    except ValueError:
-                        pass
-                    # clip_states: separate try, uses module-level cache only.
-                    try:
-                        idx = int(decoded_line.split()[1])
-                        _clip_state_cache.setdefault(job_id, {})[idx] = 'ready'
-                    except Exception:
-                        pass
-                    continue
-                if decoded_line.startswith("CLIP_FAILED "):
-                    try:
-                        parts = decoded_line.split(" ", 2)
-                        idx = int(parts[1])
-                        err = json.loads(parts[2])
-                        _clip_state_cache.setdefault(job_id, {})[idx] = 'failed'
-                        _clip_error_cache.setdefault(job_id, {})[idx] = err
-                    except Exception:
-                        pass
-                    continue
-                if decoded_line.startswith("JOB_CLIPS_DONE "):
-                    # Informational: parent already has per-clip states via CLIP_READY/
-                    # CLIP_FAILED. Log it for debugging but don't update state here
-                    # (run_job finalizes the job status after the process exits).
-                    try:
-                        parts = decoded_line.split()
-                        n_ready, n_failed = int(parts[1]), int(parts[2])
-                        print(f"📊 [Job {job_id}] clips done: {n_ready} ready, {n_failed} failed")
-                    except Exception:
-                        pass
-                    continue
-
-                if decoded_line.startswith("PROXY_BYTES="):
-                    try:
-                        if job_id in jobs:
-                            jobs[job_id]['proxy_bytes'] = int(decoded_line.split("=", 1)[1])
-                    except ValueError:
-                        pass
-                    continue
-                if decoded_line.startswith("PROXY_ROUTE="):
-                    # Which download attempt won and why the free ones failed;
-                    # persisted at job end (cloud/proxy_ledger). Not shown to clients.
-                    try:
-                        from cloud import proxy_ledger as _pl
-                        route = _pl.parse_route_line(decoded_line)
-                        if route is not None and job_id in jobs:
-                            jobs[job_id]['proxy_route'] = route
-                    except Exception:
+                        ev = json.loads(decoded_line)
+                        ev_type = ev.get("type")
+                        if ev_type == "clip.queued":
+                            _clip_state_cache.setdefault(job_id, {})[ev["index"]] = 'queued'
+                        elif ev_type == "clip.rendering":
+                            _clip_state_cache.setdefault(job_id, {})[ev["index"]] = 'rendering'
+                        elif ev_type == "clip.ready":
+                            idx = ev["index"]
+                            if job_id in jobs:
+                                rf = jobs[job_id].setdefault('ready_files', {})
+                                rf[int(idx)] = ev["filename"]
+                                rf[str(idx)] = ev["filename"]
+                            _clip_state_cache.setdefault(job_id, {})[idx] = 'ready'
+                        elif ev_type == "clip.failed":
+                            idx = ev["index"]
+                            _clip_state_cache.setdefault(job_id, {})[idx] = 'failed'
+                            _clip_error_cache.setdefault(job_id, {})[idx] = ev.get("error", {})
+                        elif ev_type == "job.done":
+                            print(f"📊 [Job {job_id}] clips done: {ev.get('ready')} ready, {ev.get('failed')} failed")
+                        elif ev_type == "proxy.bytes":
+                            if job_id in jobs:
+                                jobs[job_id].proxy_bytes = ev.get("bytes")
+                        elif ev_type == "proxy.route":
+                            if job_id in jobs:
+                                jobs[job_id].proxy_route = ev.get("route")
+                    except Exception as e:
                         pass
                     continue
                 print(f"📝 [Job Output] {decoded_line}")
                 if job_id in jobs:
-                    jobs[job_id]['logs'].append(decoded_line)
+                    jobs[job_id].logs.append(decoded_line)
     except Exception as e:
         print(f"Error reading output for job {job_id}: {e}")
     finally:
@@ -1145,8 +1074,8 @@ async def run_job(job_id, job_data):
     env = job_data['env']
     output_dir = job_data['output_dir']
     
-    jobs[job_id]['status'] = 'processing'
-    jobs[job_id]['logs'].append("Job started by worker.")
+    jobs[job_id].status = 'processing'
+    jobs[job_id].logs.append("Job started by worker.")
     print(f"🎬 [run_job] Executing command for {job_id}: {' '.join(cmd)}")
     
     try:
@@ -1208,7 +1137,7 @@ async def run_job(job_id, job_data):
                                  ready_clips.append(clip)
                         
                         if ready_clips:
-                             jobs[job_id]['result'] = {'clips': ready_clips, 'cost_analysis': cost_analysis}
+                             jobs[job_id].result = {'clips': ready_clips, 'cost_analysis': cost_analysis}
             except Exception as e:
                 # Ignore read errors during processing
                 pass
@@ -1216,7 +1145,7 @@ async def run_job(job_id, job_data):
         returncode = process.returncode
         
         if returncode == 0:
-            jobs[job_id]['logs'].append("Process finished successfully.")
+            jobs[job_id].logs.append("Process finished successfully.")
 
             # Self-host: silent AWS S3 backup. Cloud mode stores to R2 instead
             # (see _archive_managed_job), so skip the redundant/paid AWS upload.
@@ -1252,7 +1181,7 @@ async def run_job(job_id, job_data):
                 clip_states_map = (jobs.get(job_id) or {}).get('clip_states') or {}
                 if cached_states:
                     clip_states_map = {**clip_states_map, **cached_states}
-                    jobs[job_id]['clip_states'] = clip_states_map
+                    jobs[job_id].clip_states = clip_states_map
 
                 if clip_states_map:
                     clip_statuses = list(clip_states_map.values())
@@ -1264,35 +1193,35 @@ async def run_job(job_id, job_data):
                 if rendered and final_status == 'failed':
                     final_status = 'completed' if len(rendered) == len(clips) else 'partial'
 
-                jobs[job_id]['status'] = final_status
+                jobs[job_id].status = final_status
 
                 if rendered:
-                    jobs[job_id]['result'] = {'clips': rendered, 'cost_analysis': cost_analysis}
+                    jobs[job_id].result = {'clips': rendered, 'cost_analysis': cost_analysis}
 
                 if final_status == 'failed' and not rendered:
-                    jobs[job_id]['logs'].append(
+                    jobs[job_id].logs.append(
                         "No clips could be rendered from this video.")
                 else:
                     if missing:
-                        jobs[job_id]['logs'].append(
+                        jobs[job_id].logs.append(
                             f"⚠️ {missing} of {len(clips)} clips failed to render.")
                     if final_status == 'partial':
                         n_failed = sum(1 for s in clip_states_map.values() if s == 'failed')
-                        jobs[job_id]['logs'].append(
+                        jobs[job_id].logs.append(
                             f"⚠️ Job finished partially: {len(rendered)} clips ready, "
                             f"{n_failed} failed.")
             else:
-                jobs[job_id]['status'] = 'failed'
-                jobs[job_id]['logs'].append("No metadata file generated.")
+                jobs[job_id].status = 'failed'
+                jobs[job_id].logs.append("No metadata file generated.")
         else:
-            jobs[job_id]['status'] = 'failed'
-            jobs[job_id]['logs'].append(_scrub_secrets(f"Process failed with exit code {returncode}"))
+            jobs[job_id].status = 'failed'
+            jobs[job_id].logs.append(_scrub_secrets(f"Process failed with exit code {returncode}"))
             
     except Exception as e:
-        jobs[job_id]['status'] = 'failed'
+        jobs[job_id].status = 'failed'
         # Exception text can embed URLs with credentials (e.g. the proxy URL
         # inside a yt-dlp/httpx error) — scrub before it reaches client logs.
-        jobs[job_id]['logs'].append(_scrub_secrets(f"Execution error: {str(e)}"))
+        jobs[job_id].logs.append(_scrub_secrets(f"Execution error: {str(e)}"))
     finally:
         _active_processes.pop(job_id, None)
 
@@ -1307,8 +1236,8 @@ async def _webhook_clip_entries(job_id, job):
     """The payload's clip list: absolute URLs, plus durable R2 links when the
     job was archived (a webhook consumer usually fetches later, after the
     1-hour local retention would have expired the /videos path)."""
-    base = (job.get('base_url') or os.environ.get("PUBLIC_API_URL", "")).rstrip("/")
-    clips = (job.get('result') or {}).get('clips') or []
+    base = (getattr(job, "base_url", None) or os.environ.get("PUBLIC_API_URL", "")).rstrip("/")
+    clips = (getattr(job, "result", None) or {}).get('clips') or []
     entries = []
     for i, clip in enumerate(clips):
         rel = clip.get('video_url') or ""
@@ -1317,7 +1246,7 @@ async def _webhook_clip_entries(job_id, job):
             "title": clip.get('title') or clip.get('video_title_for_youtube_short'),
             "video_url": f"{base}{rel}" if rel.startswith("/") and base else rel,
         })
-    if BILLING_ENABLED and job.get('user_id'):
+    if BILLING_ENABLED and getattr(job, "user_id", None):
         try:
             from sqlalchemy import select as _select
             from cloud.database import session as cloud_session
@@ -1367,12 +1296,12 @@ async def _deliver_webhook(url, body: bytes, secret):
 async def _notify_job_webhook(job_id):
     """Enqueue a webhook for a terminal job using the durable delivery system."""
     job = jobs.get(job_id) or {}
-    url = job.get('webhook_url')
-    if not url or job.get('webhook_sent'):
+    url = getattr(job, "webhook_url", None)
+    if not url or getattr(job, "webhook_sent", None):
         return
     # Note: we do NOT set webhook_sent=True here anymore,
     # the worker sets it after successful delivery.
-    status = job.get('status')
+    status = getattr(job, "status", None)
     # completed and partial both have at least one ready clip to deliver.
     has_clips = status in ('completed', 'partial')
     payload = {
@@ -1383,20 +1312,20 @@ async def _notify_job_webhook(job_id):
         "clips": (await _webhook_clip_entries(job_id, job)) if has_clips else [],
     }
     # Include per-clip state details so consumers can act on individual failures.
-    clip_states_map = job.get('clip_states') or {}
+    clip_states_map = getattr(job, "clip_states", None) or {}
     if clip_states_map:
         # Normalise to a list ordered by clip index.
         max_idx = max(int(k) for k in clip_states_map)
         payload["clip_states"] = [
             clip_states_map.get(i, "unknown") for i in range(max_idx + 1)
         ]
-        clip_errors_map = job.get('clip_errors') or {}
+        clip_errors_map = getattr(job, "clip_errors", None) or {}
         if clip_errors_map:
             payload["clip_errors"] = {
                 str(k): v for k, v in clip_errors_map.items()
             }
     if not has_clips:
-        payload["error"] = _job_error_text(job.get('logs', []))[-500:]
+        payload["error"] = _job_error_text(getattr(job, "logs", []))[-500:]
         
     from services.webhook import enqueue_webhook
     await enqueue_webhook(job_id, url, payload)
@@ -1407,11 +1336,11 @@ async def _settle_reservation(job_id):
     if not BILLING_ENABLED:
         return
     job = jobs.get(job_id) or {}
-    reservation_id = job.get('reservation_id')
+    reservation_id = getattr(job, "reservation_id", None)
     if not reservation_id:
         return
     try:
-        if job.get('status') in ('completed', 'partial'):
+        if getattr(job, "status", None) in ('completed', 'partial'):
             await cloud.metering.commit_reservation(reservation_id)
         else:
             await cloud.metering.release_reservation(reservation_id)
@@ -1532,7 +1461,7 @@ def delete_single_job(job_id: str) -> bool:
         try:
             j = jobs[job_id]
             if isinstance(j, dict):
-                env = j.get('env') or {}
+                env = getattr(j, "env", None) or {}
                 source_hash = env.get('SOURCE_HASH')
         except Exception:
             pass

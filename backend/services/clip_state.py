@@ -66,22 +66,18 @@ def make_clip_error(exc: BaseException) -> dict[str, Any]:
 
 
 def encode_clip_failed_marker(index: int, exc: BaseException) -> str:
-    """Retorna a linha stdout a ser emitida quando um clip falha.
-
-    Formato: ``CLIP_FAILED {index} {json_payload}``
-    """
-    payload = json.dumps(make_clip_error(exc), ensure_ascii=False)
-    return f"CLIP_FAILED {index} {payload}"
-
+    """Retorna a linha stdout a ser emitida quando um clip falha."""
+    return json.dumps({"v": 1, "type": "clip.failed", "index": index, "error": make_clip_error(exc)}, ensure_ascii=False)
 
 def decode_clip_failed_marker(line: str) -> tuple[int, dict[str, Any]] | None:
-    """Parseia uma linha ``CLIP_FAILED {index} {json}`` do stdout do filho.
+    """Parseia uma linha do stdout do filho.
 
     Retorna ``(index, error_dict)`` ou ``None`` se inválida.
     """
     try:
-        _, rest = line.split(" ", 1)
-        idx_str, json_str = rest.split(" ", 1)
-        return int(idx_str), json.loads(json_str)
+        ev = json.loads(line)
+        if ev.get("type") == "clip.failed":
+            return ev.get("index"), ev.get("error", {})
+        return None
     except Exception:
         return None

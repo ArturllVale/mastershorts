@@ -97,7 +97,7 @@ async def _process_webhooks():
             
             from core.state import jobs
             if delivery.job_id in jobs:
-                jobs[delivery.job_id]["webhook_sent"] = True
+                jobs[delivery.job_id].webhook_sent = True
             
             logger.info(f"Webhook delivered for delivery {delivery.id} (job {delivery.job_id})")
         else:

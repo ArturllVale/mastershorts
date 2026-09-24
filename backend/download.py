@@ -378,7 +378,7 @@ def download_youtube_video(url, output_dir="."):
              raise Exception(f"Download forbidden (HTTP 403). YouTube might be blocking the server's IP. {url}")
         raise Exception(f"Download final falhou após todas as tentativas: {last_err}")
 
-    print(f"PROXY_ROUTE={__import__('json').dumps(attempt_log)}", flush=True)
+    print(__import__('json').dumps({"v": 1, "type": "proxy.route", "route": attempt_log}), flush=True)
 
     candidates = []
     for ext in ['mp4', 'mkv', 'webm']:

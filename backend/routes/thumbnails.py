@@ -564,18 +564,18 @@ async def thumbnail_publish(
             if response.status_code not in [200, 201, 202]:
                 err = f"Upload-Post API Error ({response.status_code}): {response.text}"
                 print(f"❌ {err}")
-                publish_jobs[publish_id]["status"] = "failed"
-                publish_jobs[publish_id]["error"] = err
+                publish_jobs[publish_id].status = "failed"
+                publish_jobs[publish_id].error = err
             else:
                 print(f"✅ [Thumbnail] Published successfully (publish_id={publish_id})")
-                publish_jobs[publish_id]["status"] = "done"
-                publish_jobs[publish_id]["result"] = response.json()
+                publish_jobs[publish_id].status = "done"
+                publish_jobs[publish_id].result = response.json()
 
         except Exception as e:
             err = str(e)
             print(f"❌ Thumbnail Publish Background Error: {err}")
-            publish_jobs[publish_id]["status"] = "failed"
-            publish_jobs[publish_id]["error"] = err
+            publish_jobs[publish_id].status = "failed"
+            publish_jobs[publish_id].error = err
 
     background_tasks.add_task(do_upload)
     return {"publish_id": publish_id, "status": "uploading"}

@@ -308,18 +308,18 @@ class DBJobsProxy:
         
     def keys(self):
         if HAS_PRISMA:
-            return [j['id'] for j in run_async(_get_all_jobs())]
-        return [j['id'] for j in _sqla_get_all_jobs()]
+            return [j.id for j in run_async(_get_all_jobs())]
+        return [j.id for j in _sqla_get_all_jobs()]
         
     def items(self):
         if HAS_PRISMA:
-            return [(j['id'], j) for j in run_async(_get_all_jobs())]
-        return [(j['id'], j) for j in _sqla_get_all_jobs()]
+            return [(j.id, j) for j in run_async(_get_all_jobs())]
+        return [(j.id, j) for j in _sqla_get_all_jobs()]
 
 class JobDictProxy(dict):
     def __init__(self, job_id, data):
         super().__init__(data)
-        self.job_id = job_id
+        self.__dict__['job_id'] = job_id
         
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
@@ -327,11 +327,24 @@ class JobDictProxy(dict):
             run_async(_update_job_field(self.job_id, key, value))
         else:
             _sqla_update_job_field(self.job_id, key, value)
+            
+    def __getattr__(self, key):
+        if key in self:
+            return self[key]
+        if hasattr(super(), key):
+            return getattr(super(), key)
+        raise AttributeError(f"'JobDictProxy' object has no attribute '{key}'")
+        
+    def __setattr__(self, key, value):
+        if key == "job_id":
+            self.__dict__[key] = value
+        else:
+            self[key] = value
         
     def __getitem__(self, key):
-        val = super().__getitem__(key)
+        val = super().get(key)
         if isinstance(val, list):
-            if key == 'logs':
+            if key == 'logs' or key == 'cmd':
                 return LogListProxy(self.job_id, val)
         if isinstance(val, dict):
             return SubDictProxy(self.job_id, key, val)

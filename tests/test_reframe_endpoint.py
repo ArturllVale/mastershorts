@@ -95,16 +95,16 @@ class TestReframeValidation:
         assert fake_recut == []
 
     def test_horizontal_clips_400(self, job, fake_recut):
-        meta = json.loads(job["meta_path"].read_text())
+        meta = json.loads(job.meta_path.read_text())
         meta["output_format"] = "horizontal"
-        job["meta_path"].write_text(json.dumps(meta))
+        job.meta_path.write_text(json.dumps(meta))
         resp = _request("POST", "/api/clip/reframe", {
             "job_id": JOB_ID, "clip_index": 0, "crop_overrides": {"0": 0.5}})
         assert resp.status_code == 400
         assert fake_recut == []
 
     def test_gone_source_409(self, job, fake_recut):
-        os.remove(job["dir"] / "src.mp4")
+        os.remove(job.dir / "src.mp4")
         resp = _request("POST", "/api/clip/reframe", {
             "job_id": JOB_ID, "clip_index": 0, "crop_overrides": {"0": 0.5}})
         assert resp.status_code == 409
@@ -130,7 +130,7 @@ class TestReframeRender:
         assert call["captions_transcript"]["segments"][0]["words"]
 
         # Overrides persisted (string keys, JSON-style) for /scenes to serve.
-        meta = json.loads(job["meta_path"].read_text())
+        meta = json.loads(job.meta_path.read_text())
         assert meta["shorts"][0]["crop_overrides"]["0"] == 0.2
 
     def test_reapply_captions_false(self, job, fake_recut):
@@ -143,12 +143,12 @@ class TestReframeRender:
     def test_whole_clip_framing_carries_into_the_render(self, job, fake_recut):
         # recipe.framing='full' (the clip editor's selector) must keep forcing
         # WIDE on the scenes the user did not hand-position.
-        meta = json.loads(job["meta_path"].read_text())
+        meta = json.loads(job.meta_path.read_text())
         meta["shorts"][0]["recipe"] = {
             "v": 1, "segments": [{"start": 10.0, "end": 40.0}],
             "canonical_range": {"start": 10.0, "end": 40.0},
             "framing": "full"}
-        job["meta_path"].write_text(json.dumps(meta))
+        job.meta_path.write_text(json.dumps(meta))
         resp = _request("POST", "/api/clip/reframe", {
             "job_id": JOB_ID, "clip_index": 0, "crop_overrides": {"0": 0.5}})
         assert resp.status_code == 200
@@ -167,7 +167,7 @@ class TestRerenderClearsSceneOverrides:
         assert _request("POST", "/api/clip/rerender", {
             "job_id": JOB_ID, "clip_index": 0,
             "segments": [{"start": 12, "end": 22}]}).status_code == 200
-        meta = json.loads(job["meta_path"].read_text())
+        meta = json.loads(job.meta_path.read_text())
         assert not meta["shorts"][0].get("crop_overrides")
 
 

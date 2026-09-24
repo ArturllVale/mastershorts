@@ -576,23 +576,27 @@ async def process_endpoint(
             delete_single_job(existing_job.id)
 
     # Enqueue Job
-    jobs[job_id] = {
-        'status': 'queued',
-        'logs': [f"Job {job_id} queued."],
-        'cmd': cmd,
-        'env': env,
-        'output_dir': job_output_dir,
-        'attestation': attestation,
-        'user_id': user_id,
-        'reservation_id': reservation_id,
-        'watermark': env.get("WATERMARK") == "1",
-        'partial': partial,
-        'webhook_url': webhook_url,
-        'webhook_secret': webhook_secret,
-        'base_url': api_base,
-        'source_hash': source_hash,
-        'config_hash': config_hash,
-    }
+    job_record = JobRecord(
+        id=job_id,
+        status=JobStatus.queued,
+        source_hash=source_hash,
+        config_hash=config_hash,
+        output_dir=job_output_dir,
+        user_id=user_id,
+        reservation_id=reservation_id,
+        result=None,
+        created_at=datetime.now(timezone.utc),
+        logs=[f"Job {job_id} queued."],
+        cmd=cmd,
+        env=env,
+        attestation=attestation,
+        watermark=env.get("WATERMARK") == "1",
+        partial=partial,
+        webhook_url=webhook_url,
+        webhook_secret=webhook_secret,
+        base_url=api_base,
+    )
+    jobs[job_id] = job_record.model_dump()
 
     # Persist the owner so recovered jobs keep their multi-tenant guard after a
     # restart (see _recover_jobs_from_disk).
@@ -607,7 +611,7 @@ async def process_endpoint(
     # Resume manifest: enough to re-run this job if the container dies mid-flight
     # (a redeploy). No secrets — the env is rebuilt from os.environ on resume.
     _write_resume_manifest(job_id, cmd, priority, user_id, reservation_id,
-                           watermark=jobs[job_id]['watermark'],
+                           watermark=jobs[job_id].watermark,
                            webhook_url=webhook_url, webhook_secret=webhook_secret,
                            base_url=api_base, partial=partial, env=env)
 
@@ -646,11 +650,11 @@ def _job_view_from_disk(job_id):
 def _presented_status(job_id, job):
     """A job we hold as 'queued' while draining is really the next instance's:
     if it has started it, say so instead of showing a queue that never moves."""
-    if job.get('status') == 'queued' and _draining:
+    if getattr(job, "status", None) == 'queued' and _draining:
         m = _read_manifest(job_id)
         if m and _manifest_busy_elsewhere(m):
             return 'processing'
-    return job['status']
+    return job.status
 
 
 @router.get("/api/status/{job_id}")
@@ -664,11 +668,11 @@ async def get_status(job_id: str, request: Request):
     await _assert_job_owner(request, job)
     return {
         "status": _presented_status(job_id, job),
-        "logs": _visible_logs(job['logs']),
-        "result": job.get('result'),
+        "logs": _visible_logs(job.logs),
+        "result": getattr(job, "result", None),
         # Set when only the first part of the source was clipped (quota wall
         # offer), so the dashboard can say so next to the clips.
-        "partial": job.get('partial'),
+        "partial": getattr(job, "partial", None),
     }
 
 
@@ -918,7 +922,7 @@ async def restore_project(job_id: str, request: Request):
     return {
         "job_id": job_id,
         "status": "completed",
-        "result": jobs[job_id]['result'],
+        "result": jobs[job_id].result,
         "project_state": proj.state,
         "title": proj.title,
     }

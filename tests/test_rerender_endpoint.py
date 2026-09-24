@@ -125,7 +125,7 @@ class TestGetEdl:
         """The EDL carries the WHOLE source transcript. The old ±45s window
         would drop these words (clip ends at 40s, they start at 200s), and a
         cut can only be extended into material whose words were sent."""
-        meta = json.loads(job["meta_path"].read_text())
+        meta = json.loads(job.meta_path.read_text())
         meta["transcript"]["segments"].append({
             "start": 200.0, "end": 260.0, "text": "distant tail",
             "words": [
@@ -133,7 +133,7 @@ class TestGetEdl:
                 {"word": "tail", "start": 259.0, "end": 259.5},
             ],
         })
-        job["meta_path"].write_text(json.dumps(meta))
+        job.meta_path.write_text(json.dumps(meta))
 
         data = _request("GET", f"/api/clip/{JOB_ID}/0/edl").json()
         assert [w["w"] for w in data["words"]] == [
@@ -144,7 +144,7 @@ class TestGetEdl:
         assert starts == sorted(starts)
 
     def test_reports_missing_source(self, job):
-        os.remove(job["dir"] / "src.mp4")
+        os.remove(job.dir / "src.mp4")
         data = _request("GET", f"/api/clip/{JOB_ID}/0/edl").json()
         assert data["source"]["available"] is False
         assert data["source"]["url"] is None
@@ -176,7 +176,7 @@ class TestRerenderValidation:
         assert fake_recut == []
 
     def test_gone_source_with_outside_segment_409(self, job, fake_recut):
-        os.remove(job["dir"] / "src.mp4")
+        os.remove(job.dir / "src.mp4")
         resp = _request("POST", "/api/clip/rerender", {
             "job_id": JOB_ID, "clip_index": 0,
             "segments": [{"start": 45, "end": 55}]})
@@ -191,7 +191,7 @@ class TestRerenderValidation:
         assert fake_recut == []
 
     def test_framing_without_source_409(self, job, fake_recut):
-        os.remove(job["dir"] / "src.mp4")
+        os.remove(job.dir / "src.mp4")
         resp = _request("POST", "/api/clip/rerender", {
             "job_id": JOB_ID, "clip_index": 0, "framing": "full",
             "segments": [{"start": 12, "end": 30}]})  # in-range, but framing needs source
@@ -205,7 +205,7 @@ class TestRerenderValidation:
         # range clamps to an inverted (end < start) window. That must be
         # rejected as a 400 by the post-snap re-validation, never reach
         # ffmpeg as `-ss 150 -to 30` and surface as a 500.
-        os.remove(job["dir"] / "src.mp4")
+        os.remove(job.dir / "src.mp4")
         monkeypatch.setattr(recut, "snap_segments",
                             lambda segments, transcript, bound: segments)
         resp = _request("POST", "/api/clip/rerender", {
@@ -308,11 +308,11 @@ class TestRerenderPersistence:
         # Covering range, so downstream start/end stay a sane positive window.
         assert (data["start"], data["end"]) == (10.0, 52.0)
 
-        meta = json.loads(job["meta_path"].read_text())
+        meta = json.loads(job.meta_path.read_text())
         stored = meta["shorts"][0]
         assert stored["recipe"]["segments"] == expected_segments
         assert stored["video_url"] == data["new_video_url"]
-        mem = app_module.jobs[JOB_ID]["result"]["clips"][0]
+        mem = app_module.jobs[JOB_ID].result["clips"][0]
         assert mem["recipe"]["segments"] == expected_segments
         assert mem["video_url"] == data["new_video_url"]
 

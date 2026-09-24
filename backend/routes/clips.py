@@ -73,7 +73,7 @@ async def edit_clip(
 
     job = jobs[req.job_id]
     await _assert_job_owner(request, job)
-    if 'result' not in job or 'clips' not in job['result']:
+    if 'result' not in job or 'clips' not in job.result:
         raise HTTPException(status_code=400, detail="Job result not available")
 
     # Meter the managed Gemini call so it can't be looped for free. Skip only for
@@ -91,7 +91,7 @@ async def edit_clip(
             filename = safe_name
         else:
             # Fallback to original clip
-            clip = job['result']['clips'][req.clip_index]
+            clip = job.result['clips'][req.clip_index]
             filename = clip['video_url'].split('/')[-1]
             input_path = os.path.join(OUTPUT_DIR, req.job_id, filename)
         
@@ -192,8 +192,8 @@ async def edit_clip(
 
         # Persist the new current file like /api/subtitle does: in-memory job
         # result + metadata.json, so reload/recovery/re-archive see this version.
-        if req.clip_index < len(job['result']['clips']):
-            job['result']['clips'][req.clip_index]['video_url'] = new_video_url
+        if req.clip_index < len(job.result['clips']):
+            job.result['clips'][req.clip_index]['video_url'] = new_video_url
         try:
             meta_files = glob.glob(os.path.join(OUTPUT_DIR, req.job_id, "*_metadata.json"))
             if meta_files:
@@ -598,7 +598,7 @@ async def _rerender_locked(req: RerenderRequest, request: Request, job):
             input_path=source_path, segments=segments,
             output_dir=output_dir, clean_name=clean_name,
             reframe=True, output_format=data.get('output_format', 'auto'),
-            watermark=bool(job.get('watermark')),
+            watermark=bool(getattr(job, "watermark", None)),
             force_strategy=force_strategy,
             captions_transcript=v_transcript)
 
@@ -633,13 +633,13 @@ async def _rerender_locked(req: RerenderRequest, request: Request, job):
         data['shorts'] = clips
         with open(json_files[0], 'w') as f:
             json.dump(data, f, indent=2)
-        mem_clips = (job.get('result') or {}).get('clips') or []
+        mem_clips = (getattr(job, "result", None) or {}).get('clips') or []
         if req.clip_index < len(mem_clips):
             mem_clips[req.clip_index].update(updates)
-            res = dict(job.get('result') or {})
+            res = dict(getattr(job, "result", None) or {})
             res['clips'] = mem_clips
             if req.job_id in jobs:
-                jobs[req.job_id]['result'] = res
+                jobs[req.job_id].result = res
 
         _archive_clip_edit_bg(req.job_id, req.clip_index, served_name)
         if reservation_id:
@@ -935,7 +935,7 @@ async def _reframe_locked(req: ReframeRequest, request: Request, job, overrides)
             input_path=source_path, segments=segments,
             output_dir=output_dir, clean_name=clean_name,
             reframe=True, output_format=data.get('output_format', 'auto'),
-            watermark=bool(job.get('watermark')),
+            watermark=bool(getattr(job, "watermark", None)),
             force_strategy=force_strategy,
             crop_overrides=overrides,
             captions_transcript=v_transcript)
@@ -959,13 +959,13 @@ async def _reframe_locked(req: ReframeRequest, request: Request, job, overrides)
         data['shorts'] = clips
         with open(json_files[0], 'w') as f:
             json.dump(data, f, indent=2)
-        mem_clips = (job.get('result') or {}).get('clips') or []
+        mem_clips = (getattr(job, "result", None) or {}).get('clips') or []
         if req.clip_index < len(mem_clips):
             mem_clips[req.clip_index].update(updates)
-            res = dict(job.get('result') or {})
+            res = dict(getattr(job, "result", None) or {})
             res['clips'] = mem_clips
             if req.job_id in jobs:
-                jobs[req.job_id]['result'] = res
+                jobs[req.job_id].result = res
 
         _archive_clip_edit_bg(req.job_id, req.clip_index, served_name)
         if reservation_id:
@@ -1039,7 +1039,7 @@ async def generate_effects_config(
 
     job = jobs[req.job_id]
     await _assert_job_owner(request, job)
-    if 'result' not in job or 'clips' not in job['result']:
+    if 'result' not in job or 'clips' not in job.result:
         raise HTTPException(status_code=400, detail="Job result not available")
 
     # Meter the managed Gemini call (no-op for self-host).
@@ -1052,7 +1052,7 @@ async def generate_effects_config(
             safe_name = os.path.basename(req.input_filename)
             input_path = os.path.join(OUTPUT_DIR, req.job_id, safe_name)
         else:
-            clip = job['result']['clips'][req.clip_index]
+            clip = job.result['clips'][req.clip_index]
             filename = clip['video_url'].split('/')[-1]
             input_path = os.path.join(OUTPUT_DIR, req.job_id, filename)
 
@@ -1390,8 +1390,8 @@ async def add_subtitles(req: SubtitleRequest, request: Request):
 
     # 3. Update Result and Metadata
     # Update InMemory Jobs
-    if req.clip_index < len(job['result']['clips']):
-         job['result']['clips'][req.clip_index]['video_url'] = f"/videos/{req.job_id}/{output_filename}"
+    if req.clip_index < len(job.result['clips']):
+         job.result['clips'][req.clip_index]['video_url'] = f"/videos/{req.job_id}/{output_filename}"
     
     # Update Metadata on Disk (Persistence)
     try:
@@ -1468,8 +1468,8 @@ async def remove_subtitles(req: RemoveSubtitlesRequest, request: Request):
                             detail="The original clip is no longer available.")
 
     new_url = f"/videos/{req.job_id}/{filename}"
-    if req.clip_index < len(job.get('result', {}).get('clips', [])):
-        job['result']['clips'][req.clip_index]['video_url'] = new_url
+    if req.clip_index < len(getattr(job, "result", {}).get('clips', [])):
+        job.result['clips'][req.clip_index]['video_url'] = new_url
     try:
         clips[req.clip_index]['video_url'] = new_url
         data['shorts'] = clips
@@ -1612,8 +1612,8 @@ async def add_hook(req: HookRequest, request: Request):
 
     # Update Persistence (Same logic as subtitles)
     # Update InMemory Jobs
-    if req.clip_index < len(job['result']['clips']):
-        mem_clip = job['result']['clips'][req.clip_index]
+    if req.clip_index < len(job.result['clips']):
+        mem_clip = job.result['clips'][req.clip_index]
         mem_clip['video_url'] = f"/videos/{req.job_id}/{output_filename}"
         if req.remove:
             mem_clip.pop('auto_hook', None)

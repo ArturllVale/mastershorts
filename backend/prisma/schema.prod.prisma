@@ -15,6 +15,8 @@ datasource db {
 model Job {
   id             String    @id
   status         String    @default("queued")
+  source_hash    String?
+  config_hash    String?
   cmd            String?
   env            String?
   output_dir     String?
@@ -36,6 +38,9 @@ model Job {
   logs               JobLog[]
   clips              Clip[]
   webhook_deliveries WebhookDelivery[]
+
+  @@unique([source_hash, config_hash, status])
+  @@index([source_hash, config_hash])
 }
 
 model JobLog {
@@ -65,12 +70,18 @@ model ClipAsset {
 }
 
 model WebhookDelivery {
-  id             Int      @id @default(autoincrement())
-  job_id         String
-  status_code    Int
-  response_body  String?
+  id              Int      @id @default(autoincrement())
+  job_id          String
+  url             String
+  payload         String
+  attempts        Int      @default(0)
+  status          String   @default("pending")
+  next_attempt_at DateTime
+  last_error      String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-  job            Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  job             Job      @relation(fields: [job_id], references: [id], onDelete: Cascade)
 }
 
 model FeatureCache {

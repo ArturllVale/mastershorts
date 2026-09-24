@@ -88,7 +88,7 @@ def test_handover_links_source_and_transcript(dirs, session):
     out_root, up_root = dirs
     resp = _post_process({"thumbnail_session_id": "sess1", "acknowledged": True})
     job_id, job = _submitted_job(resp)
-    cmd = job["cmd"]
+    cmd = job.cmd
 
     # Source: hardlinked under the job's name so /api/source, the clip editor
     # and retention treat it exactly like a normal upload.
@@ -106,7 +106,7 @@ def test_handover_links_source_and_transcript(dirs, session):
     with open(transcript_path) as f:
         assert json.load(f) == TRANSCRIPT
 
-    assert job["attestation"]["source"] == "thumbnail_session"
+    assert job.attestation["source"] == "thumbnail_session"
 
 
 def test_handover_without_ready_transcript_still_processes(dirs, session):
@@ -114,8 +114,8 @@ def test_handover_without_ready_transcript_still_processes(dirs, session):
     session["transcript"] = None
     resp = _post_process({"thumbnail_session_id": "sess1", "acknowledged": True})
     _, job = _submitted_job(resp)
-    assert "-i" in job["cmd"]
-    assert "--transcript" not in job["cmd"]
+    assert "-i" in job.cmd
+    assert "--transcript" not in job.cmd
 
 
 def test_empty_transcript_is_not_forwarded(dirs, session):
@@ -124,7 +124,7 @@ def test_empty_transcript_is_not_forwarded(dirs, session):
     session["transcript"] = {"text": "", "language": "en", "segments": []}
     resp = _post_process({"thumbnail_session_id": "sess1", "acknowledged": True})
     _, job = _submitted_job(resp)
-    assert "--transcript" not in job["cmd"]
+    assert "--transcript" not in job.cmd
 
 
 def test_unknown_session_404s(dirs):
@@ -152,6 +152,6 @@ def test_url_wins_over_session_id(dirs, session, monkeypatch):
         "acknowledged": True,
     })
     _, job = _submitted_job(resp)
-    assert "-u" in job["cmd"]
-    assert "--transcript" not in job["cmd"]
-    assert job["attestation"]["source"] == "url"
+    assert "-u" in job.cmd
+    assert "--transcript" not in job.cmd
+    assert job.attestation["source"] == "url"

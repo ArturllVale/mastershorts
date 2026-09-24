@@ -35,6 +35,8 @@ class DetailClipModel(BaseModel):
     source_window_id: str
     predicted_score: int
     explanation: str
+    reasons: List[str] = []
+    risks: List[str] = []
     video_title_for_youtube_short: str = ""
     viral_hook_text: str = ""
     video_description_for_tiktok: str = ""
@@ -52,6 +54,9 @@ class VisualClipModel(BaseModel):
     start: float
     end: float
     predicted_score: int
+    explanation: str = ""
+    reasons: List[str] = []
+    risks: List[str] = []
     video_description_for_tiktok: str
     video_description_for_instagram: str
     video_title_for_youtube_short: str
@@ -79,6 +84,12 @@ TIME CONTRACT — STRICT:
 For each clip write catchy copy in {language} (a scroll-stopping hook, a TikTok
 and an Instagram description, and a YouTube title ≤100 chars). Order clips best
 to worst by how likely they are to stop a viewer scrolling.
+
+COPY RULES:
+- `predicted_score`: honest 0-100 estimate of viral potential.
+- `explanation`: a short 1-2 sentence justification for why this specific moment is visually engaging. In {language}.
+- `reasons`: list of 3-5 short bullet points explaining why this clip works visually (e.g. "ação rápida", "expressão facial marcante"). In {language}.
+- `risks`: list of 1-3 short bullet points of potential risks (e.g. "falta de contexto de áudio", "corte abrupto"). In {language}.
 """
 
 
@@ -333,6 +344,8 @@ CLIP RULES:
 COPY RULES:
 - `predicted_score`: honest 0-100 estimate of viral potential.
 - `explanation`: a short 1-2 sentence justification for the score in TRANSCRIPT_LANGUAGE ({language}). Why is this specific moment viral?
+- `reasons`: list of 3-5 short bullet points explaining why this clip is viral (e.g. "conflito/opinião forte", "frase inicial boa"). In TRANSCRIPT_LANGUAGE ({language}).
+- `risks`: list of 1-3 short bullet points of potential risks or weaknesses (e.g. "contexto insuficiente", "áudio baixo"). In TRANSCRIPT_LANGUAGE ({language}).
 - `video_title_for_youtube_short`: A powerful, curiosity-driven YouTube Shorts title (max 70 chars, in {language}).
   CRITICAL: Do NOT copy a random spoken sentence or quote verbatim from the transcript! Craft a high-CTR, scroll-stopping headline that sparks curiosity, emotion, or promises a revelation (e.g., "O Segredo Que Ninguém Te Conta Sobre o Medo 😱", "Você Comete Esse Erro Sem Perceber? ⚠️", "A Verdade Que Mudou Minha Mente...").
 - `viral_hook_text`: 3 to 7 punchy words for the on-screen hook overlay with an emoji (e.g. "Você vive com medo? 👀", "Pare de fazer isso agora! ⚠️").
