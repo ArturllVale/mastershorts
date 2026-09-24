@@ -26,7 +26,7 @@ export default function SettingsView({
   setMistralApiKey,
 }) {
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar p-4 sm:p-6 md:p-8 max-w-4xl mx-auto animate-fade">
+    <div className="h-full p-4 sm:p-6 md:p-8 max-w-5xl mx-auto animate-fade">
       {/* Settings Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 pb-4 border-b border-rule">
         <div>

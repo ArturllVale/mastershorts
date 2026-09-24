@@ -120,43 +120,68 @@ function App() {
   };
   const tabLocked = (id) => tutorialLock && id !== 'dashboard';
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('mastershorts_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('mastershorts_sidebar_collapsed', String(next));
+      } catch {
+        // Ignore localStorage errors
+      }
+      return next;
+    });
+  };
+
   // Desktop rail
   return (
-    <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] bg-paper overflow-hidden">
-      <Sidebar
-        navItems={navItems}
-        activeTab={activeTab}
-        goToTab={goToTab}
-        tabLocked={tabLocked}
-        billingEnabled={billingEnabled}
-      />
-      <MobileNavDrawer
-        navItems={navItems}
-        activeTab={activeTab}
-        goToTab={goToTab}
-        tabLocked={tabLocked}
-        navOpen={navOpen}
+    <div className="flex flex-col h-screen supports-[height:100dvh]:h-[100dvh] bg-paper overflow-hidden">
+      <AppHeader
         setNavOpen={setNavOpen}
+        activeNav={activeNav}
+        status={status}
+        handleReset={handleReset}
         billingEnabled={billingEnabled}
+        isManaged={isManaged}
+        plan={plan}
+        setTopUpInfo={setTopUpInfo}
+        setShowTopUp={setShowTopUp}
+        setShowPlanChoice={setShowPlanChoice}
+        setShowLogin={setShowLogin}
+        isSignedIn={isSignedIn}
+        keysMissing={keysMissing}
+        goToTab={goToTab}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={toggleSidebar}
       />
 
-      <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
-        <AppHeader
-          setNavOpen={setNavOpen}
-          activeNav={activeNav}
-          status={status}
-          handleReset={handleReset}
-          billingEnabled={billingEnabled}
-          isManaged={isManaged}
-          plan={plan}
-          setTopUpInfo={setTopUpInfo}
-          setShowTopUp={setShowTopUp}
-          setShowPlanChoice={setShowPlanChoice}
-          setShowLogin={setShowLogin}
-          isSignedIn={isSignedIn}
-          keysMissing={keysMissing}
+      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+        <Sidebar
+          navItems={navItems}
+          activeTab={activeTab}
           goToTab={goToTab}
+          tabLocked={tabLocked}
+          billingEnabled={billingEnabled}
+          isCollapsed={sidebarCollapsed}
         />
+        <MobileNavDrawer
+          navItems={navItems}
+          activeTab={activeTab}
+          goToTab={goToTab}
+          tabLocked={tabLocked}
+          navOpen={navOpen}
+          setNavOpen={setNavOpen}
+          billingEnabled={billingEnabled}
+        />
+
+        <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
 
         {/* Persistent Missing Keys Banner */}
         {keysMissing && activeTab !== 'settings' && (
@@ -205,7 +230,7 @@ function App() {
         {gateThisTab && <TrialGate toolName={TOOL_NAMES[activeTab] || 'this'} />}
 
         {/* Main Workspace */}
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
 
           {activeTab === 'settings' && (
             <SettingsView
@@ -311,6 +336,7 @@ function App() {
         />
 
       </main>
+      </div>
 
       {/* Missing API Key Modal */}
       <Modal

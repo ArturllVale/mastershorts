@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Plus, AlertTriangle, Activity } from 'lucide-react';
+import { Menu, Plus, AlertTriangle, Activity, PanelLeft } from 'lucide-react';
 import UsageMeter from '../components/UsageMeter';
 import ProfileMenu from '../components/ProfileMenu';
 import PreflightModal from '../components/PreflightModal';
@@ -19,7 +19,9 @@ export default function AppHeader({
   setShowLogin,
   isSignedIn,
   keysMissing,
-  goToTab
+  goToTab,
+  sidebarCollapsed,
+  onToggleSidebar
 }) {
   const [showPreflight, setShowPreflight] = useState(false);
   const [preflightStatus, setPreflightStatus] = useState(null);
@@ -64,6 +66,28 @@ export default function AppHeader({
         >
           <Menu size={20} />
         </button>
+
+        {/* Antigravity Desktop Brand & PanelLeft Toggle (Logo + Button only) */}
+        <div className="hidden md:flex items-center gap-4 shrink-0">
+          <a
+            href="#landing"
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden bg-paper3/70 border border-rule/60 transition-transform hover:scale-105 hover:border-rule"
+            title="MasterShorts"
+          >
+            <img src="/logo-mastershorts.svg" alt="MasterShorts" className="w-5 h-5 object-contain" />
+          </a>
+
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            title={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-paper3 transition-colors"
+          >
+            <PanelLeft size={16} />
+          </button>
+        </div>
+
         <span data-tutorial="nav-clips" className="md:hidden font-semibold text-sm text-ink truncate">
           {activeNav?.label || 'MasterShorts'}
         </span>
