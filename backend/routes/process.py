@@ -650,11 +650,12 @@ def _job_view_from_disk(job_id):
 def _presented_status(job_id, job):
     """A job we hold as 'queued' while draining is really the next instance's:
     if it has started it, say so instead of showing a queue that never moves."""
-    if getattr(job, "status", None) == 'queued' and _draining:
+    status_val = job.get("status") if isinstance(job, dict) else getattr(job, "status", None)
+    if status_val == 'queued' and _draining:
         m = _read_manifest(job_id)
         if m and _manifest_busy_elsewhere(m):
             return 'processing'
-    return job.status
+    return status_val
 
 
 @router.get("/api/status/{job_id}")

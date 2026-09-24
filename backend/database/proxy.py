@@ -161,7 +161,13 @@ async def _get_job(job_id: str) -> Dict[str, Any]:
                 try:
                     data[json_field] = json.loads(data[json_field])
                     if json_field == "ready_files" and isinstance(data[json_field], dict):
-                         data[json_field] = {int(k) if str(k).isdigit() else k: v for k, v in data[json_field].items()}
+                        rf_map = {}
+                        for k, v in data[json_field].items():
+                            rf_map[k] = v
+                            if str(k).isdigit():
+                                rf_map[int(k)] = v
+                                rf_map[str(k)] = v
+                        data[json_field] = rf_map
                 except Exception:
                     data[json_field] = {} if json_field in ["env", "ready_files"] else []
             elif json_field in ["env", "ready_files"]:
@@ -243,7 +249,13 @@ async def _get_all_jobs() -> List[Dict[str, Any]]:
                 try:
                     data[json_field] = json.loads(data[json_field])
                     if json_field == "ready_files" and isinstance(data[json_field], dict):
-                         data[json_field] = {int(k) if str(k).isdigit() else k: v for k, v in data[json_field].items()}
+                        rf_map = {}
+                        for k, v in data[json_field].items():
+                            rf_map[k] = v
+                            if str(k).isdigit():
+                                rf_map[int(k)] = v
+                                rf_map[str(k)] = v
+                        data[json_field] = rf_map
                 except Exception:
                     data[json_field] = {} if json_field in ["env", "ready_files"] else []
             elif json_field in ["env", "ready_files"]:
@@ -308,13 +320,13 @@ class DBJobsProxy:
         
     def keys(self):
         if HAS_PRISMA:
-            return [j.id for j in run_async(_get_all_jobs())]
-        return [j.id for j in _sqla_get_all_jobs()]
+            return [j["id"] if isinstance(j, dict) else j.id for j in run_async(_get_all_jobs())]
+        return [j["id"] if isinstance(j, dict) else j.id for j in _sqla_get_all_jobs()]
         
     def items(self):
         if HAS_PRISMA:
-            return [(j.id, j) for j in run_async(_get_all_jobs())]
-        return [(j.id, j) for j in _sqla_get_all_jobs()]
+            return [(j["id"] if isinstance(j, dict) else j.id, j) for j in run_async(_get_all_jobs())]
+        return [(j["id"] if isinstance(j, dict) else j.id, j) for j in _sqla_get_all_jobs()]
 
 class JobDictProxy(dict):
     def __init__(self, job_id, data):

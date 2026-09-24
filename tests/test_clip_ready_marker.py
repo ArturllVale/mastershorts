@@ -75,7 +75,8 @@ class TestMainAnnouncesTheDeliveredFile:
         main_path = "main.py" if os.path.exists("main.py") else os.path.join(os.path.dirname(__file__), "..", "backend", "main.py")
         main_src = open(main_path, encoding="utf-8").read()
         caption_at = main_src.index("captioned = auto_caption_clip(")
-        marker_at = main_src.index('print(f"CLIP_READY {i} "')
+        marker_target = '"type": "clip.ready"' if '"type": "clip.ready"' in main_src else 'print(f"CLIP_READY {i} "'
+        marker_at = main_src.index(marker_target)
         assert caption_at < marker_at
         marker_line = main_src[marker_at:marker_at + 200]
         assert "captioned or deliver_path" in marker_line

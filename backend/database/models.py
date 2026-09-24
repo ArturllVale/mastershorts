@@ -60,7 +60,11 @@ class Job(Base):
             'base_url': self.base_url,
             'proxy_bytes': self.proxy_bytes,
             'proxy_route': self.proxy_route,
-            'ready_files': {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in (self.ready_files or {}).items()},
+            'ready_files': {
+                **{k: v for k, v in (self.ready_files or {}).items()},
+                **{int(k): v for k, v in (self.ready_files or {}).items() if str(k).isdigit()},
+                **{str(k): v for k, v in (self.ready_files or {}).items() if str(k).isdigit()}
+            },
             'result': self.result,
             'error': self.error,
             'clip_states': {int(k) if isinstance(k, str) and k.isdigit() else k: v for k, v in (self.clip_states or {}).items()},

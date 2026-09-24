@@ -169,7 +169,8 @@ class TestEnqueueOutputParsesNewMarkers:
             "Normal log line",
         )
         # Only the plain log line must appear in user-visible logs
-        logs = list(app.getattr(jobs[self.job_id], "logs", []))
+        job_obj = app.jobs[self.job_id]
+        logs = list(job_obj.get("logs", []) if isinstance(job_obj, dict) else getattr(job_obj, "logs", []))
         for entry in logs:
             assert not entry.startswith('{"v":1')
         assert any("Normal log line" in e for e in logs)

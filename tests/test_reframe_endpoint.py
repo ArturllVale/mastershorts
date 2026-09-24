@@ -65,7 +65,13 @@ def job(tmp_path, monkeypatch):
         "user_id": None, "watermark": False,
     }
     try:
-        yield {"dir": job_dir, "meta_path": job_dir / "mytitle_metadata.json"}
+        class _JobCtx(dict):
+            def __getattr__(self, name):
+                if name in self:
+                    return self[name]
+                raise AttributeError(name)
+
+        yield _JobCtx({"dir": job_dir, "meta_path": job_dir / "mytitle_metadata.json"})
     finally:
         app_module.jobs.pop(JOB_ID, None)
 
