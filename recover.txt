@@ -1,0 +1,808 @@
+Created At: 2026-09-23T23:09:34-03:00
+Completed At: 2026-09-23T23:09:34-03:00
+File Path: `file:///c:/Users/Vale/Documents/github/openshorts/frontend/src/components/ClipEditor.jsx`
+Total Lines: 845
+Total Bytes: 41482
+Showing lines 1 to 800
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import React, { useState, useEffect, useReducer, useRef, useCallback, useMemo, useDeferredValue } from 'react';
+2: import {
+3:     X, Loader2, Plus, Trash2, ChevronUp, ChevronDown, Scissors,
+4:     AlertCircle, Undo2, Redo2, ChevronsRight, ChevronsLeft,
+5:     PanelLeft, PanelLeftClose, Film,
+6: } from 'lucide-react';
+7: import { getApiUrl } from '../config';
+8: import { QuotaError } from '../lib/api';
+9: import { useAuth } from '../contexts/AuthContext';
+10: import { fmt, totalOf } from '../lib/clipUtils';
+11: import { fetchEDL, rerenderClip } from '../services/clipService';
+12: 
+13: // Full-screen clip editor: shows WHICH source segments a clip was cut from,
+14: // lets the user trim/extend/split/reorder them (word-snapped), and re-renders
+15: // through POST /api/clip/rerender. The recipe (EDL) comes from GET .../edl.
+16: 
+17: const MIN_SEGMENT_SECONDS = 0.5;
+18: const SNAP_WINDOW_SECONDS = 0.35;
+19: 
+20: // Hiding the source is a working preference, not a per-clip one, so it sticks.
+21: const HIDE_SOURCE_KEY = 'os_editor_hide_source';
+22: 
+23: // Words per memoised transcript slice. See TranscriptChunk for why this exists.
+24: const CHUNK_WORDS = 50;
+25: 
+26: // Segment edges round-trip through 3 decimals, so coverage arithmetic needs a
+27: // hair of tolerance before it calls a millisecond sliver "not rendered".
+28: const COVERAGE_EPSILON = 0.02;
+29: 
+30: const SEGMENT_COLORS = [
+31:     'oklch(76% .17 50)',   // brass
+32:     'oklch(70% .12 200)',
+33:     'oklch(72% .13 140)',
+34:     'oklch(70% .14 300)',
+35:     'oklch(74% .13 90)',
+36:     'oklch(68% .13 250)',
+37: ];
+38: 
+39: import { useEditorShortcuts } from '../hooks/useEditorShortcuts';
+40: import { useVideoSeek } from '../hooks/useVideoSeek';
+41: import { useDragSegment } from '../hooks/useDragSegment';
+42: import { useEditorTimeline } from '../features/clip-editor/hooks/useEditorTimeline';
+43: import { useThreePointEditing } from '../features/clip-editor/hooks/useThreePointEditing';
+44: import TranscriptChunk from '../features/clip-editor/TranscriptChunk';
+45: import SegmentRow from '../features/clip-editor/SegmentRow';
+46: import EditorHeader from '../features/clip-editor/components/EditorHeader';
+47: import EditorFooter from '../features/clip-editor/components/EditorFooter';
+48: import SidebarControls from '../features/clip-editor/components/SidebarControls';
+49: import SourceColumn from '../features/clip-editor/components/SourceColumn';
+50: import PreviewColumn from '../features/clip-editor/components/PreviewColumn';
+51: 
+52: import editorReducer from '../features/clip-editor/editorReducer';
+53: 
+54: export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRerendered }) {
+55:     const { refreshMe } = useAuth();
+56:     const [edl, setEdl] = useState(null);
+57:     const [loadError, setLoadError] = useState(null);
+58:     const [state, dispatch] = useReducer(editorReducer, { segments: [], selected: 0, past: [], future: [], pendingBase: null });
+59:     const { segments, selected } = state;
+60: 
+61:     const [snapToWords, setSnapToWords] = useState(true);
+62:     const [reapplyCaptions, setReapplyCaptions] = useState(true);
+63:     // Framing override: 'auto' (classifier) | 'full' (whole frame) | 'track'.
+64:     const [framing, setFraming] = useState('auto');
+65:     const [renderedFraming, setRenderedFraming] = useState('auto');
+66:     // The recipe of the currently RENDERED preview (playhead maps onto it).
+67:     const [renderedSegments, setRenderedSegments] = useState(null);
+68:     const [previewUrl, setPreviewUrl] = useState(null);
+69:     const [rendering, setRendering] = useState(false);
+70:     const [renderSeconds, setRenderSeconds] = useState(0);
+71:     const [renderError, setRenderError] = useState(null);
+72:     const [confirmClose, setConfirmClose] = useState(false);
+73:     const [playhead, setPlayhead] = useState(0);
+74:     const [showSource, setShowSource] = useState(() => {
+75:         try { return localStorage.getItem(HIDE_SOURCE_KEY) !== '1'; } catch { return true; }
+76:     });
+77:     // Where the source monitor's playhead is, for the transcript to follow.
+78:     const [sourceTime, setSourceTime] = useState(0);
+79:     // Three-point editing, like a Premiere source monitor: mark IN and OUT on
+80:     // the source, then send that range to the clip. Kept as two independent
+81:     // numbers rather than a range so either end can be re-marked on its own.
+82: 
+83: 
+84:     const videoRef = useRef(null);
+85:     const sourceRef = useRef(null);
+86:     const clipTrackRef = useRef(null);
+87:     const sourceTrackRef = useRef(null);
+88:     const dragRef = useRef(null);
+89:     const [ghost, setGhost] = useState(null); // in-progress new segment on the source track
+90: 
+91:     useEffect(() => {
+92:         try { localStorage.setItem(HIDE_SOURCE_KEY, showSource ? '0' : '1'); } catch { /* private mode */ }
+93:     }, [showSource]);
+94: 
+95:     // ---- scrubbing the source monitor ---------------------------------------
+96:     // Dragging on the source track drives this <video>, so the cut is chosen
+97:     // against the picture instead of against numbers. rAF-throttled: a drag
+98:     // fires dozens of pointermoves a second and assigning currentTime on each
+99:     // one makes the element stutter. `pending` also survives a seek issued
+100:     // before the metadata is in, which onLoadedMetadata then applies.
+101:     const seekRef = useRef({ pending: null, raf: 0, timer: 0 });
+102: 
+103:     const applySeek = useCallback(() => {
+104:         if (seekRef.current.raf) cancelAnimationFrame(seekRef.current.raf);
+105:         if (seekRef.current.timer) clearTimeout(seekRef.current.timer);
+106:         seekRef.current.raf = 0;
+107:         seekRef.current.timer = 0;
+108:         const v = sourceRef.current;
+109:         const t = seekRef.current.pending;
+110:         if (!v || t === null) return;
+111:         if (v.readyState === 0) return;          // retried from onLoadedMetadata
+112:         if (!v.paused) v.pause();                // a moving picture cannot be aimed
+113:         try { v.currentTime = Math.max(0, t); } catch { /* seek refused, keep pending */ }
+114:         seekRef.current.pending = null;
+115:     }, []);
+116: 
+117:     const seekSource = useCallback((t) => {
+118:         if (!Number.isFinite(t)) return;
+119:         seekRef.current.pending = t;
+120:         if (seekRef.current.raf || seekRef.current.timer) return;   // one per frame
+121:         seekRef.current.raf = requestAnimationFrame(applySeek);
+122:         // The timer is the recovery path, not a second throttle: a hidden or
+123:         // occluded tab never runs a rAF callback, so a latch waiting only on
+124:         // rAF would deadlock the scrub for the rest of the session. Whichever
+125:         // fires first cancels the other.
+126:         seekRef.current.timer = setTimeout(applySeek, 120);
+127:     }, [applySeek]);
+128: 
+129:     useEffect(() => () => {
+130:         if (seekRef.current.raf) cancelAnimationFrame(seekRef.current.raf);
+131:         if (seekRef.current.timer) clearTimeout(seekRef.current.timer);
+132:     }, []);
+133: 
+134:     // ---- load the EDL -------------------------------------------------------
+135:     useEffect(() => {
+136:         let cancelled = false;
+137:         (async () => {
+138:             try {
+139:                 const data = await fetchEDL(jobId, clipIndex);
+140:                 if (cancelled) return;
+141:                 setEdl(data);
+142:                 dispatch({ type: 'init', segments: data.segments.map((s) => ({ ...s })) });
+143:                 setRenderedSegments(data.segments.map((s) => ({ ...s })));
+144:                 setFraming(data.framing || 'auto');
+145:                 setRenderedFraming(data.framing || 'auto');
+146:                 setReapplyCaptions(true);
+147:                 setPreviewUrl(getApiUrl(`/videos/${jobId}/${data.current_file}`));
+148:             } catch (e) {
+149:                 if (!cancelled) setLoadError(e.detail || e.message || 'could not load the clip recipe');
+150:             }
+151:         })();
+152:         return () => { cancelled = true; };
+153:     }, [jobId, clipIndex]);
+154: 
+155:     const words = useMemo(() => (edl?.words || []), [edl]);
+156:     const sourceAvailable = !!edl?.source?.available;
+157:     const sourceDuration = edl?.source?.duration || 0;
+158:     const canonical = useMemo(() => edl?.canonical_range || { start: 0, end: 0 }, [edl]);
+159:     const limits = edl?.limits || { max_segments: 12, min_segment_seconds: MIN_SEGMENT_SECONDS, max_total_seconds: 180 };
+160:     const minSeg = limits.min_segment_seconds || MIN_SEGMENT_SECONDS;
+161: 
+162:     // The source panel is on screen only when there IS a source and the user
+163:     // has not put it away. An expired source forces the same two-column layout
+164:     // the hide button asks for, so both cases share one code path.
+165:     const sourceOpen = sourceAvailable && showSource;
+166: 
+167:     const total = totalOf(segments);
+168:     const dirty = useMemo(() => {
+169:         if (!renderedSegments) return false;
+170:         return JSON.stringify(segments) !== JSON.stringify(renderedSegments)
+171:             || framing !== renderedFraming;
+172:     }, [segments, renderedSegments, framing, renderedFraming]);
+173: 
+174:     // Trim bounds: with the source gone, cuts must stay inside the range the
+175:     // canonical file was rendered from.
+176:     const bounds = sourceAvailable
+177:         ? { lo: 0, hi: sourceDuration || Infinity }
+178:         : { lo: canonical.start, hi: canonical.end };
+179: 
+180:     const outOfRange = useCallback(
+181:         (seg) => !sourceAvailable && (seg.start < canonical.start - 0.05 || seg.end > canonical.end + 0.05),
+182:         [sourceAvailable, canonical],
+183:     );
+184:     const needsSourcePath = framing !== 'auto'
+185:         || segments.some((s) => s.start < canonical.start - 0.05 || s.end > canonical.end + 0.05);
+186:     const invalidSegments = segments.some(outOfRange);
+187:     const overCaps = segments.length > limits.max_segments || total > limits.max_total_seconds;
+188:     const canRender = !rendering && segments.length > 0 && !invalidSegments && !overCaps
+189:         && segments.every((s) => s.end - s.start >= minSeg)
+190:         && (framing === 'auto' || sourceAvailable);
+191: 
+192:     // ---- helpers ------------------------------------------------------------
+193:     const snapEdge = useCallback((t, kind) => {
+194:         if (!snapToWords || !words.length) return t;
+195:         let best = null;
+196:         for (const w of words) {
+197:             const c = kind === 'start' ? w.s : w.e;
+198:             if (Math.abs(c - t) <= SNAP_WINDOW_SECONDS && (best === null || Math.abs(c - t) < Math.abs(best - t))) best = c;
+199:         }
+200:         return best ?? t;
+201:     }, [snapToWords, words]);
+202: 
+203:     const clampSeg = useCallback((seg) => ({
+204:         start: Math.max(bounds.lo, Math.min(seg.start, seg.end - minSeg)),
+205:         end: Math.min(bounds.hi, Math.max(seg.end, seg.start + minSeg)),
+206:     }), [bounds.lo, bounds.hi, minSeg]);
+207: 
+208:     const setSegment = (index, next, { snap = true } = {}) => {
+209:         const updated = segments.map((s, i) => {
+210:             if (i !== index) return s;
+211:             const seg = { ...s, ...next };
+212:             if (snap) {
+213:                 if (next.start !== undefined) seg.start = snapEdge(seg.start, 'start');
+214:                 if (next.end !== undefined) seg.end = snapEdge(seg.end, 'end');
+215:             }
+216:             return clampSeg(seg);
+217:         });
+218:         dispatch({ type: 'commit', segments: updated, select: index });
+219:     };
+220: 
+221:     const addSegment = () => {
+222:         if (segments.length >= limits.max_segments) return;
+223:         const last = segments[segments.length - 1];
+224:         let start = last ? last.end : bounds.lo;
+225:         let end = start + 10;
+226:         if (end > bounds.hi) { end = bounds.hi; start = Math.max(bounds.lo, end - 10); }
+227:         if (end - start < minSeg) return;
+228:         dispatch({ type: 'commit', segments: [...segments, { start: Math.round(start * 1000) / 1000, end: Math.round(end * 1000) / 1000 }], select: segments.length });
+229:     };
+230: 
+231:     const deleteSegment = (index) => {
+232:         if (segments.length <= 1) return;
+233:         dispatch({ type: 'commit', segments: segments.filter((_, i) => i !== index), select: Math.max(0, index - 1) });
+234:     };
+235: 
+236:     const moveSegment = (index, dir) => {
+237:         const j = index + dir;
+238:         if (j < 0 || j >= segments.length) return;
+239:         const next = segments.slice();
+240:         [next[index], next[j]] = [next[j], next[index]];
+241:         dispatch({ type: 'commit', segments: next, select: j });
+242:     };
+243: 
+244:     const splitSegment = (index) => {
+245:         if (segments.length >= limits.max_segments) return;
+246:         const seg = segments[index];
+247:         if (seg.end - seg.start < minSeg * 2) return;
+248:         let at = seg.start + (seg.end - seg.start) / 2;
+249:         // Cut where the playhead is, when it sits inside this segment. It lives
+250:         // on the current assembly now, so this no longer needs the rendered
+251:         // recipe to still match.
+252:         let offset = 0;
+253:         for (let i = 0; i < segments.length; i += 1) {
+254:             const len = segments[i].end - segments[i].start;
+255:             if (i === index && playhead > offset + minSeg && playhead < offset + len - minSeg) {
+256:                 at = segments[i].start + (playhead - offset);
+257:             }
+258:             offset += len;
+259:         }
+260:         at = snapEdge(at, 'end');
+261:         if (at - seg.start < minSeg || seg.end - at < minSeg) at = seg.start + (seg.end - seg.start) / 2;
+262:         const next = segments.flatMap((s, i) => (i === index
+263:             ? [{ start: s.start, end: Math.round(at * 1000) / 1000 }, { start: Math.round(at * 1000) / 1000, end: s.end }]
+264:             : [s]));
+265:         dispatch({ type: 'commit', segments: next, select: index });
+266:     };
+267: 
+268:     // ---- drag: trim/move handles on both tracks -----------------------------
+269:     // ``edge`` is 'start' | 'end' (trim one boundary) or 'move' (slide the whole
+270:     // segment along the source, keeping its duration).
+271:     const onDragMove = useCallback((e) => {
+272:         const d = dragRef.current;
+273:         if (!d || d.kind) return;   // a ghost or a scrub, not a trim
+274:         const dt = (e.clientX - d.startX) / d.pxPerSec;
+275:         const seg = { ...d.base[d.idx] };
+276:         if (d.edge === 'move') {
+277:             const len = seg.end - seg.start;
+278:             seg.start = Math.max(d.lo, Math.min(seg.start + dt, d.hi - len));
+279:             seg.end = seg.start + len;
+280:         } else if (d.edge === 'start') {
+281:             seg.start = Math.max(d.lo, Math.min(seg.start + dt, seg.end - d.minSeg));
+282:         } else {
+283:             seg.end = Math.min(d.hi, Math.max(seg.end + dt, seg.start + d.minSeg));
+284:         }
+285:         // Source-track drags scrub the monitor to the edge being moved, so
+286:         // the frame on screen IS the frame the cut lands on.
+287:         if (d.scrub) d.seek(d.edge === 'end' ? seg.end : seg.start);
+288:         const next = d.base.map((s, i) => (i === d.idx ? seg : s));
+289:         d.last = { seg, next };
+290:         dispatch({ type: 'preview', segments: next });
+291:     }, []);
+292: 
+293:     const onDragUp = useCallback(() => {
+294:         const d = dragRef.current;
+295:         dragRef.current = null;
+296:         window.removeEventListener('pointermove', onDragMove);
+297:         window.removeEventListener('pointerup', onDragUp);
+298:         window.removeEventListener('pointercancel', onDragUp);
+299:         if (!d || !d.last) return;
+300:         const { seg, next } = d.last;
+301:         const snapped = { ...seg };
+302:         if (d.edge === 'move') {
+303:             const len = seg.end - seg.start;
+304:             const start = Math.max(d.lo, Math.min(d.snap(seg.start, 'start'), d.hi - len));
+305:             snapped.start = start;
+306:             snapped.end = start + len;
+307:         } else if (d.edge === 'start') {
+308:             snapped.start = Math.max(d.lo, Math.min(d.snap(seg.start, 'start'), seg.end - d.minSeg));
+309:         } else {
+310:             snapped.end = Math.min(d.hi, Math.max(d.snap(seg.end, 'end'), seg.start + d.minSeg));
+311:         }
+312:         // Round like every other edit path: the number inputs in the rail show
+313:         // these values, and raw drag arithmetic yields 190.22000000000003.
+314:         const clean = { start: Math.round(snapped.start * 1000) / 1000, end: Math.round(snapped.end * 1000) / 1000 };
+315:         dispatch({ type: 'commit', segments: next.map((s, i) => (i === d.idx ? clean : s)), select: d.idx });
+316:     }, [onDragMove]);
+317: 
+318:     const { startTrimDrag, startGhostDrag } = useDragSegment({
+319:         dragRef,
+320:         segments,
+321:         dispatch,
+322:         bounds,
+323:         minSeg,
+324:         snapEdge,
+325:         seekSource,
+326:         setGhost,
+327:         setMarkIn,
+328:         setMarkOut,
+329:         sourceAvailable,
+330:         sourceDuration,
+331:         sourceTrackRef
+332:     });
+333: 
+334:     // ---- what of this edit the rendered file can already show ---------------
+335:     // The rendered file IS renderedSegments cut and concatenated in order (see
+336:     // perform_recut), so any instant of source still inside one of those ranges
+337:     // exists in the file and can be played straight from it. That is why a cut
+338:     // that only REMOVES material stays previewable: every frame it keeps was
+339:     // already rendered. Only material the last render never saw is missing, and
+340:     // that is what turns red.
+341:     const {
+342:         coverage,
+343:         missingSeconds,
+344:         spanIndexAt,
+345:         clipToRendered,
+346:         renderedToClip,
+347:         hasCovered,
+348:         clampToCovered,
+349:         clipToSource
+350:     } = useEditorTimeline({
+351:         segments,
+352:         renderedSegments,
+353:         framing,
+354:         renderedFraming
+355:     });
+356: 
+357:     // An edit can leave the handle standing where the file no longer reaches.
+358:     useEffect(() => {
+359:         setPlayhead((t) => {
+360:             const clamped = clampToCovered(t, t);
+361:             return clamped === t ? t : clamped;
+362:         });
+363:     }, [clampToCovered]);
+364: 
+365:     const {
+366:         playSpanRef,
+367:         onClipTimeUpdate,
+368:         stopPlayLoop,
+369:         onClipSeeked,
+370:         onClipPlay
+371:     } = useVideoSeek({
+372:         coverage,
+373:         dirty,
+374:         segments,
+375:         setPlayhead,
+376:         videoRef,
+377:         totalOf,
+378:         renderedToClip,
+379:         spanIndexAt
+380:     });
+381: 
+382:     const onScrubMove = useCallback((e) => {
+383:         const d = dragRef.current;
+384:         if (!d || d.kind !== 'scrub') return;
+385:         d.apply(d.at(e.clientX), { path: true });
+386:     }, []);
+387: 
+388:     const onScrubUp = useCallback(() => {
+389:         dragRef.current = null;
+390:         window.removeEventListener('pointermove', onScrubMove);
+391:         window.removeEventListener('pointerup', onScrubUp);
+392:         window.removeEventListener('pointercancel', onScrubUp);
+393:     }, [onScrubMove]);
+394: 
+395:     const startClipScrub = (e) => {
+396:         if (e.button !== undefined && e.button !== 0) return;
+397:         const rect = clipTrackRef.current?.getBoundingClientRect();
+398:         if (!rect || !clipTrackSeconds) return;
+399:         // Same reason as the other tracks: without this Chrome turns the drag
+400:         // into a text selection and then into a native drag.
+401:         e.preventDefault();
+402:         try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* window listeners still fire */ }
+403: 
+404:         // The track can be longer than the clip (its scale is the rendered
+405:         // length), so positions clamp to the clip's own end, not the track's.
+406:         const at = (clientX) => Math.max(0, Math.min(
+407:             total, ((clientX - rect.left) / rect.width) * clipTrackSeconds));
+408:         // Direction of travel decides which wall a red span stops you at, so it
+409:         // has to be the last APPLIED position, not the one at pointerdown.
+410:         let last = playhead;
+411:         const apply = (raw, { path = false } = {}) => {
+412:             const t = clampToCovered(raw, last, { path });
+413:             last = t;
+414:             setPlayhead(t);
+415:             // Not "is the file stale" but "does the file hold THIS instant" —
+416:             // which is what keeps a trim navigable without a re-render.
+417:             const r = clipToRendered(t);
+418:             playSpanRef.current = spanIndexAt(t);
+419:             if (r !== null && videoRef.current) {
+420:                 try { videoRef.current.currentTime = r; } catch { /* not seekable yet */ }
+421:             }
+422:             // The source is the only picture available where the file has none.
+423:             if (sourceOpen) seekSource(clipToSource(t));
+424:         };
+425: 
+426:         apply(at(e.clientX));
+427:         dragRef.current = { kind: 'scrub', at, apply };
+428:         window.addEventListener('pointermove', onScrubMove);
+429:         window.addEventListener('pointerup', onScrubUp);
+430:         window.addEventListener('pointercancel', onScrubUp);
+431:     };
+432: 
+433:     const {
+434:         markIn,
+435:         setMarkIn,
+436:         markOut,
+437:         setMarkOut,
+438:         markHere,
+439:         clearMarks,
+440:         markRange,
+441:         sendToClip
+442:     } = useThreePointEditing({
+443:         sourceRef,
+444:         minSeg,
+445:         selected,
+446:         segments,
+447:         limits,
+448:         dispatch
+449:     });
+450: 
+451:     // ---- keyboard -----------------------------------------------------------
+452:     useEditorShortcuts({
+453:         onClose,
+454:         rendering,
+455:         dirty,
+456:         setConfirmClose,
+457:         dispatch,
+458:         videoRef,
+459:         deleteSegment,
+460:         selected,
+461:         splitSegment,
+462:         sourceOpen,
+463:         markHere,
+464:         sendToClip
+465:     });
+466: 
+467:     // ---- re-render ----------------------------------------------------------
+468:     useEffect(() => {
+469:         if (!rendering) return undefined;
+470:         setRenderSeconds(0);
+471:         const t = setInterval(() => setRenderSeconds((s) => s + 1), 1000);
+472:         return () => clearInterval(t);
+473:     }, [rendering]);
+474: 
+475:     const doRender = async () => {
+476:         if (!canRender) return;
+477:         setRendering(true);
+478:         setRenderError(null);
+479:         try {
+480:             const data = await rerenderClip({
+481:                 jobId,
+482:                 clipIndex,
+483:                 segments: segments.map((s) => ({ start: s.start, end: s.end })),
+484:                 reapply_captions: reapplyCaptions,
+485:                 framing,
+486:             });
+487:             setRenderedSegments(data.recipe.segments.map((s) => ({ ...s })));
+488:             setRenderedFraming(data.framing || 'auto');
+489:             setFraming(data.framing || 'auto');
+490:             dispatch({ type: 'init', segments: data.recipe.segments.map((s) => ({ ...s })) });
+491:             setPreviewUrl(`${getApiUrl(data.new_video_url)}?t=${Date.now()}`);
+492:             onRerendered?.(clipIndex, data);
+493:             refreshMe();
+494:         } catch (e) {
+495:             if (e instanceof QuotaError) {
+496:                 refreshMe();
+497:                 setRenderError(`not enough minutes left (needs ${e.minutesRequired ?? '?'}, ${e.minutesRemaining ?? 0} remaining)`);
+498:             } else {
+499:                 setRenderError(e.message || 're-render failed');
+500:             }
+501:         } finally {
+502:             setRendering(false);
+503:         }
+504:     };
+505: 
+506: 
+507: 
+508:     // ---- render -------------------------------------------------------------
+509:     if (loadError) {
+510:         return (
+511:             <div className="fixed inset-0 z-[110] bg-black/70 flex items-center justify-center p-4 animate-fade" onMouseDown={onClose}>
+512:                 <div className="card p-6 max-w-md" onMouseDown={(e) => e.stopPropagation()}>
+513:                     <p className="eyebrow mb-2">EDITOR · CLIP {clipIndex + 1}</p>
+514:                     <div className="flex items-center gap-2 text-danger text-sm"><AlertCircle size={16} /> {loadError}</div>
+515:                     <button className="btn-ghost mt-5" onClick={onClose}>close</button>
+516:                 </div>
+517:             </div>
+518:         );
+519:     }
+520: 
+521:     if (!edl) {
+522:         return (
+523:             <div className="fixed inset-0 z-[110] bg-paper/90 flex items-center justify-center animate-fade">
+524:                 <div className="flex items-center gap-3 text-muted text-sm lowercase">
+525:                     <Loader2 size={18} className="animate-spin text-brass" /> loading clip recipe…
+526:                 </div>
+527:             </div>
+528:         );
+529:     }
+530: 
+531:     // The track's scale is the RENDERED length (or the current total, whichever
+532:     // is longer), not the current total: normalising to the total made a
+533:     // single-segment clip fill 100% of the track no matter how it was trimmed,
+534:     // so dragging its handle visibly moved nothing (issue #73). Against the
+535:     // rendered length, shortening the clip shortens the bar.
+536:     const clipTrackSeconds = Math.max(total, totalOf(renderedSegments || []), 0.001);
+537:     let runningOffset = 0;
+538:     const blocks = segments.map((s, i) => {
+539:         const left = (runningOffset / clipTrackSeconds) * 100;
+540:         const width = ((s.end - s.start) / clipTrackSeconds) * 100;
+541:         runningOffset += s.end - s.start;
+542:         return { seg: s, i, left, width };
+543:     });
+544: 
+545:     // The source track lives under the source monitor. With no source at all
+546:     // there is no monitor to sit under, so it moves below the clip track: it
+547:     // still explains why trims are pinned to the original range.
+548:     const sourceTrack = (
+549:         <div className="shrink-0 select-none">
+550:             <div className="flex items-center justify-between mb-1.5 gap-3">
+551:                 <p className="readout">
+552:                     SOURCE · {fmt(sourceDuration)}{edl.source.duration_estimated ? ' (EST.)' : ''}
+553:                     {!sourceAvailable && ' · EXPIRED — TRIMS LIMITED TO THE ORIGINAL RANGE'}
+554:                 </p>
+555:                 {sourceAvailable && (
+556:                     <p className="readout hidden xl:block truncate">
+557:                         DRAG EMPTY SPACE TO MARK IN/OUT · BLOCK TO MOVE · EDGES TO TRIM
+558:                     </p>
+559:                 )}
+560:             </div>
+561:             <div
+562:                 ref={sourceTrackRef}
+563:                 onPointerDown={startGhostDrag}
+564:                 className={`relative h-8 rounded-input border overflow-hidden touch-none ${sourceAvailable ? 'bg-paper border-rule cursor-crosshair' : 'bg-paper border-rule opacity-60'}`}
+565:             >
+566:                 {/* canonical range marker */}
+567:                 {sourceDuration > 0 && (
+568:                     <div
+569:                         className="absolute top-0 bottom-0 border-x border-rule2 bg-paper3/60 pointer-events-none"
+570:                         style={{
+571:                             left: `${(canonical.start / sourceDuration) * 100}%`,
+572:                             width: `${((canonical.end - canonical.start) / sourceDuration) * 100}%`,
+573:                         }}
+574:                     />
+575:                 )}
+576:                 {sourceDuration > 0 && segments.map((seg, i) => (
+577:                     <div
+578:                         key={i}
+579:                         // Body drag slides the segment along the source without
+580:                         // changing its duration; the edges trim it.
+581:                         onPointerDown={(e) => startTrimDrag(e, i, 'move', sourceTrackRef.current, sourceDuration)}
+582:                         className={`absolute top-1 bottom-1 rounded-[4px] touch-none cursor-grab active:cursor-grabbing ${i === selected ? 'ring-1 ring-[color:var(--color-accent)]' : ''}`}
+583:                         style={{
+584:                             left: `${(seg.start / sourceDuration) * 100}%`,
+585:                             width: `${Math.max(((seg.end - seg.start) / sourceDuration) * 100, 0.4)}%`,
+586:                             // A short segment on a 14-minute source is a sliver;
+587:                             // without a floor there is nothing left to grab.
+588:                             minWidth: '14px',
+589:                             background: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+590:                         }}
+591:                         title={`#${i + 1} · ${fmt(seg.start)} → ${fmt(seg.end)} — drag to move, edges to trim`}
+592:                     >
+593:                         {/* Capped at a third each so the middle stays grabbable
+594:                             however narrow the block gets. */}
+595:                         <div
+596:                             onPointerDown={(e) => startTrimDrag(e, i, 'start', sourceTrackRef.current, sourceDuration)}
+597:                             className="absolute left-0 top-0 bottom-0 w-1.5 max-w-[33%] touch-none cursor-ew-resize rounded-l-[4px] bg-ink/35"
+598:                         />
+599:                         <div
+600:                             onPointerDown={(e) => startTrimDrag(e, i, 'end', sourceTrackRef.current, sourceDuration)}
+601:                             className="absolute right-0 top-0 bottom-0 w-1.5 max-w-[33%] touch-none cursor-ew-resize rounded-r-[4px] bg-ink/35"
+602:                         />
+603:                     </div>
+604:                 ))}
+605:                 {markRange && sourceDuration > 0 && !ghost && (
+606:                     <div
+607:                         className="absolute inset-y-0 border-x-2 border-brass bg-brass/15 pointer-events-none"
+608:                         style={{
+609:                             left: `${(markRange.start / sourceDuration) * 100}%`,
+610:                             width: `${((markRange.end - markRange.start) / sourceDuration) * 100}%`,
+611:                         }}
+612:                     />
+613:                 )}
+614:                 {/* A lone mark still has to be visible, or setting IN and
+615:                     then hunting for OUT gives no feedback at all. */}
+616:                 {sourceDuration > 0 && !ghost && !markRange && [markIn, markOut].map((t, i) => (
+617:                     t === null ? null : (
+618:                         <div
+619:                             key={i}
+620:                             className="absolute inset-y-0 w-0.5 bg-brass pointer-events-none"
+621:                             style={{ left: `${(t / sourceDuration) * 100}%` }}
+622:                         />
+623:                     )
+624:                 ))}
+625:                 {/* the source monitor's own playhead */}
+626:                 {sourceOpen && sourceDuration > 0 && (
+627:                     <div
+628:                         className="absolute top-0 bottom-0 w-px bg-ink pointer-events-none"
+629:                         style={{ left: `${(Math.min(sourceTime, sourceDuration) / sourceDuration) * 100}%` }}
+630:                     />
+631:                 )}
+632:                 {ghost && sourceDuration > 0 && (
+633:                     <div
+634:                         className="absolute top-1 bottom-1 rounded-[4px] bg-ink/40 border border-dashed border-ink pointer-events-none"
+635:                         style={{
+636:                             left: `${(ghost.start / sourceDuration) * 100}%`,
+637:                             width: `${((ghost.end - ghost.start) / sourceDuration) * 100}%`,
+638:                         }}
+639:                     />
+640:                 )}
+641:             </div>
+642:             <div className="flex justify-between mt-1">
+643:                 <span className="readout">0:00</span>
+644:                 <span className="readout">{fmt(sourceDuration / 2)}</span>
+645:                 <span className="readout">{fmt(sourceDuration)}</span>
+646:             </div>
+647:         </div>
+648:     );
+649: 
+650:     return (
+651:         <div className="fixed inset-0 z-[110] bg-paper flex flex-col animate-fade">
+652:             {/* header */}
+653:             <EditorHeader
+654:                 clipIndex={clipIndex}
+655:                 clipTitle={clipTitle}
+656:                 total={total}
+657:                 needsSourcePath={needsSourcePath}
+658:                 edl={edl}
+659:                 sourceAvailable={sourceAvailable}
+660:                 showSource={showSource}
+661:                 setShowSource={setShowSource}
+662:                 confirmClose={confirmClose}
+663:                 setConfirmClose={setConfirmClose}
+664:                 rendering={rendering}
+665:                 dirty={dirty}
+666:                 onClose={onClose}
+667:             />
+668: 
+669:             {/* main — three columns above xl, stacked below. select-none/touch-none
+670:                 keep the browser from turning a drag on a track into a text
+671:                 selection or a page pan. */}
+672:             <div className="flex-1 min-h-0 flex flex-col xl:flex-row gap-4 px-4 sm:px-6 py-4 overflow-y-auto xl:overflow-hidden select-none">
+673: 
+674:                 {/* ---- column 1 · source ---- */}
+675:                 {sourceOpen && (
+676:                     <SourceColumn
+677:                         edl={edl}
+678:                         sourceRef={sourceRef}
+679:                         applySeek={applySeek}
+680:                         setSourceTime={setSourceTime}
+681:                         sourceTrackNode={sourceTrack}
+682:                         markIn={markIn}
+683:                         markOut={markOut}
+684:                         markRange={markRange}
+685:                         minSeg={minSeg}
+686:                         markHere={markHere}
+687:                         clearMarks={clearMarks}
+688:                         sendToClip={sendToClip}
+689:                         selected={selected}
+690:                         segmentsLength={segments.length}
+691:                         maxSegments={limits.max_segments}
+692:                         words={words}
+693:                         segments={segments}
+694:                         sourceTime={sourceTime}
+695:                         seekSource={seekSource}
+696:                         setSegment={setSegment}
+697:                     />
+698:                 )}
+699: 
+700:                 {/* ---- column 2 · program ---- */}
+701:                 {/* Sized to the 9:16 preview plus enough track to aim with, rather
+702:                     than an equal share: a wider column here is just black beside a
+703:                     height-bound video, and that width is worth more to the source.
+704:                     With the source away it takes everything, which is what gives
+705:                     the clip track its full precision back. */}
+706:                 <PreviewColumn
+707:                     sourceOpen={sourceOpen}
+708:                     dirty={dirty}
+709:                     missingSeconds={missingSeconds}
+710:                     previewUrl={previewUrl}
+711:                     videoRef={videoRef}
+712:                     onClipTimeUpdate={onClipTimeUpdate}
+713:                     onClipSeeked={onClipSeeked}
+714:                     onClipPlay={onClipPlay}
+715:                     stopPlayLoop={stopPlayLoop}
+716:                     sourceAvailable={sourceAvailable}
+717:                     sourceTrackNode={sourceTrack}
+718:                     clipTrackNode={
+719:                         <div className="shrink-0 select-none">
+720:                             <div className="flex items-center justify-between mb-1.5 gap-3">
+721:                                 <p className="readout">CORTE · {fmt(total)}</p>
+722:                                 {dirty && (
+723:                                     <p className="readout truncate">
+724:                                         {missingSeconds > COVERAGE_EPSILON
+725:                                             ? `VERMELHO · ${fmt(missingSeconds)} AINDA NÃO RENDERIZADO`
+726:                                             : 'PRÉVIA DA EDIÇÃO'}
+727:                                     </p>
+728:                                 )}
+729:                             </div>
+730:                             <div
+731:                                 ref={clipTrackRef}
+732:                                 onPointerDown={startClipScrub}
+733:                                 className="relative h-12 rounded-input bg-paper border border-rule overflow-hidden touch-none cursor-pointer"
+734:                             >
+735:                                 {blocks.map(({ seg, i, left, width }) => (
+736:                                     <div
+737:                                         key={i}
+738:                                         onPointerDown={() => dispatch({ type: 'select', index: i })}
+739:                                         className={`absolute top-1 bottom-1 rounded-[6px] border ${i === selected ? 'border-[color:var(--color-accent)]' : 'border-transparent'} ${outOfRange(seg) ? 'border-[color:var(--color-danger)]' : ''}`}
+740:                                         style={{ left: `${left}%`, width: `${width}%`, background: `color-mix(in oklab, ${SEGMENT_COLORS[i % SEGMENT_COLORS.length]} 28%, transparent)` }}
+741:                                     >
+742:                                         <span className="absolute inset-0 flex items-center justify-center readout pointer-events-none select-none">
+743:                                             #{i + 1} · {fmt(seg.end - seg.start)}
+744:                                         </span>
+745:                                         {/* trim handles */}
+746:                                         <div
+747:                                             onPointerDown={(e) => startTrimDrag(e, i, 'start', clipTrackRef.current, clipTrackSeconds)}
+748:                                             className="absolute left-0 top-0 bottom-0 w-2 touch-none cursor-ew-resize rounded-l-[6px]"
+749:                                             style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
+750:                                         />
+751:                                         <div
+752:                                             onPointerDown={(e) => startTrimDrag(e, i, 'end', clipTrackRef.current, clipTrackSeconds)}
+753:                                             className="absolute right-0 top-0 bottom-0 w-2 touch-none cursor-ew-resize rounded-r-[6px]"
+754:                                             style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
+755:                                         />
+756:                                     </div>
+757:                                 ))}
+758:                                 {/* Render status, as an NLE draws it: red is material the
+759:                                     last render never saw, so there is no frame to show
+760:                                     until it is rendered. Everything else plays straight
+761:                                     out of the existing file. */}
+762:                                 {dirty && coverage.map((sp, i) => (
+763:                                     <div
+764:                                         key={i}
+765:                                         className={`absolute top-0 h-1 pointer-events-none ${
+766:                                             sp.rendered === null ? 'bg-danger' : 'bg-ok/50'}`}
+767:                                         style={{
+768:                                             left: `${(sp.start / clipTrackSeconds) * 100}%`,
+769:                                             width: `${((sp.end - sp.start) / clipTrackSeconds) * 100}%`,
+770:                                         }}
+771:                                     />
+772:                                 ))}
+773:                                 {/* A handle, not a hairline: the same solid, grabbable
+774:                                     shape the source track uses, so this reads as
+775:                                     something you drive rather than a marker that
+776:                                     happens to move. No handler of its own — the
+777:                                     pointerdown bubbles to the track, which already
+778:                                     scrubs from the pointer position. */}
+779:                                 <div
+780:                                     title="arraste para navegar pelo corte"
+781:                                     className="absolute top-1 bottom-1 w-2.5 -ml-[5px] rounded-[4px] bg-ink border border-paper cursor-grab active:cursor-grabbing"
+782:                                     style={{ left: `${(Math.min(playhead, clipTrackSeconds) / clipTrackSeconds) * 100}%` }}
+783:                                 />
+784:                             </div>
+785:                         </div>
+786:                     }
+787:                 />
+788: 
+789:                 {/* ---- column 3 · controls ---- */}
+790:                 <SidebarControls
+791:                     segments={segments}
+792:                     selected={selected}
+793:                     statePastLength={state.past.length}
+794:                     stateFutureLength={state.future.length}
+795:                     limits={limits}
+796:                     dispatch={dispatch}
+797:                     setSegment={setSegment}
+798:                     sourceOpen={sourceOpen}
+799:                     seekSource={seekSource}
+800:                     moveSegment={moveSegment}
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

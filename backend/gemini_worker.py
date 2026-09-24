@@ -255,6 +255,14 @@ Rules:
   work with prior context score low.
 - Prefer windows with strong hooks, conflict, surprise, outrage, emotion,
   novelty, big numbers, or a clear payoff.
+- STORY-ARC BONUS: if a window tells a COMPLETE narrative story — meaning it
+  has a clear setup (context/beginning), a conflict or tension (problem,
+  challenge, unexpected turn), AND a resolution or payoff (lesson, outcome,
+  transformation) — add 15 to 25 points to its score. Story-driven clips
+  (2–3 minutes) that feel like a mini-documentary or personal anecdote
+  outperform raw highlight clips on TikTok saves and shares. A window does
+  not need to be short to score high: a rich 2-minute story arc beats a
+  30-second talking-head any day.
 - Ignore weak filler, housekeeping, outros, rambling transitions, and
   low-signal padding unless there is an obvious hook or payoff.
 
@@ -275,6 +283,7 @@ Return only:
   ]
 }}
 """
+
 
 DETAIL_PROMPT_TEMPLATE = """
 You are a senior short-form video editor.
@@ -306,6 +315,20 @@ CLIP RULES:
   story, or land the same joke — even across different windows. Pick the
   stronger one and drop the other. Two clips on the same broad topic are fine
   as long as each lands its own moment.
+- COMPLETE MESSAGE — END ON A FULL SENTENCE: the `end` timestamp MUST land
+  after the speaker finishes a complete thought. Never end the clip mid-clause,
+  mid-phrase, or on a conjunction/filler word (e.g. "and", "because", "so",
+  "mas", "porque", "então"). Scan forward from your intended cut point until
+  you find the next sentence-ending punctuation (. ! ? …) and place the cut
+  THERE. It is always better to run 2–3 seconds longer than to leave the viewer
+  hanging on a half-sentence. The title and the hook text you write must reflect
+  the FULL message delivered inside the clip boundaries you choose.
+- STORY-ARC CLIPS: if the candidate window contains a narrative arc (a personal
+  story, a challenge overcome, a before-and-after transformation), prefer ONE
+  clip that spans the FULL arc (setup → conflict → resolution) rather than
+  splitting it into fragments. These "mini-documentary" clips (90–{max_secs:g}s)
+  generate significantly more saves and shares than short highlights. Keep the
+  whole story intact.
 
 COPY RULES:
 - `predicted_score`: honest 0-100 estimate of viral potential.
@@ -462,6 +485,7 @@ def _config_for_strategy(strategy: str, mode: str, model_name: str) -> genai_typ
     kwargs = {
         "response_mime_type": "application/json",
         "candidate_count": 1,
+        "automatic_function_calling": genai_types.AutomaticFunctionCallingConfig(disable=True)
     }
     if strategy == "strict-json":
         kwargs["temperature"] = 0.7 if creative else 0.1

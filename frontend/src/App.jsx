@@ -283,6 +283,7 @@ function App() {
             setReframingClip={setReframingClip}
             projectState={projectState}
             handleClipStateChange={handleClipStateChange}
+            onRerendered={handleClipRerendered}
             durableClips={durableClips}
             apiKey={apiKey}
             handleClipPlay={handleClipPlay}

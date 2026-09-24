@@ -33,6 +33,33 @@ class VideoEditor:
             or "gemini-3.1-flash-lite"
         )
 
+    def _generate_with_retry(self, model, contents, config, max_retries=3):
+        """Helper to run generate_content with transient error backoff."""
+        # Disable automatic function calling to suppress the SDK warning
+        # "Direct use of automatic function calling (AFC) in Models.generate_content..."
+        if config and hasattr(config, "automatic_function_calling"):
+            config.automatic_function_calling = types.AutomaticFunctionCallingConfig(disable=True)
+            
+        for attempt in range(1, max_retries + 1):
+            try:
+                return self.client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=config,
+                )
+            except Exception as e:
+                msg = str(e).lower()
+                transient = any(tok in msg for tok in (
+                    '503', 'unavailable', '429', 'resource_exhausted',
+                    '500', 'internal', 'overloaded', 'deadline',
+                    'empty response', 'timeout', 'reset', 'refused'
+                ))
+                if attempt == max_retries or not transient:
+                    raise
+                wait = 2 * attempt
+                print(f"⚠️ Gemini API transient error: {e}. Retrying in {wait}s (attempt {attempt}/{max_retries})...")
+                time.sleep(wait)
+
     def upload_video(self, video_path):
         """Uploads video to Gemini File API."""
         print(f"📤 Uploading {video_path} to Gemini...")
@@ -147,7 +174,7 @@ class VideoEditor:
                 response_schema=EditPlan,
             )
         try:
-            response = self.client.models.generate_content(
+            response = self._generate_with_retry(
                 model=self.model_name,
                 contents=[video_file_obj, prompt],
                 config=config,
@@ -156,7 +183,7 @@ class VideoEditor:
             if getattr(config, "media_resolution", None) is None:
                 raise
             print(f"⚠️ media_resolution=low rejected ({e}); retrying with defaults...")
-            response = self.client.models.generate_content(
+            response = self._generate_with_retry(
                 model=self.model_name,
                 contents=[video_file_obj, prompt],
                 config=types.GenerateContentConfig(
@@ -237,7 +264,7 @@ class VideoEditor:
         """
 
         print("🤖 Asking Gemini for Remotion effects config...")
-        response = self.client.models.generate_content(
+        response = self._generate_with_retry(
             model=self.model_name,
             contents=[video_file_obj, prompt],
             config=types.GenerateContentConfig(
@@ -402,7 +429,7 @@ class VideoEditor:
         Output JSON only: {{"filter_string": "..."}}
         """
         try:
-            response = self.client.models.generate_content(
+            response = self._generate_with_retry(
                 model=self.model_name,
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),

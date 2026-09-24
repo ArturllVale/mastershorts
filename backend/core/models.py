@@ -62,6 +62,19 @@ class RerenderRequest(BaseModel):
     framing: Optional[str] = None
 
 
+class ExtendClipRequest(BaseModel):
+    job_id: str
+    clip_index: int
+    extra_start_secs: float = 5.0
+    extra_end_secs: float = 5.0
+    reapply_captions: bool = True
+
+
+class FixSplitClipRequest(BaseModel):
+    job_id: str
+    clip_index: int
+    reapply_captions: bool = True
+
 class ReframeRequest(BaseModel):
     job_id: str
     clip_index: int

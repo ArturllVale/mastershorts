@@ -170,3 +170,45 @@ export async function reframeClip(payload) {
     body: payload,
   });
 }
+
+/**
+ * Extends a clip by prepending/appending extra seconds to its segments.
+ *
+ * @param {object} params - { job_id, clip_index, extra_start_secs, extra_end_secs, reapply_captions }
+ * @returns {Promise<object>} { new_video_url, start, end, recipe, ... }
+ */
+export async function extendClip({ job_id, clip_index, extra_start_secs = 5, extra_end_secs = 5, reapply_captions = true }) {
+  const res = await apiFetch('/api/clip/extend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_id, clip_index, extra_start_secs, extra_end_secs, reapply_captions }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    try { throw new Error(JSON.parse(errText).detail || errText); }
+    catch { throw new Error(errText); }
+  }
+  return res.json();
+}
+
+/**
+ * Re-renders a clip forcing the SPLIT (two-speaker stacked) framing.
+ * Keeps the existing segments/cut unchanged.
+ *
+ * @param {object} params - { job_id, clip_index, reapply_captions }
+ * @returns {Promise<object>} { new_video_url, ... }
+ */
+export async function fixSplitClip({ job_id, clip_index, reapply_captions = true }) {
+  const res = await apiFetch('/api/clip/fix-split', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ job_id, clip_index, reapply_captions }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    try { throw new Error(JSON.parse(errText).detail || errText); }
+    catch { throw new Error(errText); }
+  }
+  return res.json();
+}
+

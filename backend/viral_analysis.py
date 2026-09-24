@@ -8,7 +8,10 @@ from google.genai import types as genai_types
 
 import gemini_worker
 import llm_backend
-from clip_selection import build_transcript_windows, clip_count_targets, clip_duration_bounds, snap_clip_to_words, trim_to_best
+from clip_selection import (build_transcript_windows, clip_count_targets,
+                            clip_duration_bounds, snap_clip_to_words,
+                            snap_to_sentence_end, classify_story_arc,
+                            trim_to_best)
 
 def transcribe_video(video_path):
     print("🎙️ Iniciando transcrição do áudio...", flush=True)
@@ -48,6 +51,7 @@ def _run_gemini_stage(client, model_name, prompt, schema):
     config = None if use_local else genai_types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=schema,
+        automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True)
     )
     
     if use_local:
@@ -255,6 +259,31 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
             scored.sort(key=lambda w: w.get("score", 0), reverse=True)
             target = max(3, min(10, int(video_duration // 90) + 2))
             by_id = {w["id"]: w for w in windows}
+
+            # --- Story-arc annotation ----------------------------------------
+            # Run the lightweight heuristic over EVERY window (not just the
+            # shortlist) so story windows get their score bonus before the
+            # shortlist is cut.  The bonus is capped at 30 inside classify_story_arc
+            # so it can never override the model's quality signal entirely, but it
+            # is enough to pull a rich narrative past a plain talking-head moment.
+            for win in windows:
+                arc = classify_story_arc(win.get("text", ""))
+                win["_arc"] = arc
+                if arc["has_story"]:
+                    print(f"   📖 Story arc in {win['id']}: {arc['arc_reason']}")
+
+            # Merge the story-arc bonus into scored list.
+            scored_bonus = {w["id"]: arc["arc_score"]
+                            for w in windows
+                            for arc in [w.get("_arc", {})]}
+            for w in scored:
+                bonus = scored_bonus.get(w["id"], 0)
+                if bonus:
+                    w["score"] = min(100, w.get("score", 0) + bonus)
+            # Re-sort with bonuses applied.
+            scored.sort(key=lambda w: w.get("score", 0), reverse=True)
+            # -----------------------------------------------------------------
+
             shortlist = [by_id[w["id"]] for w in scored[:target] if w.get("id") in by_id]
             if not shortlist: shortlist = windows[:target]
 
@@ -330,9 +359,26 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
             s.setdefault("viral_hook_text", "")
 
         for s in shorts:
+            # Pass 1: snap to the nearest real word boundary.
             ns, ne = snap_clip_to_words(s.get("start", 0), s.get("end", 0), words, video_duration,
                                         min_duration=min_secs, max_duration=max_secs)
+            # Pass 2: advance the end to the next sentence boundary so the clip
+            # never terminates mid-thought (e.g. "…and so the reason is—").
+            ns, ne = snap_to_sentence_end(ns, ne, words, video_duration,
+                                          max_duration=max_secs)
             s["start"], s["end"] = ns, ne
+
+            # Propagate story-arc label if the source window was classified as one.
+            if not s.get("arc_label"):
+                win_id = s.get("source_window_id", "")
+                # windows list is only available in the two-pass branch; skip silently otherwise.
+                win_arc = next(
+                    (w.get("_arc", {}) for w in locals().get("windows", []) if w.get("id") == win_id),
+                    {}
+                )
+                if win_arc.get("has_story"):
+                    s["arc_label"] = win_arc.get("arc_label", "story-arc")
+                    s["arc_reason"] = win_arc.get("arc_reason", "")
 
         from clip_metadata import clean_or_generate_clip_metadata
         import concurrent.futures
@@ -453,6 +499,7 @@ def _compute_visual_clips(video_path, video_duration, language="en"):
         config = genai_types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=gemini_worker.VisualResponse,
+            automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True)
         )
         response = client.models.generate_content(
             model=model_name, contents=[file_upload, prompt], config=config)

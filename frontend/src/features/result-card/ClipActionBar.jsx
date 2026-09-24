@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scissors, Crosshair, Wand2, Sparkles, Type, Loader2, Download, Share2 } from 'lucide-react';
+import { LayoutPanelTop, Crosshair, Maximize2, Sparkles, Type, Loader2, Download } from 'lucide-react';
 import { watermarkNoticeDismissed } from '../../components/WatermarkModal';
 
 export default function ClipActionBar({
@@ -8,6 +8,8 @@ export default function ClipActionBar({
     onReframeClip,
     handleAutoEdit,
     isEditing,
+    handleFixSplit,
+    isFixingSplit,
     setShowSubtitleModal,
     isSubtitling,
     setShowHookModal,
@@ -23,17 +25,6 @@ export default function ClipActionBar({
             {/* Studio Tools Bar */}
             <div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
-                    {onEditClip && (
-                        <button
-                            onClick={() => onEditClip(index)}
-                            title="Aparar & Cortar Segmentos"
-                            className="flex flex-col items-center justify-center py-1.5 sm:py-2 px-1 rounded-input border border-rule bg-paper hover:bg-paper3 hover:border-rule2 text-ink2 hover:text-ink transition-all duration-150 group min-w-0 shadow-sm"
-                        >
-                            <Scissors size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />
-                            <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">Cortar</span>
-                        </button>
-                    )}
-
                     {onReframeClip && (
                         <button
                             onClick={() => onReframeClip(index)}
@@ -46,13 +37,31 @@ export default function ClipActionBar({
                     )}
 
                     <button
-                        onClick={handleAutoEdit}
-                        disabled={isEditing}
-                        title="Aplicar Zooms e Cortes Dinâmicos com IA"
+                        onClick={handleFixSplit}
+                        disabled={isFixingSplit}
+                        title="Corrigir Split Screen — re-renderiza com tela dividida entre os dois oradores"
                         className="flex flex-col items-center justify-center py-1.5 sm:py-2 px-1 rounded-input border border-rule bg-paper hover:bg-paper3 hover:border-rule2 text-ink2 hover:text-ink transition-all duration-150 group disabled:opacity-40 min-w-0 shadow-sm"
                     >
-                        {isEditing ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" /> : <Wand2 size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
-                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">{isEditing ? 'Editando…' : 'Edição IA'}</span>
+                        {isFixingSplit
+                            ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" />
+                            : <LayoutPanelTop size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
+                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">
+                            {isFixingSplit ? 'Dividindo…' : 'Split'}
+                        </span>
+                    </button>
+
+                    <button
+                        onClick={handleAutoEdit}
+                        disabled={isEditing}
+                        title="Extender o clipe — adiciona mais contexto antes e depois"
+                        className="flex flex-col items-center justify-center py-1.5 sm:py-2 px-1 rounded-input border border-rule bg-paper hover:bg-paper3 hover:border-rule2 text-ink2 hover:text-ink transition-all duration-150 group disabled:opacity-40 min-w-0 shadow-sm"
+                    >
+                        {isEditing
+                            ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" />
+                            : <Maximize2 size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
+                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">
+                            {isEditing ? 'Extendendo…' : 'Extender'}
+                        </span>
                     </button>
 
                     <button
@@ -61,8 +70,12 @@ export default function ClipActionBar({
                         title="Legendas Animadas Personalizadas"
                         className="flex flex-col items-center justify-center py-1.5 sm:py-2 px-1 rounded-input border border-rule bg-paper hover:bg-paper3 hover:border-rule2 text-ink2 hover:text-ink transition-all duration-150 group disabled:opacity-40 min-w-0 shadow-sm"
                     >
-                        {isSubtitling ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" /> : <Type size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
-                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">{isSubtitling ? 'Gerando…' : 'Legendas'}</span>
+                        {isSubtitling
+                            ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" />
+                            : <Type size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
+                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">
+                            {isSubtitling ? 'Gerando…' : 'Legendas'}
+                        </span>
                     </button>
 
                     <button
@@ -71,8 +84,12 @@ export default function ClipActionBar({
                         title="Título Gancho Viral nos primeiros segundos"
                         className="flex flex-col items-center justify-center py-1.5 sm:py-2 px-1 rounded-input border border-rule bg-paper hover:bg-paper3 hover:border-rule2 text-ink2 hover:text-ink transition-all duration-150 group disabled:opacity-40 min-w-0 shadow-sm"
                     >
-                        {isHooking ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" /> : <Sparkles size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
-                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">{isHooking ? 'Inserindo…' : 'Gancho'}</span>
+                        {isHooking
+                            ? <Loader2 size={14} className="animate-spin text-violet mb-1 shrink-0" />
+                            : <Sparkles size={14} className="text-muted group-hover:text-violet transition-colors mb-1 shrink-0" />}
+                        <span className="text-[10px] sm:text-[11px] font-medium leading-tight truncate w-full text-center">
+                            {isHooking ? 'Inserindo…' : 'Gancho'}
+                        </span>
                     </button>
                 </div>
             </div>

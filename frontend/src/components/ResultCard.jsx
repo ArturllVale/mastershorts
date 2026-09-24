@@ -13,7 +13,7 @@ import SegmentedControl from './ui/SegmentedControl';
 import WatermarkModal from './WatermarkModal';
 import { useAuth } from '../contexts/AuthContext';
 import { renderInBrowser } from '../lib/renderInBrowser';
-import { applySubtitles, applyHook, autoEditClip, fetchClipTranscript, removeSubtitles } from '../services/clipService';
+import { applySubtitles, applyHook, extendClip, fixSplitClip, fetchClipTranscript, removeSubtitles } from '../services/clipService';
 import { useStreamDownload } from '../hooks/useStreamDownload';
 import { useSocialPost } from '../hooks/useSocialPost';
 import { useDurableVideo } from '../hooks/useDurableVideo';
@@ -42,7 +42,7 @@ function formatDuration(clip) {
     return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 }
 
-export default function ResultCard({ clip, index, rankIndex, jobId, durable, uploadPostKey, uploadUserId, geminiApiKey, isManaged, onPlay, onPause, onBulkSubtitle, clipCount = 1, bulkProgress, initialState = null, onStateChange, connectedPlatforms = null, onConnectSocials, onEditClip = null, onReframeClip = null }) {
+export default function ResultCard({ clip, index, rankIndex, jobId, durable, uploadPostKey, uploadUserId, geminiApiKey, isManaged, onPlay, onPause, onBulkSubtitle, clipCount = 1, bulkProgress, initialState = null, onStateChange, connectedPlatforms = null, onConnectSocials, onEditClip = null, onReframeClip = null, onRerendered }) {
     const [showModal, setShowModal] = useState(false);
     const [showDescModal, setShowDescModal] = useState(false);
     const [showSubtitleModal, setShowSubtitleModal] = useState(false);
@@ -111,6 +111,7 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
     };
 
     const [isEditing, setIsEditing] = useState(false);
+    const [isFixingSplit, setIsFixingSplit] = useState(false);
     const [isSubtitling, setIsSubtitling] = useState(false);
     const [isHooking, setIsHooking] = useState(false);
     const [showHookModal, setShowHookModal] = useState(false);
@@ -191,67 +192,47 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showModal, clip]);
 
+    // "Extender": pads extra seconds before/after the clip and re-renders.
     const handleAutoEdit = async () => {
         setIsEditing(true);
         setEditError(null);
         try {
-            const apiKey = geminiApiKey || localStorage.getItem('gemini_key');
-
-            // Managed (paid) users get the Gemini key resolved server-side;
-            // only BYOK/self-host needs a local key.
-            if (!apiKey && !isManaged) {
-                throw new Error("Gemini API Key is missing. Please set it in Settings.");
-            }
-            const geminiHeaders = apiKey ? { 'X-Gemini-Key': apiKey } : {};
-
-            // Try autoEditClip service
-            if (!hasServerBurns) {
-                const result = await autoEditClip({
+            let result = await extendClip({
+                job_id: jobId,
+                clip_index: index,
+                extra_start_secs: 5,
+                extra_end_secs: 5,
+                reapply_captions: !!activeLayers.subtitles || hasServerBurns,
+            });
+            
+            // If the clip had a hook, reapply it to the new extended video
+            if (result.new_video_url && clip.auto_hook) {
+                const hookData = await applyHook({
                     job_id: jobId,
                     clip_index: index,
-                    input_filename: serverVideoFile,
-                    geminiHeaders
+                    text: clip.auto_hook.text,
+                    position: clip.auto_hook.position || 'top',
+                    size: clip.auto_hook.size || 'M',
+                    style: clip.auto_hook.style || 'classic',
+                    duration_seconds: clip.auto_hook.duration_seconds || null,
+                    input_filename: result.new_video_url.split('/').pop()
                 });
-
-                if (result.type === 'effects') {
-                    const newLayers = { ...activeLayers, effects: result.data.effects };
-                    setActiveLayers(newLayers);
-                    const blobUrl = await renderInBrowser({
-                        videoUrl: originalVideoUrl,
-                        durationInSeconds: clipDuration,
-                        subtitles: newLayers.subtitles,
-                        hook: newLayers.hook,
-                        effects: newLayers.effects,
-                    });
-                    setCurrentVideoUrl(blobUrl);
-                    if (videoRef.current) videoRef.current.load();
-                    return;
-                } else if (result.type === 'edit') {
-                    if (result.data.new_video_url) {
-                        setCurrentVideoUrl(getApiUrl(result.data.new_video_url));
-                        setServerVideoFile(result.data.new_video_url.split('/').pop());
-                        if (videoRef.current) {
-                            videoRef.current.load();
-                        }
-                    }
-                }
-            } else {
-                // Legacy FFmpeg route (server-burned files can't use Remotion effects safely yet)
-                const result = await autoEditClip({
-                    job_id: jobId,
-                    clip_index: index,
-                    input_filename: serverVideoFile,
-                    geminiHeaders
-                });
-                if (result.type === 'edit' && result.data.new_video_url) {
-                    setCurrentVideoUrl(getApiUrl(result.data.new_video_url));
-                    setServerVideoFile(result.data.new_video_url.split('/').pop());
-                    if (videoRef.current) {
-                        videoRef.current.load();
-                    }
+                if (hookData.new_video_url) {
+                    result = { ...result, new_video_url: hookData.new_video_url };
                 }
             }
-
+            
+            if (result.new_video_url) {
+                onRerendered?.(index, result);
+                setCurrentVideoUrl(getApiUrl(result.new_video_url));
+                setServerVideoFile(result.new_video_url.split('/').pop());
+                if (videoRef.current) videoRef.current.load();
+                
+                // Fetch transcript again to update duration
+                fetchClipTranscript(jobId, index).then(data => {
+                    if (data && data.durationSec) setClipDuration(data.durationSec);
+                }).catch(() => {});
+            }
         } catch (e) {
             setEditError(e.message);
             setTimeout(() => setEditError(null), 5000);
@@ -259,6 +240,54 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
             setIsEditing(false);
         }
     };
+
+    // "Split": re-renders the existing cut forcing the two-speaker stacked layout.
+    const handleFixSplit = async () => {
+        setIsFixingSplit(true);
+        setEditError(null);
+        try {
+            let result = await fixSplitClip({
+                job_id: jobId,
+                clip_index: index,
+                reapply_captions: !!activeLayers.subtitles || hasServerBurns,
+            });
+            
+            // Reapply hook if it existed
+            if (result.new_video_url && clip.auto_hook) {
+                const hookData = await applyHook({
+                    job_id: jobId,
+                    clip_index: index,
+                    text: clip.auto_hook.text,
+                    position: clip.auto_hook.position || 'top',
+                    size: clip.auto_hook.size || 'M',
+                    style: clip.auto_hook.style || 'classic',
+                    duration_seconds: clip.auto_hook.duration_seconds || null,
+                    input_filename: result.new_video_url.split('/').pop()
+                });
+                if (hookData.new_video_url) {
+                    result = { ...result, new_video_url: hookData.new_video_url };
+                }
+            }
+            
+            if (result.new_video_url) {
+                onRerendered?.(index, result);
+                setCurrentVideoUrl(getApiUrl(result.new_video_url));
+                setServerVideoFile(result.new_video_url.split('/').pop());
+                if (videoRef.current) videoRef.current.load();
+                
+                // Fetch transcript again to update duration (just in case framing affects it minimally)
+                fetchClipTranscript(jobId, index).then(data => {
+                    if (data && data.durationSec) setClipDuration(data.durationSec);
+                }).catch(() => {});
+            }
+        } catch (e) {
+            setEditError(e.message);
+            setTimeout(() => setEditError(null), 5000);
+        } finally {
+            setIsFixingSplit(false);
+        }
+    };
+
 
     // Clips are captioned by default, so "no captions" has to be reachable.
     // Nothing is re-encoded: the server still holds the clean file next to the
@@ -617,6 +646,8 @@ export default function ResultCard({ clip, index, rankIndex, jobId, durable, upl
                     onReframeClip={onReframeClip}
                     handleAutoEdit={handleAutoEdit}
                     isEditing={isEditing}
+                    handleFixSplit={handleFixSplit}
+                    isFixingSplit={isFixingSplit}
                     setShowSubtitleModal={setShowSubtitleModal}
                     isSubtitling={isSubtitling}
                     setShowHookModal={setShowHookModal}

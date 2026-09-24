@@ -48,7 +48,7 @@ from hooks import add_hook_to_video
 from ffmpeg_utils import ensure_yuv420p
 
 router = APIRouter()
-_FRAMING_STRATEGIES = {"auto": None, "full": "WIDE", "track": "TRACK"}
+_FRAMING_STRATEGIES = {"auto": None, "full": "WIDE", "track": "TRACK", "split": "SPLIT"}
 _rerender_locks: Dict[str, asyncio.Lock] = {}
 _scenes_locks: Dict[str, asyncio.Lock] = {}
 
@@ -428,6 +428,91 @@ async def rerender_clip(req: RerenderRequest, request: Request):
         return await _rerender_locked(req, request, job)
 
 
+@router.post("/api/clip/extend")
+async def extend_clip_endpoint(req: ExtendClipRequest, request: Request):
+    """Extend the clip boundaries by extra seconds and re-render."""
+    await require_managed_entitlement(request)
+    await _ensure_job_files(req.job_id, request)
+    if req.job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = jobs[req.job_id]
+    await _assert_job_owner(request, job)
+
+    lock = _rerender_locks.setdefault(req.job_id, asyncio.Lock())
+    async with lock:
+        output_dir = os.path.join(OUTPUT_DIR, req.job_id)
+        json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
+        if not json_files:
+            raise HTTPException(status_code=404, detail="Metadata not found")
+        data = await read_json_async(json_files[0])
+        clips = data.get('shorts', [])
+        if req.clip_index < 0 or req.clip_index >= len(clips):
+            raise HTTPException(status_code=404, detail="Clip not found")
+        clip = clips[req.clip_index]
+        
+        recipe = clip.get('recipe')
+        segments_data = recipe.get('segments') if recipe else None
+        if not segments_data:
+            segments_data = [{"start": clip.get('start', 0.0), "end": clip.get('end', 30.0)}]
+            
+        new_segments = [RerenderSegment(start=s['start'], end=s['end']) for s in segments_data]
+        if new_segments:
+            new_segments[0].start = max(0.0, new_segments[0].start - req.extra_start_secs)
+            source_path = _locate_source(req.job_id)
+            source_duration = _source_duration_seconds(source_path) if source_path else None
+            max_end = source_duration or (new_segments[-1].end + req.extra_end_secs)
+            new_segments[-1].end = min(max_end, new_segments[-1].end + req.extra_end_secs)
+            
+        rerender_req = RerenderRequest(
+            job_id=req.job_id,
+            clip_index=req.clip_index,
+            segments=new_segments,
+            snap_to_words=True,
+            reapply_captions=req.reapply_captions,
+            framing=None
+        )
+        return await _rerender_locked(rerender_req, request, job)
+
+
+@router.post("/api/clip/fix-split")
+async def fix_split_clip_endpoint(req: FixSplitClipRequest, request: Request):
+    """Re-render the clip forcing the SPLIT framing."""
+    await require_managed_entitlement(request)
+    await _ensure_job_files(req.job_id, request)
+    if req.job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = jobs[req.job_id]
+    await _assert_job_owner(request, job)
+
+    lock = _rerender_locks.setdefault(req.job_id, asyncio.Lock())
+    async with lock:
+        output_dir = os.path.join(OUTPUT_DIR, req.job_id)
+        json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
+        if not json_files:
+            raise HTTPException(status_code=404, detail="Metadata not found")
+        data = await read_json_async(json_files[0])
+        clips = data.get('shorts', [])
+        if req.clip_index < 0 or req.clip_index >= len(clips):
+            raise HTTPException(status_code=404, detail="Clip not found")
+        clip = clips[req.clip_index]
+        
+        recipe = clip.get('recipe')
+        segments_data = recipe.get('segments') if recipe else None
+        if not segments_data:
+            segments_data = [{"start": clip.get('start', 0.0), "end": clip.get('end', 30.0)}]
+            
+        new_segments = [RerenderSegment(start=s['start'], end=s['end']) for s in segments_data]
+            
+        rerender_req = RerenderRequest(
+            job_id=req.job_id,
+            clip_index=req.clip_index,
+            segments=new_segments,
+            snap_to_words=False,
+            reapply_captions=req.reapply_captions,
+            framing="split"
+        )
+        return await _rerender_locked(rerender_req, request, job)
+
 async def _rerender_locked(req: RerenderRequest, request: Request, job):
     output_dir = os.path.join(OUTPUT_DIR, req.job_id)
     json_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
@@ -452,7 +537,7 @@ async def _rerender_locked(req: RerenderRequest, request: Request, job):
     framing = req.framing or (clip.get('recipe') or {}).get('framing') or 'auto'
     if framing not in _FRAMING_STRATEGIES:
         raise HTTPException(status_code=400,
-                            detail="framing must be one of: auto, full, track")
+                            detail="framing must be one of: auto, full, track, split")
     force_strategy = _FRAMING_STRATEGIES[framing]
 
     try:

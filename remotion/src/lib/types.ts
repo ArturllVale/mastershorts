@@ -9,7 +9,7 @@ export interface CaptionWord {
 
 // --- Subtitle config ---
 export type SubtitleAnimation = "none" | "word-highlight" | "pop" | "karaoke";
-export type SubtitlePosition = "top" | "middle" | "bottom";
+export type SubtitlePosition = "top" | "middle" | "bottom" | "center";
 
 export interface SubtitleStyle {
   fontFamily: string;
@@ -21,6 +21,10 @@ export interface SubtitleStyle {
   bgColor: string;
   bgOpacity: number;
   animation: SubtitleAnimation;
+  marginV?: number;
+  baseOpacity?: number;
+  activeTextColor?: string;
+  uppercase?: boolean;
 }
 
 export interface SubtitleConfig {
@@ -96,11 +100,15 @@ export const subtitleStyleSchema = z.object({
   bgColor: z.string(),
   bgOpacity: z.number().min(0).max(1),
   animation: z.enum(["none", "word-highlight", "pop", "karaoke"]),
+  marginV: z.number().optional(),
+  baseOpacity: z.number().optional(),
+  activeTextColor: z.string().optional(),
+  uppercase: z.boolean().optional(),
 });
 
 export const subtitleConfigSchema = z.object({
   captions: z.array(captionWordSchema),
-  position: z.enum(["top", "middle", "bottom"]),
+  position: z.enum(["top", "middle", "bottom", "center"]),
   style: subtitleStyleSchema,
 });
 

@@ -264,3 +264,178 @@ def snap_clip_to_words(start, end, words, video_duration,
     if new_end <= new_start or new_end - new_start < min_duration:
         return original
     return (round(new_start, 3), round(new_end, 3))
+
+
+# Characters that mark a clean sentence boundary in any Latin-script language.
+_SENTENCE_ENDERS = frozenset(".!?…")
+
+
+def snap_to_sentence_end(
+    start: float,
+    end: float,
+    words: list,
+    video_duration: float,
+    max_duration: float = 60.0,
+    look_ahead: float = 4.0,
+    check_window: float = 2.0,
+) -> tuple:
+    """Extend a clip's end to the next sentence boundary if it is mid-thought.
+
+    After ``snap_clip_to_words`` lands the end on a word boundary, this pass
+    checks whether the last word of the clip ends a sentence.  If not, it
+    scans forward up to ``look_ahead`` seconds to find the next word whose
+    text ends with strong punctuation (.  !  ?  …) and moves the cut there,
+    provided the resulting duration stays within ``max_duration``.
+
+    Rationale: LLMs routinely propose a cut time that falls inside a
+    sentence — they optimise for content, not prosody.  The word-snapper
+    lands on the nearest word boundary, but that word is often "and", "so",
+    "but", or a dangling noun.  Moving forward a few seconds to the next
+    full-stop/exclamation/question-mark ensures the viewer receives a
+    complete thought rather than an abrupt half-sentence.
+
+    The function never shortens the clip and never violates ``max_duration``
+    or ``video_duration``.  If no sentence-ender is found within
+    ``look_ahead`` it returns the input unchanged (safe fallback).
+
+    words: [{'w': str, 's': float, 'e': float}, ...] sorted by start.
+    """
+    if not words:
+        return (round(float(start), 3), round(float(end), 3))
+
+    end_f = round(float(end), 3)
+    start_f = round(float(start), 3)
+    cap = min(float(video_duration), start_f + max_duration)
+
+    # 1. Check whether the current end already sits at a sentence boundary.
+    #    Look at words whose end-timestamp is within check_window BEFORE the cut
+    #    (strictly <= end_f so we never pick a word that starts after the cut).
+    near_end_words = [
+        w for w in words
+        if float(w.get("e", 0)) <= end_f
+        and (end_f - float(w.get("e", 0))) <= check_window
+    ]
+    if near_end_words:
+        # The word closest to the cut from the left.
+        last_word = max(near_end_words, key=lambda w: float(w.get("e", 0)))
+        text = str(last_word.get("w", "")).rstrip()
+        if text and text[-1] in _SENTENCE_ENDERS:
+            # Already a clean cut — nothing to do.
+            return (start_f, end_f)
+
+    # 2. Scan forward for the next sentence-ending word.
+    scan_limit = min(end_f + look_ahead, cap)
+    candidates = [
+        w for w in words
+        if float(w.get("e", 0)) > end_f
+        and float(w.get("e", 0)) <= scan_limit
+        and str(w.get("w", "")).rstrip()
+        and str(w.get("w", "")).rstrip()[-1] in _SENTENCE_ENDERS
+    ]
+    if not candidates:
+        return (start_f, end_f)
+
+    best = min(candidates, key=lambda w: float(w.get("e", 0)))
+    new_end = round(min(float(best.get("e", end_f)) + 0.15, cap), 3)
+    if new_end > end_f and new_end - start_f <= max_duration:
+        return (start_f, new_end)
+
+    return (start_f, end_f)
+
+
+def classify_story_arc(window_text: str) -> dict:
+    """Lightweight heuristic to detect whether a transcript window contains a
+    narrative story arc (setup → conflict/tension → resolution/payoff).
+
+    Returns a dict with:
+        ``has_story``    – bool, True when a story arc is detected.
+        ``arc_score``    – int 0-30 bonus to add to the viral score.
+        ``arc_label``    – short human-readable label (e.g. "story-arc").
+        ``arc_reason``   – one sentence explaining what was found.
+
+    The detection is intentionally fast (no LLM call) and conservative:
+    it requires at LEAST two distinct phases to avoid false positives on
+    ordinary expository monologues.  The bonus is capped at 30 so it never
+    overrides a genuine quality signal from the model.
+
+    Design note: this function intentionally uses only Python stdlib so it
+    can be imported without the heavy video stack, exactly like the rest of
+    clip_selection.py.
+    """
+    import re
+
+    text = str(window_text or "").lower()
+    words_in_text = text.split()
+    word_count = len(words_in_text)
+
+    # ------------------------------------------------------------------ #
+    # Phase markers – each list is a set of signal tokens.  A "phase" is  #
+    # detected when ≥1 token from its list appears in the window.         #
+    # ------------------------------------------------------------------ #
+    setup_tokens = [
+        r"\bum dia\b", r"\bcerta vez\b", r"\bera uma vez\b", r"\bcomecei\b",
+        r"\bcomecou\b", r"\bno começo\b", r"\bno inicio\b", r"\bantes\b",
+        r"\bcrescendo\b", r"\bquando era\b", r"\bna época\b", r"\bvivi\b",
+        r"\btinha\b", r"\bestava\b", r"\bfui\b", r"\bprimeiro\b",
+        r"\boriginalmente\b", r"\binicialmente\b", r"\bà princípio\b",
+        r"\bprimeiramente\b",
+    ]
+    conflict_tokens = [
+        r"\bmas\b", r"\bporém\b", r"\bentretanto\b", r"\bno entanto\b",
+        r"\bproblema\b", r"\bdificuldade\b", r"\bdesafio\b", r"\bcrise\b",
+        r"\bfracasso\b", r"\berro\b", r"\bfalhei\b", r"\bperdeu\b",
+        r"\bperdi\b", r"\bquase\b", r"\bde repente\b", r"\binesperadamente\b",
+        r"\bchoque\b", r"\bsurpresa\b", r"\bnão conseguia\b", r"\bnão sabia\b",
+        r"\btive que\b", r"\btinha que\b", r"\bprecisava\b",
+    ]
+    resolution_tokens = [
+        r"\bentão\b", r"\bfinalmente\b", r"\bno fim\b", r"\bno final\b",
+        r"\bdepois\b", r"\baí\b", r"\bconsegui\b", r"\baprendi\b",
+        r"\bmudei\b", r"\btransformei\b", r"\bdescobri\b", r"\bpercebi\b",
+        r"\bhoje\b", r"\bagora\b", r"\bresolveu\b", r"\bfuncionou\b",
+        r"\bvaleu a pena\b", r"\bfez diferença\b", r"\bresultado\b",
+        r"\bgraças a\b", r"\bpor isso\b", r"\blição\b",
+    ]
+
+    def _phase_hit(tokens):
+        return any(re.search(t, text) for t in tokens)
+
+    has_setup = _phase_hit(setup_tokens)
+    has_conflict = _phase_hit(conflict_tokens)
+    has_resolution = _phase_hit(resolution_tokens)
+
+    phases_detected = sum([has_setup, has_conflict, has_resolution])
+
+    # Require at least 2 phases AND a minimum length (stories need space).
+    has_story = phases_detected >= 2 and word_count >= 80
+
+    arc_score = 0
+    arc_label = ""
+    arc_reason = ""
+
+    if has_story:
+        phase_labels = []
+        if has_setup:
+            phase_labels.append("setup")
+        if has_conflict:
+            phase_labels.append("conflict")
+        if has_resolution:
+            phase_labels.append("resolution")
+
+        # Score bonus: 10 per phase (max 30), with length boost for long stories.
+        arc_score = min(30, phases_detected * 10)
+        if word_count >= 200:
+            arc_score = min(30, arc_score + 5)
+
+        arc_label = "story-arc"
+        arc_reason = (
+            f"Narrative arc detected ({' → '.join(phase_labels)}) "
+            f"across {word_count} words."
+        )
+
+    return {
+        "has_story": has_story,
+        "arc_score": arc_score,
+        "arc_label": arc_label,
+        "arc_reason": arc_reason,
+    }

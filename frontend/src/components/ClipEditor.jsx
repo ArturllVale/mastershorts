@@ -39,15 +39,25 @@ const SEGMENT_COLORS = [
 import { useEditorShortcuts } from '../hooks/useEditorShortcuts';
 import { useVideoSeek } from '../hooks/useVideoSeek';
 import { useDragSegment } from '../hooks/useDragSegment';
+import { useEditorTimeline } from '../features/clip-editor/hooks/useEditorTimeline';
+import { useSegmentMutations } from '../features/clip-editor/hooks/useSegmentMutations';
+import { useClipScrub } from '../features/clip-editor/hooks/useClipScrub';
+import { useThreePointEditing } from '../features/clip-editor/hooks/useThreePointEditing';
+import { useClipData } from '../features/clip-editor/hooks/useClipData';
 import TranscriptChunk from '../features/clip-editor/TranscriptChunk';
 import SegmentRow from '../features/clip-editor/SegmentRow';
+import EditorHeader from '../features/clip-editor/components/EditorHeader';
+import EditorFooter from '../features/clip-editor/components/EditorFooter';
+import SidebarControls from '../features/clip-editor/components/SidebarControls';
+import SourceColumn from '../features/clip-editor/components/SourceColumn';
+import PreviewColumn from '../features/clip-editor/components/PreviewColumn';
+import SourceTrack from '../features/clip-editor/components/SourceTrack';
+import ClipTrack from '../features/clip-editor/components/ClipTrack';
 
 import editorReducer from '../features/clip-editor/editorReducer';
 
 export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRerendered }) {
     const { refreshMe } = useAuth();
-    const [edl, setEdl] = useState(null);
-    const [loadError, setLoadError] = useState(null);
     const [state, dispatch] = useReducer(editorReducer, { segments: [], selected: 0, past: [], future: [], pendingBase: null });
     const { segments, selected } = state;
 
@@ -55,15 +65,30 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
     const [reapplyCaptions, setReapplyCaptions] = useState(true);
     // Framing override: 'auto' (classifier) | 'full' (whole frame) | 'track'.
     const [framing, setFraming] = useState('auto');
-    const [renderedFraming, setRenderedFraming] = useState('auto');
-    // The recipe of the currently RENDERED preview (playhead maps onto it).
-    const [renderedSegments, setRenderedSegments] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState(null);
-    const [rendering, setRendering] = useState(false);
-    const [renderSeconds, setRenderSeconds] = useState(0);
-    const [renderError, setRenderError] = useState(null);
+
+    const {
+        edl,
+        loadError,
+        renderedFraming,
+        renderedSegments,
+        previewUrl,
+        rendering,
+        renderSeconds,
+        renderError,
+        doRender: doRenderApi
+    } = useClipData({
+        jobId,
+        clipIndex,
+        dispatch,
+        refreshMe,
+        onRerendered,
+        segments,
+        framing,
+        reapplyCaptions,
+        setFraming,
+        setReapplyCaptions
+    });
     const [confirmClose, setConfirmClose] = useState(false);
-    const [selectedWord, setSelectedWord] = useState(null);
     const [playhead, setPlayhead] = useState(0);
     const [showSource, setShowSource] = useState(() => {
         try { return localStorage.getItem(HIDE_SOURCE_KEY) !== '1'; } catch { return true; }
@@ -73,8 +98,7 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
     // Three-point editing, like a Premiere source monitor: mark IN and OUT on
     // the source, then send that range to the clip. Kept as two independent
     // numbers rather than a range so either end can be re-marked on its own.
-    const [markIn, setMarkIn] = useState(null);
-    const [markOut, setMarkOut] = useState(null);
+
 
     const videoRef = useRef(null);
     const sourceRef = useRef(null);
@@ -82,7 +106,6 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
     const sourceTrackRef = useRef(null);
     const dragRef = useRef(null);
     const [ghost, setGhost] = useState(null); // in-progress new segment on the source track
-    const transcriptRef = useRef(null);
 
     useEffect(() => {
         try { localStorage.setItem(HIDE_SOURCE_KEY, showSource ? '0' : '1'); } catch { /* private mode */ }
@@ -127,26 +150,7 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
         if (seekRef.current.timer) clearTimeout(seekRef.current.timer);
     }, []);
 
-    // ---- load the EDL -------------------------------------------------------
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const data = await fetchEDL(jobId, clipIndex);
-                if (cancelled) return;
-                setEdl(data);
-                dispatch({ type: 'init', segments: data.segments.map((s) => ({ ...s })) });
-                setRenderedSegments(data.segments.map((s) => ({ ...s })));
-                setFraming(data.framing || 'auto');
-                setRenderedFraming(data.framing || 'auto');
-                setReapplyCaptions(true);
-                setPreviewUrl(getApiUrl(`/videos/${jobId}/${data.current_file}`));
-            } catch (e) {
-                if (!cancelled) setLoadError(e.detail || e.message || 'could not load the clip recipe');
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [jobId, clipIndex]);
+
 
     const words = useMemo(() => (edl?.words || []), [edl]);
     const sourceAvailable = !!edl?.source?.available;
@@ -185,131 +189,31 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
         && segments.every((s) => s.end - s.start >= minSeg)
         && (framing === 'auto' || sourceAvailable);
 
+    const doRender = useCallback(() => {
+        if (canRender) doRenderApi();
+    }, [canRender, doRenderApi]);
+
     // ---- helpers ------------------------------------------------------------
-    const snapEdge = useCallback((t, kind) => {
-        if (!snapToWords || !words.length) return t;
-        let best = null;
-        for (const w of words) {
-            const c = kind === 'start' ? w.s : w.e;
-            if (Math.abs(c - t) <= SNAP_WINDOW_SECONDS && (best === null || Math.abs(c - t) < Math.abs(best - t))) best = c;
-        }
-        return best ?? t;
-    }, [snapToWords, words]);
+    const {
+        snapEdge,
+        clampSeg,
+        setSegment,
+        addSegment,
+        deleteSegment,
+        moveSegment,
+        splitSegment
+    } = useSegmentMutations({
+        segments,
+        dispatch,
+        bounds,
+        minSeg,
+        limits,
+        words,
+        snapToWords,
+        playhead
+    });
 
-    const clampSeg = useCallback((seg) => ({
-        start: Math.max(bounds.lo, Math.min(seg.start, seg.end - minSeg)),
-        end: Math.min(bounds.hi, Math.max(seg.end, seg.start + minSeg)),
-    }), [bounds.lo, bounds.hi, minSeg]);
 
-    const setSegment = (index, next, { snap = true } = {}) => {
-        const updated = segments.map((s, i) => {
-            if (i !== index) return s;
-            const seg = { ...s, ...next };
-            if (snap) {
-                if (next.start !== undefined) seg.start = snapEdge(seg.start, 'start');
-                if (next.end !== undefined) seg.end = snapEdge(seg.end, 'end');
-            }
-            return clampSeg(seg);
-        });
-        dispatch({ type: 'commit', segments: updated, select: index });
-    };
-
-    const addSegment = () => {
-        if (segments.length >= limits.max_segments) return;
-        const last = segments[segments.length - 1];
-        let start = last ? last.end : bounds.lo;
-        let end = start + 10;
-        if (end > bounds.hi) { end = bounds.hi; start = Math.max(bounds.lo, end - 10); }
-        if (end - start < minSeg) return;
-        dispatch({ type: 'commit', segments: [...segments, { start: Math.round(start * 1000) / 1000, end: Math.round(end * 1000) / 1000 }], select: segments.length });
-    };
-
-    const deleteSegment = (index) => {
-        if (segments.length <= 1) return;
-        dispatch({ type: 'commit', segments: segments.filter((_, i) => i !== index), select: Math.max(0, index - 1) });
-    };
-
-    const moveSegment = (index, dir) => {
-        const j = index + dir;
-        if (j < 0 || j >= segments.length) return;
-        const next = segments.slice();
-        [next[index], next[j]] = [next[j], next[index]];
-        dispatch({ type: 'commit', segments: next, select: j });
-    };
-
-    const splitSegment = (index) => {
-        if (segments.length >= limits.max_segments) return;
-        const seg = segments[index];
-        if (seg.end - seg.start < minSeg * 2) return;
-        let at = seg.start + (seg.end - seg.start) / 2;
-        // Cut where the playhead is, when it sits inside this segment. It lives
-        // on the current assembly now, so this no longer needs the rendered
-        // recipe to still match.
-        let offset = 0;
-        for (let i = 0; i < segments.length; i += 1) {
-            const len = segments[i].end - segments[i].start;
-            if (i === index && playhead > offset + minSeg && playhead < offset + len - minSeg) {
-                at = segments[i].start + (playhead - offset);
-            }
-            offset += len;
-        }
-        at = snapEdge(at, 'end');
-        if (at - seg.start < minSeg || seg.end - at < minSeg) at = seg.start + (seg.end - seg.start) / 2;
-        const next = segments.flatMap((s, i) => (i === index
-            ? [{ start: s.start, end: Math.round(at * 1000) / 1000 }, { start: Math.round(at * 1000) / 1000, end: s.end }]
-            : [s]));
-        dispatch({ type: 'commit', segments: next, select: index });
-    };
-
-    // ---- drag: trim/move handles on both tracks -----------------------------
-    // ``edge`` is 'start' | 'end' (trim one boundary) or 'move' (slide the whole
-    // segment along the source, keeping its duration).
-    const onDragMove = useCallback((e) => {
-        const d = dragRef.current;
-        if (!d || d.kind) return;   // a ghost or a scrub, not a trim
-        const dt = (e.clientX - d.startX) / d.pxPerSec;
-        const seg = { ...d.base[d.idx] };
-        if (d.edge === 'move') {
-            const len = seg.end - seg.start;
-            seg.start = Math.max(d.lo, Math.min(seg.start + dt, d.hi - len));
-            seg.end = seg.start + len;
-        } else if (d.edge === 'start') {
-            seg.start = Math.max(d.lo, Math.min(seg.start + dt, seg.end - d.minSeg));
-        } else {
-            seg.end = Math.min(d.hi, Math.max(seg.end + dt, seg.start + d.minSeg));
-        }
-        // Source-track drags scrub the monitor to the edge being moved, so
-        // the frame on screen IS the frame the cut lands on.
-        if (d.scrub) d.seek(d.edge === 'end' ? seg.end : seg.start);
-        const next = d.base.map((s, i) => (i === d.idx ? seg : s));
-        d.last = { seg, next };
-        dispatch({ type: 'preview', segments: next });
-    }, []);
-
-    const onDragUp = useCallback(() => {
-        const d = dragRef.current;
-        dragRef.current = null;
-        window.removeEventListener('pointermove', onDragMove);
-        window.removeEventListener('pointerup', onDragUp);
-        window.removeEventListener('pointercancel', onDragUp);
-        if (!d || !d.last) return;
-        const { seg, next } = d.last;
-        const snapped = { ...seg };
-        if (d.edge === 'move') {
-            const len = seg.end - seg.start;
-            const start = Math.max(d.lo, Math.min(d.snap(seg.start, 'start'), d.hi - len));
-            snapped.start = start;
-            snapped.end = start + len;
-        } else if (d.edge === 'start') {
-            snapped.start = Math.max(d.lo, Math.min(d.snap(seg.start, 'start'), seg.end - d.minSeg));
-        } else {
-            snapped.end = Math.min(d.hi, Math.max(d.snap(seg.end, 'end'), seg.start + d.minSeg));
-        }
-        // Round like every other edit path: the number inputs in the rail show
-        // these values, and raw drag arithmetic yields 190.22000000000003.
-        const clean = { start: Math.round(snapped.start * 1000) / 1000, end: Math.round(snapped.end * 1000) / 1000 };
-        dispatch({ type: 'commit', segments: next.map((s, i) => (i === d.idx ? clean : s)), select: d.idx });
-    }, [onDragMove]);
 
     const { startTrimDrag, startGhostDrag } = useDragSegment({
         dragRef,
@@ -334,143 +238,21 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
     // that only REMOVES material stays previewable: every frame it keeps was
     // already rendered. Only material the last render never saw is missing, and
     // that is what turns red.
-    const coverage = useMemo(() => {
-        if (!segments.length) return [];
-        // A framing change invalidates the whole file even where the ranges
-        // still line up: the crop baked into those frames is not what will
-        // come out.
-        if (!renderedSegments || framing !== renderedFraming) {
-            return [{ start: 0, end: totalOf(segments), rendered: null }];
-        }
-        const spans = [];
-        let clipAcc = 0;
-        for (const seg of segments) {
-            const segLen = seg.end - seg.start;
-            // Where this segment overlaps the rendered ones, and at what offset
-            // into the file each overlap lands.
-            const pieces = [];
-            let renAcc = 0;
-            for (const r of renderedSegments) {
-                const lo = Math.max(seg.start, r.start);
-                const hi = Math.min(seg.end, r.end);
-                if (hi - lo > COVERAGE_EPSILON) {
-                    pieces.push({ lo, hi, rendered: renAcc + (lo - r.start) });
-                }
-                renAcc += r.end - r.start;
-            }
-            pieces.sort((a, b) => a.lo - b.lo);
-
-            let cursor = seg.start;
-            for (const piece of pieces) {
-                // A source range reused twice by the render would overlap here;
-                // first one wins rather than emitting the same clip time twice.
-                const lo = Math.max(piece.lo, cursor);
-                if (piece.hi - lo <= COVERAGE_EPSILON) continue;
-                if (lo - cursor > COVERAGE_EPSILON) {
-                    spans.push({
-                        start: clipAcc + (cursor - seg.start),
-                        end: clipAcc + (lo - seg.start),
-                        rendered: null,
-                    });
-                }
-                spans.push({
-                    start: clipAcc + (lo - seg.start),
-                    end: clipAcc + (piece.hi - seg.start),
-                    rendered: piece.rendered + (lo - piece.lo),
-                });
-                cursor = piece.hi;
-            }
-            if (seg.end - cursor > COVERAGE_EPSILON) {
-                spans.push({
-                    start: clipAcc + (cursor - seg.start),
-                    end: clipAcc + segLen,
-                    rendered: null,
-                });
-            }
-            clipAcc += segLen;
-        }
-        return spans;
-    }, [segments, renderedSegments, framing, renderedFraming]);
-
-    const missingSeconds = useMemo(() => coverage.reduce(
-        (acc, sp) => (sp.rendered === null ? acc + (sp.end - sp.start) : acc), 0), [coverage]);
-
-    // Half-open [start, end), so a position exactly on a seam belongs to the
-    // span that STARTS there — otherwise the playhead reads as being on the next
-    // segment while the picture is still the tail of the previous one. The
-    // epsilon only absorbs rounding on the way in; the very end of the clip
-    // falls back to the last span.
-    const spanIndexAt = useCallback((t) => {
-        const i = coverage.findIndex((sp) => t >= sp.start - COVERAGE_EPSILON && t < sp.end);
-        return i >= 0 ? i : coverage.length - 1;
-    }, [coverage]);
-
-    const clipToRendered = useCallback((t) => {
-        const sp = coverage[spanIndexAt(t)];
-        if (!sp || sp.rendered === null) return null;
-        const offset = Math.max(0, Math.min(t - sp.start, sp.end - sp.start));
-        return sp.rendered + offset;
-    }, [coverage, spanIndexAt]);
-
-    // Used when the native <video> controls are dragged: the file's own time
-    // has to come back onto the clip's timeline.
-    const renderedToClip = useCallback((r) => {
-        for (const sp of coverage) {
-            if (sp.rendered === null) continue;
-            const end = sp.rendered + (sp.end - sp.start);
-            if (r >= sp.rendered - COVERAGE_EPSILON && r <= end + COVERAGE_EPSILON) {
-                return sp.start + (r - sp.rendered);
-            }
-        }
-        return null;
-    }, [coverage]);
-
-    const hasCovered = useMemo(
-        () => coverage.some((sp) => sp.rendered !== null), [coverage]);
-
-    // Keep the playhead out of red. Stopping at the edge is the whole point:
-    // inside one there is no frame to show, so a handle that could sit there
-    // would just be a handle pointing at nothing. Runs of adjacent red spans
-    // (one segment ending unrendered, the next starting unrendered) are treated
-    // as a single wall.
-    // ``path`` distinguishes a drag from a click. Dragging is continuous motion,
-    // so a wall anywhere BETWEEN the two positions stops it — checking only the
-    // destination lets a fast flick tunnel clean through the red. A click is
-    // "go here", so it only has to land somewhere legal.
-    const clampToCovered = useCallback((t, from, { path = false } = {}) => {
-        if (!hasCovered) return t;                      // nothing to stay inside
-        const forward = t >= from;
-
-        let wall = null;
-        if (path) {
-            wall = forward
-                ? coverage.find((sp) => sp.rendered === null
-                    && sp.end > from + COVERAGE_EPSILON && sp.start < t - COVERAGE_EPSILON)
-                : [...coverage].reverse().find((sp) => sp.rendered === null
-                    && sp.start < from - COVERAGE_EPSILON && sp.end > t + COVERAGE_EPSILON);
-        }
-        if (!wall) {
-            const sp = coverage[spanIndexAt(t)];
-            if (!sp || sp.rendered !== null) return t;
-            wall = sp;
-        }
-
-        // Grow it across any neighbouring uncovered spans: one segment ending
-        // unrendered next to another starting unrendered is one wall, not two.
-        let lo = coverage.indexOf(wall);
-        let hi = lo;
-        while (lo > 0 && coverage[lo - 1].rendered === null) lo -= 1;
-        while (hi < coverage.length - 1 && coverage[hi + 1].rendered === null) hi += 1;
-        // A millisecond inside the green, so the position still resolves to the
-        // covered span rather than to the wall it is touching.
-        const near = Math.max(0, coverage[lo].start - 0.001);
-        const far = coverage[hi].end;
-        const hasBefore = lo > 0;
-        const hasAfter = hi < coverage.length - 1;
-
-        if (forward) return hasBefore ? near : (hasAfter ? far : t);
-        return hasAfter ? far : (hasBefore ? near : t);
-    }, [coverage, hasCovered, spanIndexAt]);
+    const {
+        coverage,
+        missingSeconds,
+        spanIndexAt,
+        clipToRendered,
+        renderedToClip,
+        hasCovered,
+        clampToCovered,
+        clipToSource
+    } = useEditorTimeline({
+        segments,
+        renderedSegments,
+        framing,
+        renderedFraming
+    });
 
     // An edit can leave the handle standing where the file no longer reaches.
     useEffect(() => {
@@ -479,22 +261,6 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
             return clamped === t ? t : clamped;
         });
     }, [clampToCovered]);
-
-    // ---- scrubbing the clip track ------------------------------------------
-    // Clip time -> source time, walking the segment list. Same reasoning as the
-    // backend's rebase_segments, in the other direction: the clip is the
-    // segments played back to back, so a position on it lands inside whichever
-    // segment's running total covers it.
-    const clipToSource = useCallback((t) => {
-        let acc = 0;
-        for (const seg of segments) {
-            const len = seg.end - seg.start;
-            if (t < acc + len) return seg.start + (t - acc);
-            acc += len;
-        }
-        const last = segments[segments.length - 1];
-        return last ? last.end : 0;
-    }, [segments]);
 
     const {
         playSpanRef,
@@ -513,96 +279,40 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
         spanIndexAt
     });
 
-    const onScrubMove = useCallback((e) => {
-        const d = dragRef.current;
-        if (!d || d.kind !== 'scrub') return;
-        d.apply(d.at(e.clientX), { path: true });
-    }, []);
+    const { startClipScrub } = useClipScrub({
+        dragRef,
+        clipTrackRef,
+        clipTrackSeconds,
+        total,
+        playhead,
+        clampToCovered,
+        setPlayhead,
+        clipToRendered,
+        spanIndexAt,
+        playSpanRef,
+        videoRef,
+        seekSource,
+        clipToSource,
+        sourceOpen
+    });
 
-    const onScrubUp = useCallback(() => {
-        dragRef.current = null;
-        window.removeEventListener('pointermove', onScrubMove);
-        window.removeEventListener('pointerup', onScrubUp);
-        window.removeEventListener('pointercancel', onScrubUp);
-    }, [onScrubMove]);
-
-    const startClipScrub = (e) => {
-        if (e.button !== undefined && e.button !== 0) return;
-        const rect = clipTrackRef.current?.getBoundingClientRect();
-        if (!rect || !clipTrackSeconds) return;
-        // Same reason as the other tracks: without this Chrome turns the drag
-        // into a text selection and then into a native drag.
-        e.preventDefault();
-        try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* window listeners still fire */ }
-
-        // The track can be longer than the clip (its scale is the rendered
-        // length), so positions clamp to the clip's own end, not the track's.
-        const at = (clientX) => Math.max(0, Math.min(
-            total, ((clientX - rect.left) / rect.width) * clipTrackSeconds));
-        // Direction of travel decides which wall a red span stops you at, so it
-        // has to be the last APPLIED position, not the one at pointerdown.
-        let last = playhead;
-        const apply = (raw, { path = false } = {}) => {
-            const t = clampToCovered(raw, last, { path });
-            last = t;
-            setPlayhead(t);
-            // Not "is the file stale" but "does the file hold THIS instant" —
-            // which is what keeps a trim navigable without a re-render.
-            const r = clipToRendered(t);
-            playSpanRef.current = spanIndexAt(t);
-            if (r !== null && videoRef.current) {
-                try { videoRef.current.currentTime = r; } catch { /* not seekable yet */ }
-            }
-            // The source is the only picture available where the file has none.
-            if (sourceOpen) seekSource(clipToSource(t));
-        };
-
-        apply(at(e.clientX));
-        dragRef.current = { kind: 'scrub', at, apply };
-        window.addEventListener('pointermove', onScrubMove);
-        window.addEventListener('pointerup', onScrubUp);
-        window.addEventListener('pointercancel', onScrubUp);
-    };
-
-    // ---- three-point editing: mark in/out, then send to the clip ------------
-    const round3 = (t) => Math.round(t * 1000) / 1000;
-
-    // The marks come off the monitor's own playhead, so "what I am looking at"
-    // and "where the cut lands" are the same instant by construction.
-    const markHere = (which) => {
-        const v = sourceRef.current;
-        if (!v || !Number.isFinite(v.currentTime)) return;
-        (which === 'in' ? setMarkIn : setMarkOut)(round3(v.currentTime));
-    };
-
-    const clearMarks = () => { setMarkIn(null); setMarkOut(null); };
-
-    // Only a usable range counts: both ends marked, and long enough to render.
-    // Order is forgiving — marking OUT before IN still yields the range between.
-    const markRange = useMemo(() => {
-        if (markIn === null || markOut === null) return null;
-        const lo = Math.min(markIn, markOut);
-        const hi = Math.max(markIn, markOut);
-        return hi - lo >= minSeg ? { start: round3(lo), end: round3(hi) } : null;
-    }, [markIn, markOut, minSeg]);
-
-    // 'replace' overwrites the selected segment (make the clip BE this range);
-    // 'insert' drops the range in right after it, rippling the rest along.
-    const sendToClip = (mode) => {
-        if (!markRange) return;
-        if (mode === 'replace') {
-            dispatch({
-                type: 'commit',
-                segments: segments.map((s, i) => (i === selected ? { ...markRange } : s)),
-                select: selected,
-            });
-            return;
-        }
-        if (segments.length >= limits.max_segments) return;
-        const next = segments.slice();
-        next.splice(selected + 1, 0, { ...markRange });
-        dispatch({ type: 'commit', segments: next, select: selected + 1 });
-    };
+    const {
+        markIn,
+        setMarkIn,
+        markOut,
+        setMarkOut,
+        markHere,
+        clearMarks,
+        markRange,
+        sendToClip
+    } = useThreePointEditing({
+        sourceRef,
+        minSeg,
+        selected,
+        segments,
+        limits,
+        dispatch
+    });
 
     // ---- keyboard -----------------------------------------------------------
     useEditorShortcuts({
@@ -620,111 +330,9 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
         sendToClip
     });
 
-    // ---- re-render ----------------------------------------------------------
-    useEffect(() => {
-        if (!rendering) return undefined;
-        setRenderSeconds(0);
-        const t = setInterval(() => setRenderSeconds((s) => s + 1), 1000);
-        return () => clearInterval(t);
-    }, [rendering]);
 
-    const doRender = async () => {
-        if (!canRender) return;
-        setRendering(true);
-        setRenderError(null);
-        try {
-            const data = await rerenderClip({
-                jobId,
-                clipIndex,
-                segments: segments.map((s) => ({ start: s.start, end: s.end })),
-                reapply_captions: reapplyCaptions,
-                framing,
-            });
-            setRenderedSegments(data.recipe.segments.map((s) => ({ ...s })));
-            setRenderedFraming(data.framing || 'auto');
-            setFraming(data.framing || 'auto');
-            dispatch({ type: 'init', segments: data.recipe.segments.map((s) => ({ ...s })) });
-            setPreviewUrl(`${getApiUrl(data.new_video_url)}?t=${Date.now()}`);
-            onRerendered?.(clipIndex, data);
-            refreshMe();
-        } catch (e) {
-            if (e instanceof QuotaError) {
-                refreshMe();
-                setRenderError(`not enough minutes left (needs ${e.minutesRequired ?? '?'}, ${e.minutesRemaining ?? 0} remaining)`);
-            } else {
-                setRenderError(e.message || 're-render failed');
-            }
-        } finally {
-            setRendering(false);
-        }
-    };
 
-    // ---- transcript panel data ---------------------------------------------
-    // The panel holds the WHOLE source transcript, not a window around the
-    // segment: extending a cut means reading what is said before and after it.
-    const selectedSeg = segments[selected] || null;
-    // Deferred so a drag is never blocked repainting a few thousand words —
-    // the highlight settles a frame or two behind the handle, the drag stays
-    // at full rate.
-    const highlightSeg = useDeferredValue(selectedSeg);
-    const anchorIndex = useMemo(() => (
-        selectedSeg ? words.findIndex((w) => w.e > selectedSeg.start) : -1
-    ), [words, selectedSeg]);
 
-    // The word the source monitor is currently on. Binary search — words are
-    // already sorted by start time (recut.transcript_words does that). During
-    // silence the previous word stays lit rather than blinking off: "you are
-    // here" is more useful than a strictly correct nothing.
-    const activeWordIndex = useMemo(() => {
-        let lo = 0;
-        let hi = words.length - 1;
-        let best = -1;
-        while (lo <= hi) {
-            const mid = (lo + hi) >> 1;
-            if (words[mid].s <= sourceTime) { best = mid; lo = mid + 1; } else hi = mid - 1;
-        }
-        return best;
-    }, [words, sourceTime]);
-
-    const selectedWordIndex = useMemo(() => (
-        selectedWord ? words.findIndex((w) => w.s === selectedWord.s && w.e === selectedWord.e) : -1
-    ), [words, selectedWord]);
-
-    const chunks = useMemo(() => {
-        const out = [];
-        for (let i = 0; i < words.length; i += CHUNK_WORDS) {
-            out.push({ offset: i, items: words.slice(i, i + CHUNK_WORDS) });
-        }
-        return out;
-    }, [words]);
-
-    // Direct scrollTop, not scrollIntoView: the latter also scrolls every
-    // ancestor, which would yank the whole column around mid-drag.
-    const scrollTranscriptTo = useCallback((selector) => {
-        const box = transcriptRef.current;
-        if (!box) return;
-        const el = box.querySelector(selector);
-        if (!el) return;
-        box.scrollTop = Math.max(0, el.offsetTop - box.clientHeight / 2);
-    }, []);
-
-    // Two scrollers, one policy, so they cannot fight: picking a segment jumps
-    // to it, and anything that moves the monitor (playback, a track drag, a
-    // seek) takes over from there. Deliberately NOT keyed on the segment's
-    // start, which changes every frame of a drag.
-    useEffect(() => {
-        scrollTranscriptTo('[data-anchor="1"]');
-    }, [selected, words.length, scrollTranscriptTo]);
-
-    useEffect(() => {
-        scrollTranscriptTo('[data-active="1"]');
-    }, [activeWordIndex, scrollTranscriptTo]);
-
-    // Stable identity keeps every untouched chunk out of the re-render.
-    const pickWord = useCallback((w) => {
-        setSelectedWord((prev) => (prev && prev.s === w.s && prev.e === w.e ? null : w));
-        seekSource(w.s);
-    }, [seekSource]);
 
     // ---- render -------------------------------------------------------------
     if (loadError) {
@@ -767,159 +375,43 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
     // there is no monitor to sit under, so it moves below the clip track: it
     // still explains why trims are pinned to the original range.
     const sourceTrack = (
-        <div className="shrink-0 select-none">
-            <div className="flex items-center justify-between mb-1.5 gap-3">
-                <p className="readout">
-                    SOURCE · {fmt(sourceDuration)}{edl.source.duration_estimated ? ' (EST.)' : ''}
-                    {!sourceAvailable && ' · EXPIRED — TRIMS LIMITED TO THE ORIGINAL RANGE'}
-                </p>
-                {sourceAvailable && (
-                    <p className="readout hidden xl:block truncate">
-                        DRAG EMPTY SPACE TO MARK IN/OUT · BLOCK TO MOVE · EDGES TO TRIM
-                    </p>
-                )}
-            </div>
-            <div
-                ref={sourceTrackRef}
-                onPointerDown={startGhostDrag}
-                className={`relative h-8 rounded-input border overflow-hidden touch-none ${sourceAvailable ? 'bg-paper border-rule cursor-crosshair' : 'bg-paper border-rule opacity-60'}`}
-            >
-                {/* canonical range marker */}
-                {sourceDuration > 0 && (
-                    <div
-                        className="absolute top-0 bottom-0 border-x border-rule2 bg-paper3/60 pointer-events-none"
-                        style={{
-                            left: `${(canonical.start / sourceDuration) * 100}%`,
-                            width: `${((canonical.end - canonical.start) / sourceDuration) * 100}%`,
-                        }}
-                    />
-                )}
-                {sourceDuration > 0 && segments.map((seg, i) => (
-                    <div
-                        key={i}
-                        // Body drag slides the segment along the source without
-                        // changing its duration; the edges trim it.
-                        onPointerDown={(e) => startTrimDrag(e, i, 'move', sourceTrackRef.current, sourceDuration)}
-                        className={`absolute top-1 bottom-1 rounded-[4px] touch-none cursor-grab active:cursor-grabbing ${i === selected ? 'ring-1 ring-[color:var(--color-accent)]' : ''}`}
-                        style={{
-                            left: `${(seg.start / sourceDuration) * 100}%`,
-                            width: `${Math.max(((seg.end - seg.start) / sourceDuration) * 100, 0.4)}%`,
-                            // A short segment on a 14-minute source is a sliver;
-                            // without a floor there is nothing left to grab.
-                            minWidth: '14px',
-                            background: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
-                        }}
-                        title={`#${i + 1} · ${fmt(seg.start)} → ${fmt(seg.end)} — drag to move, edges to trim`}
-                    >
-                        {/* Capped at a third each so the middle stays grabbable
-                            however narrow the block gets. */}
-                        <div
-                            onPointerDown={(e) => startTrimDrag(e, i, 'start', sourceTrackRef.current, sourceDuration)}
-                            className="absolute left-0 top-0 bottom-0 w-1.5 max-w-[33%] touch-none cursor-ew-resize rounded-l-[4px] bg-ink/35"
-                        />
-                        <div
-                            onPointerDown={(e) => startTrimDrag(e, i, 'end', sourceTrackRef.current, sourceDuration)}
-                            className="absolute right-0 top-0 bottom-0 w-1.5 max-w-[33%] touch-none cursor-ew-resize rounded-r-[4px] bg-ink/35"
-                        />
-                    </div>
-                ))}
-                {markRange && sourceDuration > 0 && !ghost && (
-                    <div
-                        className="absolute inset-y-0 border-x-2 border-brass bg-brass/15 pointer-events-none"
-                        style={{
-                            left: `${(markRange.start / sourceDuration) * 100}%`,
-                            width: `${((markRange.end - markRange.start) / sourceDuration) * 100}%`,
-                        }}
-                    />
-                )}
-                {/* A lone mark still has to be visible, or setting IN and
-                    then hunting for OUT gives no feedback at all. */}
-                {sourceDuration > 0 && !ghost && !markRange && [markIn, markOut].map((t, i) => (
-                    t === null ? null : (
-                        <div
-                            key={i}
-                            className="absolute inset-y-0 w-0.5 bg-brass pointer-events-none"
-                            style={{ left: `${(t / sourceDuration) * 100}%` }}
-                        />
-                    )
-                ))}
-                {/* the source monitor's own playhead */}
-                {sourceOpen && sourceDuration > 0 && (
-                    <div
-                        className="absolute top-0 bottom-0 w-px bg-ink pointer-events-none"
-                        style={{ left: `${(Math.min(sourceTime, sourceDuration) / sourceDuration) * 100}%` }}
-                    />
-                )}
-                {ghost && sourceDuration > 0 && (
-                    <div
-                        className="absolute top-1 bottom-1 rounded-[4px] bg-ink/40 border border-dashed border-ink pointer-events-none"
-                        style={{
-                            left: `${(ghost.start / sourceDuration) * 100}%`,
-                            width: `${((ghost.end - ghost.start) / sourceDuration) * 100}%`,
-                        }}
-                    />
-                )}
-            </div>
-            <div className="flex justify-between mt-1">
-                <span className="readout">0:00</span>
-                <span className="readout">{fmt(sourceDuration / 2)}</span>
-                <span className="readout">{fmt(sourceDuration)}</span>
-            </div>
-        </div>
+        <SourceTrack
+            sourceDuration={sourceDuration}
+            edl={edl}
+            sourceAvailable={sourceAvailable}
+            sourceTrackRef={sourceTrackRef}
+            startGhostDrag={startGhostDrag}
+            canonical={canonical}
+            segments={segments}
+            selected={selected}
+            startTrimDrag={startTrimDrag}
+            markRange={markRange}
+            ghost={ghost}
+            markIn={markIn}
+            markOut={markOut}
+            sourceOpen={sourceOpen}
+            sourceTime={sourceTime}
+        />
     );
 
     return (
         <div className="fixed inset-0 z-[110] bg-paper flex flex-col animate-fade">
             {/* header */}
-            <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-rule flex items-start justify-between gap-4 shrink-0">
-                <div className="min-w-0">
-                    <p className="eyebrow mb-1">EDITOR · CORTE {clipIndex + 1}</p>
-                    <h2 className="font-display lowercase text-xl sm:text-2xl text-ink truncate">editar corte</h2>
-                    {clipTitle && <p className="text-xs text-muted truncate mt-0.5">{clipTitle}</p>}
-                    {/* Phone: the readouts move under the title — as a third
-                        column they squeezed the title to two characters. */}
-                    <p className="readout sm:hidden mt-1 truncate">
-                        {fmt(total)} · {needsSourcePath ? 'REENQUADRAMENTO COMPLETO' : 'RECORTE RÁPIDO'}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <div className="text-right hidden sm:block">
-                        <p className="readout">DURAÇÃO · {fmt(total)}</p>
-                        <p className="readout mt-1">
-                            {needsSourcePath ? 'PROCESSO · REENQUADRAMENTO' : 'PROCESSO · RECORTE RÁPIDO'}
-                            {edl.rerender_minutes > 0 && ` · ≈${Math.max(1, Math.ceil(total / 60))} MIN`}
-                        </p>
-                    </div>
-                    {sourceAvailable && (
-                        <button
-                            onClick={() => setShowSource((v) => !v)}
-                            title={showSource
-                                ? 'ocultar o monitor original e editar apenas o corte'
-                                : 'exibir o monitor original, transcrição e pontos de corte'}
-                            aria-label={showSource ? 'ocultar original' : 'mostrar original'}
-                            className="btn-quiet text-xs py-1.5 px-2.5 sm:px-3 flex items-center gap-1.5 lowercase"
-                        >
-                            {showSource ? <PanelLeftClose size={14} /> : <PanelLeft size={14} />}
-                            <span className="hidden sm:inline">{showSource ? 'ocultar original' : 'mostrar original'}</span>
-                        </button>
-                    )}
-                    {confirmClose ? (
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                            <span className="text-xs text-warn lowercase hidden sm:inline">descartar alterações?</span>
-                            <button className="btn-danger text-xs py-1.5 px-3" onClick={onClose}>descartar</button>
-                            <button className="btn-ghost text-xs py-1.5 px-3" onClick={() => setConfirmClose(false)}>continuar editando</button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => (rendering ? onClose() : dirty ? setConfirmClose(true) : onClose())}
-                            className="p-2 rounded-input text-muted hover:text-ink hover:bg-paper3 transition-colors"
-                            aria-label="fechar editor"
-                        >
-                            <X size={18} />
-                        </button>
-                    )}
-                </div>
-            </div>
+            <EditorHeader
+                clipIndex={clipIndex}
+                clipTitle={clipTitle}
+                total={total}
+                needsSourcePath={needsSourcePath}
+                edl={edl}
+                sourceAvailable={sourceAvailable}
+                showSource={showSource}
+                setShowSource={setShowSource}
+                confirmClose={confirmClose}
+                setConfirmClose={setConfirmClose}
+                rendering={rendering}
+                dirty={dirty}
+                onClose={onClose}
+            />
 
             {/* main — three columns above xl, stacked below. select-none/touch-none
                 keep the browser from turning a drag on a track into a text
@@ -928,408 +420,105 @@ export default function ClipEditor({ jobId, clipIndex, clipTitle, onClose, onRer
 
                 {/* ---- column 1 · source ---- */}
                 {sourceOpen && (
-                    <div className="flex-1 min-w-0 flex flex-col min-h-0 gap-2">
-                        <p className="eyebrow shrink-0">Vídeo Original</p>
-                        {/* The black hugs the picture instead of the column: a wide
-                            box around a short 16:9 frame is exactly the dead space
-                            this layout set out to remove. */}
-                        <div className="flex-1 min-h-0 min-w-0 flex items-center justify-center">
-                            <video
-                                ref={sourceRef}
-                                src={getApiUrl(edl.source.url)}
-                                controls
-                                playsInline
-                                preload="metadata"
-                                onLoadedMetadata={applySeek}
-                                onTimeUpdate={(e) => setSourceTime(e.target.currentTime)}
-                                className="h-full w-auto max-w-full max-h-full bg-black rounded-card border border-rule"
-                            />
-                        </div>
-
-                        {sourceTrack}
-
-                        {/* Two steps, shown as two: pick a range on the source, then
-                            put it in the clip. Six controls in one undifferentiated
-                            row read as six unrelated buttons. */}
-                        <div className="shrink-0 rounded-input border border-rule bg-paper2 p-2 flex items-stretch gap-3">
-                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                <span className="readout shrink-0 text-muted">1 · MARCAR</span>
-                                <button onClick={() => markHere('in')} className="btn-quiet text-[11px] py-1 px-2 flex items-center gap-1 shrink-0">
-                                    <ChevronsRight size={12} /> início <span className="text-muted">i</span>
-                                </button>
-                                <button onClick={() => markHere('out')} className="btn-quiet text-[11px] py-1 px-2 flex items-center gap-1 shrink-0">
-                                    <ChevronsLeft size={12} /> fim <span className="text-muted">o</span>
-                                </button>
-                                <p className={`readout px-1 truncate ${markRange ? 'text-ink' : ''}`}>
-                                    {markIn === null ? '—:——' : fmt(markIn)}
-                                    {' → '}{markOut === null ? '—:——' : fmt(markOut)}
-                                    {markRange && ` · ${fmt(markRange.end - markRange.start)}`}
-                                    {markIn !== null && markOut !== null && !markRange
-                                        && ` · MENOR QUE ${minSeg}S`}
-                                </p>
-                                <button
-                                    onClick={clearMarks}
-                                    disabled={markIn === null && markOut === null}
-                                    className="p-1 rounded-input text-muted hover:text-ink hover:bg-paper3 disabled:opacity-40 shrink-0"
-                                    aria-label="limpar pontos de início e fim"
-                                >
-                                    <X size={13} />
-                                </button>
-                            </div>
-
-                            <div className="w-px bg-[color:var(--color-rule-2)] shrink-0" />
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="readout text-muted">2 · ENVIAR</span>
-                                <button
-                                    onClick={() => sendToClip('replace')}
-                                    disabled={!markRange}
-                                    title="o segmento selecionado será substituído por este intervalo (.)"
-                                    className="btn-primary text-[11px] py-1.5 px-2 disabled:opacity-40"
-                                >
-                                    substituir #{selected + 1}
-                                </button>
-                                <button
-                                    onClick={() => sendToClip('insert')}
-                                    disabled={!markRange || segments.length >= limits.max_segments}
-                                    title="adiciona este intervalo como um novo segmento após o selecionado (,)"
-                                    className="btn-quiet text-[11px] py-1.5 px-2 disabled:opacity-40"
-                                >
-                                    inserir após #{selected + 1}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* transcript of the whole source */}
-                        <div className="shrink-0 h-[30%] min-h-[9rem] flex flex-col">
-                            <div className="flex items-center justify-between mb-1.5 gap-2 shrink-0">
-                                <p className="eyebrow">Transcrição · vídeo original</p>
-                                {/* Boundary actions live HERE, above the words they
-                                    act on, because this is where the eye is when
-                                    picking a cut point from the text (issue #73). */}
-                                {selectedWord ? (
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                        <button
-                                            onClick={() => setSegment(selected, { start: selectedWord.s }, { snap: false })}
-                                            title={`segmento #${selected + 1} inicia em "${selectedWord.w}" (${fmt(selectedWord.s)})`}
-                                            className="btn-quiet text-[11px] py-1 px-2"
-                                        >
-                                            #{selected + 1} inicia aqui
-                                        </button>
-                                        <button
-                                            onClick={() => setSegment(selected, { end: selectedWord.e }, { snap: false })}
-                                            title={`segmento #${selected + 1} termina em "${selectedWord.w}" (${fmt(selectedWord.e)})`}
-                                            className="btn-quiet text-[11px] py-1 px-2"
-                                        >
-                                            #{selected + 1} termina aqui
-                                        </button>
-                                    </div>
-                                ) : words.length > 0 ? (
-                                    <span className="readout shrink-0">CLIQUE EM UMA PALAVRA PARA DEFINIR O CORTE</span>
-                                ) : null}
-                            </div>
-                            {words.length === 0 ? (
-                                <p className="text-xs text-muted lowercase">este corte não possui transcrição</p>
-                            ) : (
-                                <div
-                                    ref={transcriptRef}
-                                    className="relative flex-1 min-h-0 flex flex-wrap content-start gap-x-1 gap-y-1.5 overflow-y-auto custom-scrollbar pr-1"
-                                >
-                                    {chunks.map((c) => {
-                                        const first = c.items[0].s;
-                                        const last = c.items[c.items.length - 1].e;
-                                        // 'none' and 'all' are stable primitives, so only the
-                                        // one or two slices straddling a segment edge repaint
-                                        // while a trim handle is being dragged.
-                                        let lit = 'none';
-                                        if (highlightSeg && !(last <= highlightSeg.start || first >= highlightSeg.end)) {
-                                            lit = (first >= highlightSeg.start && last <= highlightSeg.end)
-                                                ? 'all' : highlightSeg;
-                                        }
-                                        const local = (idx) => (
-                                            idx >= c.offset && idx < c.offset + c.items.length ? idx - c.offset : -1
-                                        );
-                                        return (
-                                            <TranscriptChunk
-                                                key={c.offset}
-                                                items={c.items}
-                                                offset={c.offset}
-                                                lit={lit}
-                                                active={local(activeWordIndex)}
-                                                anchorAt={local(anchorIndex)}
-                                                selectedAt={local(selectedWordIndex)}
-                                                onPick={pickWord}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <SourceColumn
+                        edl={edl}
+                        sourceRef={sourceRef}
+                        applySeek={applySeek}
+                        setSourceTime={setSourceTime}
+                        sourceTrackNode={sourceTrack}
+                        markIn={markIn}
+                        markOut={markOut}
+                        markRange={markRange}
+                        minSeg={minSeg}
+                        markHere={markHere}
+                        clearMarks={clearMarks}
+                        sendToClip={sendToClip}
+                        selected={selected}
+                        segmentsLength={segments.length}
+                        maxSegments={limits.max_segments}
+                        words={words}
+                        segments={segments}
+                        sourceTime={sourceTime}
+                        seekSource={seekSource}
+                        setSegment={setSegment}
+                    />
                 )}
 
                 {/* ---- column 2 · program ---- */}
-                {/* Sized to the 9:16 preview plus enough track to aim with, rather
-                    than an equal share: a wider column here is just black beside a
-                    height-bound video, and that width is worth more to the source.
-                    With the source away it takes everything, which is what gives
-                    the clip track its full precision back. */}
-                <div className={`flex flex-col min-h-0 gap-2 ${sourceOpen ? 'xl:w-[26rem] 2xl:w-[30rem] xl:shrink-0' : 'flex-1'}`}>
-                    <div className="flex items-center justify-between gap-2 shrink-0">
-                        <p className="eyebrow">Prévia do Corte</p>
-                        {dirty && (
-                            <span className="badge-warn">
-                                {missingSeconds > COVERAGE_EPSILON
-                                    ? `${fmt(missingSeconds)} precisa ser renderizado`
-                                    : 'prévia da edição · renderize para salvar'}
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex-1 min-h-0 flex items-center justify-center">
-                        <div className="h-full max-h-full aspect-[9/16] bg-black rounded-card border border-rule overflow-hidden">
-                            <video
-                                ref={videoRef}
-                                src={previewUrl}
-                                controls
-                                playsInline
-                                className="w-full h-full object-contain"
-                                onTimeUpdate={onClipTimeUpdate}
-                                onSeeked={onClipSeeked}
-                                onPlay={onClipPlay}
-                                onPause={stopPlayLoop}
-                            />
-                        </div>
-                    </div>
-
-                    {/* clip track */}
-                    <div className="shrink-0 select-none">
-                        <div className="flex items-center justify-between mb-1.5 gap-3">
-                            <p className="readout">CORTE · {fmt(total)}</p>
-                            {dirty && (
-                                <p className="readout truncate">
-                                    {missingSeconds > COVERAGE_EPSILON
-                                        ? `VERMELHO · ${fmt(missingSeconds)} AINDA NÃO RENDERIZADO`
-                                        : 'PRÉVIA DA EDIÇÃO'}
-                                </p>
-                            )}
-                        </div>
-                        <div
-                            ref={clipTrackRef}
-                            onPointerDown={startClipScrub}
-                            className="relative h-12 rounded-input bg-paper border border-rule overflow-hidden touch-none cursor-pointer"
-                        >
-                            {blocks.map(({ seg, i, left, width }) => (
-                                <div
-                                    key={i}
-                                    onPointerDown={() => dispatch({ type: 'select', index: i })}
-                                    className={`absolute top-1 bottom-1 rounded-[6px] border ${i === selected ? 'border-[color:var(--color-accent)]' : 'border-transparent'} ${outOfRange(seg) ? 'border-[color:var(--color-danger)]' : ''}`}
-                                    style={{ left: `${left}%`, width: `${width}%`, background: `color-mix(in oklab, ${SEGMENT_COLORS[i % SEGMENT_COLORS.length]} 28%, transparent)` }}
-                                >
-                                    <span className="absolute inset-0 flex items-center justify-center readout pointer-events-none select-none">
-                                        #{i + 1} · {fmt(seg.end - seg.start)}
-                                    </span>
-                                    {/* trim handles */}
-                                    <div
-                                        onPointerDown={(e) => startTrimDrag(e, i, 'start', clipTrackRef.current, clipTrackSeconds)}
-                                        className="absolute left-0 top-0 bottom-0 w-2 touch-none cursor-ew-resize rounded-l-[6px]"
-                                        style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
-                                    />
-                                    <div
-                                        onPointerDown={(e) => startTrimDrag(e, i, 'end', clipTrackRef.current, clipTrackSeconds)}
-                                        className="absolute right-0 top-0 bottom-0 w-2 touch-none cursor-ew-resize rounded-r-[6px]"
-                                        style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
-                                    />
-                                </div>
-                            ))}
-                            {/* Render status, as an NLE draws it: red is material the
-                                last render never saw, so there is no frame to show
-                                until it is rendered. Everything else plays straight
-                                out of the existing file. */}
-                            {dirty && coverage.map((sp, i) => (
-                                <div
-                                    key={i}
-                                    className={`absolute top-0 h-1 pointer-events-none ${
-                                        sp.rendered === null ? 'bg-danger' : 'bg-ok/50'}`}
-                                    style={{
-                                        left: `${(sp.start / clipTrackSeconds) * 100}%`,
-                                        width: `${((sp.end - sp.start) / clipTrackSeconds) * 100}%`,
-                                    }}
-                                />
-                            ))}
-                            {/* A handle, not a hairline: the same solid, grabbable
-                                shape the source track uses, so this reads as
-                                something you drive rather than a marker that
-                                happens to move. No handler of its own — the
-                                pointerdown bubbles to the track, which already
-                                scrubs from the pointer position. */}
-                            <div
-                                title="arraste para navegar pelo corte"
-                                className="absolute top-1 bottom-1 w-2.5 -ml-[5px] rounded-[4px] bg-ink border border-paper cursor-grab active:cursor-grabbing"
-                                style={{ left: `${(Math.min(playhead, clipTrackSeconds) / clipTrackSeconds) * 100}%` }}
-                            />
-                        </div>
-                    </div>
-
-                    {!sourceAvailable && sourceTrack}
-                </div>
+                <PreviewColumn
+                    sourceOpen={sourceOpen}
+                    dirty={dirty}
+                    missingSeconds={missingSeconds}
+                    previewUrl={previewUrl}
+                    videoRef={videoRef}
+                    onClipTimeUpdate={onClipTimeUpdate}
+                    onClipSeeked={onClipSeeked}
+                    onClipPlay={onClipPlay}
+                    stopPlayLoop={stopPlayLoop}
+                    sourceAvailable={sourceAvailable}
+                    sourceTrackNode={sourceTrack}
+                    clipTrackNode={
+                        <ClipTrack
+                            total={total}
+                            dirty={dirty}
+                            missingSeconds={missingSeconds}
+                            clipTrackRef={clipTrackRef}
+                            startClipScrub={startClipScrub}
+                            blocks={blocks}
+                            dispatch={dispatch}
+                            selected={selected}
+                            outOfRange={outOfRange}
+                            startTrimDrag={startTrimDrag}
+                            clipTrackSeconds={clipTrackSeconds}
+                            coverage={coverage}
+                            playhead={playhead}
+                        />
+                    }
+                />
 
                 {/* ---- column 3 · controls ---- */}
-                <div className="w-full xl:w-[21rem] shrink-0 flex flex-col min-h-0">
-                    <div className="flex-1 xl:overflow-y-auto custom-scrollbar pr-1 space-y-5">
-                        {/* segments */}
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="eyebrow">Segmentos · {segments.length}/{limits.max_segments}</p>
-                                <div className="flex items-center gap-1">
-                                    <button className="p-1.5 rounded-input text-muted hover:text-ink hover:bg-paper3 disabled:opacity-45" disabled={!state.past.length} onClick={() => dispatch({ type: 'undo' })} aria-label="desfazer"><Undo2 size={14} /></button>
-                                    <button className="p-1.5 rounded-input text-muted hover:text-ink hover:bg-paper3 disabled:opacity-45" disabled={!state.future.length} onClick={() => dispatch({ type: 'redo' })} aria-label="refazer"><Redo2 size={14} /></button>
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                {segments.map((seg, i) => (
-                                    <SegmentRow
-                                        key={i}
-                                        seg={seg}
-                                        i={i}
-                                        selected={selected}
-                                        outOfRange={outOfRange}
-                                        dispatch={dispatch}
-                                        setSegment={setSegment}
-                                        sourceOpen={sourceOpen}
-                                        seekSource={seekSource}
-                                        moveSegment={moveSegment}
-                                        splitSegment={splitSegment}
-                                        deleteSegment={deleteSegment}
-                                        minSeg={minSeg}
-                                        limits={limits}
-                                        segments={segments}
-                                    />
-                                ))}
-                            </div>
-                            <button
-                                onClick={addSegment}
-                                disabled={segments.length >= limits.max_segments}
-                                className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-input border border-dashed border-rule2 text-xs lowercase text-ink2 hover:bg-paper3 transition-colors disabled:opacity-45"
-                            >
-                                <Plus size={14} /> adicionar segmento
-                            </button>
-                            {!sourceAvailable && (
-                                <p className="text-[11px] text-muted mt-2 leading-relaxed">
-                                    o vídeo original não está mais disponível no servidor, portanto os cortes estão
-                                    limitados ao intervalo deste corte
-                                </p>
-                            )}
-                        </div>
-
-                        {/* framing override */}
-                        <div>
-                            <p className="eyebrow mb-2">Enquadramento</p>
-                            <div className="grid grid-cols-3 gap-1.5">
-                                {[
-                                    { value: 'auto', label: 'automático', hint: 'A IA define por cena' },
-                                    { value: 'full', label: 'quadro inteiro', hint: 'plano completo, sem corte lateral' },
-                                    { value: 'track', label: 'seguir pessoa', hint: 'câmera segue a pessoa falante' },
-                                ].map((f) => (
-                                    <button
-                                        key={f.value}
-                                        type="button"
-                                        title={f.hint}
-                                        disabled={f.value !== 'auto' && !sourceAvailable}
-                                        onClick={() => setFraming(f.value)}
-                                        className={`py-1.5 px-2 rounded-input border text-xs lowercase transition-colors
-                                            ${framing === f.value
-                                                ? 'border-[color:var(--color-accent)] text-ink'
-                                                : 'border-rule2 text-muted hover:border-[color:var(--color-accent)]'}
-                                            disabled:opacity-40 disabled:cursor-not-allowed`}
-                                    >
-                                        {f.label}
-                                    </button>
-                                ))}
-                            </div>
-                            {!sourceAvailable && (
-                                <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
-                                    mudanças de enquadramento requerem o vídeo original, que não está mais no servidor
-                                </p>
-                            )}
-                            {framing !== renderedFraming && (
-                                <p className="text-[11px] text-muted mt-1.5 leading-relaxed">
-                                    alterar o enquadramento reprocessa todo o vídeo (mais lento que um recorte rápido)
-                                </p>
-                            )}
-                        </div>
-
-                        {/* toggles */}
-                        <div className="space-y-2.5">
-                            <label className="flex items-center justify-between cursor-pointer">
-                                <span className="text-xs lowercase text-ink2">alinhar cortes às palavras faladas</span>
-                                <span className="relative inline-flex items-center">
-                                    <input type="checkbox" checked={snapToWords} onChange={(e) => setSnapToWords(e.target.checked)} className="sr-only peer" />
-                                    <span className="w-8 h-4 rounded-full bg-paper3 peer-checked:bg-brass transition-colors after:content-[''] after:absolute after:left-0.5 after:top-0.5 after:w-3 after:h-3 after:rounded-full after:bg-ink after:transition-transform peer-checked:after:translate-x-4" />
-                                </span>
-                            </label>
-                            <label className="flex items-center justify-between cursor-pointer">
-                                <span className="text-xs lowercase text-ink2">reaplicar legendas após o recorte</span>
-                                <span className="relative inline-flex items-center">
-                                    <input type="checkbox" checked={reapplyCaptions} onChange={(e) => setReapplyCaptions(e.target.checked)} className="sr-only peer" />
-                                    <span className="w-8 h-4 rounded-full bg-paper3 peer-checked:bg-brass transition-colors after:content-[''] after:absolute after:left-0.5 after:top-0.5 after:w-3 after:h-3 after:rounded-full after:bg-ink after:transition-transform peer-checked:after:translate-x-4" />
-                                </span>
-                            </label>
-                        </div>
-
-                        {/* keyboard legend — moved off the clip track, which no longer
-                            has the width for it */}
-                        <div>
-                            <p className="eyebrow mb-2">Atalhos</p>
-                            <p className="readout leading-relaxed">
-                                ESPAÇO REPRODUZIR · S DIVIDIR · ⌫ EXCLUIR · ⌘Z DESFAZER
-                                {sourceOpen && ' · I INÍCIO · O FIM · , INSERIR · . SUBSTITUIR'}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* footer actions */}
-                    <div className="shrink-0 pt-4 mt-4 border-t border-rule">
-                        {renderError && (
-                            <div className="mb-3 px-3 py-2 rounded-input text-xs text-danger bg-[color-mix(in_oklab,var(--color-danger)_10%,transparent)] flex items-center gap-2">
-                                <AlertCircle size={14} className="shrink-0" /> {renderError}
-                            </div>
-                        )}
-                        {overCaps && (
-                            <p className="mb-3 text-[11px] text-warn lowercase">
-                                {total > limits.max_total_seconds ? `o corte ultrapassa ${Math.round(limits.max_total_seconds)}s` : `mais de ${limits.max_segments} segmentos`}
-                            </p>
-                        )}
-                        <div className="flex gap-2">
-                            <button
-                                className="btn-ghost"
-                                onClick={() => (rendering ? onClose() : dirty ? setConfirmClose(true) : onClose())}
-                            >
-                                {rendering ? 'fechar' : dirty ? 'cancelar' : 'fechar'}
-                            </button>
-                            <button className="btn-primary flex-1 flex items-center justify-center gap-2" disabled={!canRender || !dirty} onClick={doRender}>
-                                {rendering
-                                    ? (<><Loader2 size={16} className="animate-spin text-brassink" /> renderizando novamente… {renderSeconds}s</>)
-                                    : (needsSourcePath ? 'renderizar a partir do original' : 'renderizar corte')}
-                            </button>
-                        </div>
-                        {rendering && (
-                            <p className="text-[11px] text-muted mt-2 lowercase">
-                                você pode fechar este editor; a renderização continuará em segundo plano e o corte será atualizado quando terminar
-                            </p>
-                        )}
-                    </div>
-                </div>
+                <SidebarControls
+                    segments={segments}
+                    selected={selected}
+                    statePastLength={state.past.length}
+                    stateFutureLength={state.future.length}
+                    limits={limits}
+                    dispatch={dispatch}
+                    setSegment={setSegment}
+                    sourceOpen={sourceOpen}
+                    seekSource={seekSource}
+                    moveSegment={moveSegment}
+                    splitSegment={splitSegment}
+                    deleteSegment={deleteSegment}
+                    minSeg={minSeg}
+                    addSegment={addSegment}
+                    sourceAvailable={sourceAvailable}
+                    framing={framing}
+                    setFraming={setFraming}
+                    renderedFraming={renderedFraming}
+                    snapToWords={snapToWords}
+                    setSnapToWords={setSnapToWords}
+                    reapplyCaptions={reapplyCaptions}
+                    setReapplyCaptions={setReapplyCaptions}
+                    outOfRange={outOfRange}
+                    footerNode={
+                        <EditorFooter
+                            renderError={renderError}
+                            overCaps={overCaps}
+                            total={total}
+                            limits={limits}
+                            canRender={canRender}
+                            dirty={dirty}
+                            doRender={doRender}
+                            rendering={rendering}
+                            renderSeconds={renderSeconds}
+                            needsSourcePath={needsSourcePath}
+                            onClose={onClose}
+                            setConfirmClose={setConfirmClose}
+                        />
+                    }
+                />
             </div>
         </div>
     );
 }
-
-
-// One slice of the transcript. Memoised because the whole transcript is on
-// screen: repainting a couple of thousand words costs ~66ms, and the source
-// monitor fires timeupdate about four times a second while it plays. Sliced,
-// a moving playhead repaints ~50 words instead of all of them.
-//
-// It returns a Fragment rather than a wrapper element so the words stay direct
-// children of the scroll box — the flex-wrap layout and the anchor's offsetTop
-// both depend on that.

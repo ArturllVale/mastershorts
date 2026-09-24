@@ -49,7 +49,8 @@ export default function DashboardView({
   handleClipPlay,
   handleClipPause,
   handleBulkSubtitles,
-  bulkSub
+  bulkSub,
+  onRerendered
 }) {
   const lastLog = logs && logs.length ? logs[logs.length - 1] : '';
   const isConnectionError = Boolean(logs && logs.some(l => 
@@ -466,7 +467,6 @@ export default function DashboardView({
                       index={i}
                       rankIndex={rankIndex}
                       jobId={jobId}
-                      onEditClip={(index) => setEditingClip(index)}
                       onReframeClip={(index) => setReframingClip(index)}
                       initialState={projectState?.clips?.find((c) => c.index === i) || null}
                       onStateChange={handleClipStateChange}
@@ -478,6 +478,7 @@ export default function DashboardView({
                       onBulkSubtitle={handleBulkSubtitles}
                       clipCount={results.clips.length}
                       bulkProgress={bulkSub}
+                      onRerendered={onRerendered}
                     />
                   ))}
                 </div>

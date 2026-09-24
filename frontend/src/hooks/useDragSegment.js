@@ -43,7 +43,8 @@ export function useDragSegment({
 
     const next = d.base.slice();
     next[d.idx] = seg;
-    dispatch({ type: 'commit', segments: next, select: d.idx });
+    d.last = { seg, next };
+    dispatch({ type: 'preview', segments: next });
   }, [dragRef, dispatch]);
 
   const onDragUp = useCallback(() => {
@@ -52,10 +53,9 @@ export function useDragSegment({
     window.removeEventListener('pointermove', onDragMove);
     window.removeEventListener('pointerup', onDragUp);
     window.removeEventListener('pointercancel', onDragUp);
-    if (!d || d.kind) return;
+    if (!d || d.kind || !d.last) return;
 
-    const next = d.base.slice();
-    const seg = next[d.idx];
+    const { seg, next } = d.last;
     const snapped = { ...seg };
     if (d.edge === 'move') {
       const len = seg.end - seg.start;
