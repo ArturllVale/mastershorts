@@ -144,18 +144,22 @@ export default function OpenAiEndpointInput({
   };
 
   return (
-    <div className="card p-4 sm:p-6 mb-8 animate-fade space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-paper3 rounded-input text-brass">
+    <div className="card p-5 sm:p-6 border border-rule/80 bg-paper2/90 shadow-card rounded-panel backdrop-blur-sm animate-fade space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="p-2.5 bg-paper3 rounded-xl text-brass shrink-0 mt-0.5 border border-rule">
             <Server size={18} />
           </div>
-          <div>
-            <h2 className="font-display text-lg text-ink">Endpoint Compatível com OpenAI</h2>
-            <p className="text-xs text-muted">OmniRoute, Ollama, LM Studio, vLLM, OpenRouter ou NVIDIA NIM</p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base sm:text-lg font-semibold text-ink">Endpoint Compatível com OpenAI</h2>
+              <span className="badge-ok text-[10px] uppercase font-semibold">BYOK / Local</span>
+            </div>
+            <p className="text-xs text-muted mt-1 leading-relaxed">
+              OmniRoute, Ollama, LM Studio, vLLM, OpenRouter ou NVIDIA NIM com suporte a modelos locais ou customizados.
+            </p>
           </div>
         </div>
-        <span className="readout">BYOK</span>
       </div>
 
       {/* Presets Chips */}
@@ -314,16 +318,16 @@ export default function OpenAiEndpointInput({
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-rule">
+      {/* Standardized Bottom Action Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-rule">
         <button
           type="button"
           onClick={handleTestConnection}
           disabled={!baseUrl.trim() || testStatus === 'testing'}
-          className="btn-secondary py-2 px-3.5 text-xs flex items-center gap-1.5"
+          className="btn-secondary py-2 px-3.5 text-xs flex items-center justify-center gap-1.5 w-full sm:w-auto"
         >
           {testStatus === 'testing' ? (
-            <><Loader2 size={13} className="animate-spin text-brass" /> Testando…</>
+            <><Loader2 size={13} className="animate-spin text-brass" /> Testando Conexão…</>
           ) : (
             'Testar Conexão'
           )}
@@ -333,7 +337,7 @@ export default function OpenAiEndpointInput({
           type="button"
           onClick={handleSave}
           disabled={!baseUrl.trim()}
-          className={isSaved ? 'badge-ok px-4 py-2 text-xs flex items-center gap-1.5 cursor-default' : 'btn-primary py-2 px-4 text-xs'}
+          className={isSaved ? 'badge-ok px-4 py-2 text-xs flex items-center justify-center gap-1.5 cursor-default w-full sm:w-auto' : 'btn-primary py-2 px-4 text-xs flex items-center justify-center w-full sm:w-auto'}
         >
           {isSaved ? <><Check size={14} /> Salvo</> : 'Salvar Configuração'}
         </button>

@@ -55,7 +55,7 @@ export default function AppHeader({
   }, []);
 
   return (
-    <header className="h-14 border-b border-rule bg-paper flex items-center justify-between gap-2 px-3 sm:px-6 shrink-0 z-10">
+    <header className="h-14 border-b border-rule bg-paper/90 backdrop-blur-md flex items-center justify-between gap-2 px-3 sm:px-6 shrink-0 z-10">
       <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         <button
           onClick={() => setNavOpen(true)}

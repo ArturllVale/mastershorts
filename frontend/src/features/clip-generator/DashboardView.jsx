@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { Youtube, Instagram, Activity, Loader2, Terminal, ChevronDown, Download, RotateCcw, Play, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
+import { Youtube, Instagram, Activity, Loader2, Terminal, ChevronDown, Download, RotateCcw, Play, RefreshCw, AlertCircle, Trash2, Sparkles } from 'lucide-react';
 import MediaInput from '../../components/MediaInput';
 import ProcessingAnimation from '../../components/ProcessingAnimation';
 import StarBanner from '../../components/StarBanner';
@@ -15,9 +15,9 @@ const TikTokIcon = ({ size = 16, className = "" }) => (
 export default function DashboardView({
   activeTab,
   status,
-  tutorialLock,
-  billingEnabled,
-  goToTab,
+  _tutorialLock,
+  _billingEnabled,
+  _goToTab,
   handleProcess,
   handleReset,
   handleRetry,
@@ -154,51 +154,46 @@ export default function DashboardView({
   return (
     <>
       {status === 'idle' && (
-        <div className="h-full overflow-y-auto custom-scrollbar animate-fade">
-          <div className="min-h-full flex flex-col items-center justify-center px-4 py-5 sm:p-6">
-          <div className="max-w-xl w-full text-center space-y-5 sm:space-y-8">
-            <div className="space-y-2.5 sm:space-y-4">
-              <p className="eyebrow hidden sm:block font-mono text-violet font-semibold">01 · GERADOR DE CLIPES</p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-ink">
-                Transforme vídeos longos em shorts virais.
-              </h1>
-              <p className="text-sm sm:text-base text-ink2">
-                Cole um link do YouTube ou envie um arquivo. A IA extrai os melhores momentos, reformata para 9:16 e adiciona legendas automáticas.
-              </p>
-              {!tutorialLock && (
-              <p className="text-xs text-muted">
-                Automatize com agentes de IA:{' '}
-                <a
-                  href={billingEnabled ? '#/account' : '#app'}
-                  onClick={(e) => { if (!billingEnabled) { e.preventDefault(); goToTab('settings'); } }}
-                  className="text-ink underline underline-offset-2 hover:text-violet transition-colors font-medium"
-                >
-                  Conecte automações e integrações via API →
-                </a>
-              </p>
-              )}
-              <p className="text-xs text-muted flex items-center justify-center gap-1.5 pt-0.5">
-                <span>Status do Ambiente:</span>
-                <button
-                  type="button"
-                  onClick={() => setShowPreflight(true)}
-                  className="text-ink underline underline-offset-2 hover:text-violet transition-colors font-medium cursor-pointer"
-                >
-                  Checar Preflight (FFmpeg, Remotion, GPU, etc.) →
-                </button>
-              </p>
+        <div className="h-full overflow-y-auto custom-scrollbar animate-fade relative">
+          {/* Subtle Ambient Radial Glow */}
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] max-w-[90vw] h-[320px] bg-violet/10 rounded-full blur-[110px] pointer-events-none -z-10" />
+
+          <div className="min-h-full flex flex-col items-center justify-center px-4 py-8 sm:py-12">
+            <div className="max-w-2xl w-full text-center space-y-6 sm:space-y-8">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet/10 border border-violet/25 text-violet text-xs font-medium shadow-sm backdrop-blur-sm">
+                  <Sparkles size={13} className="text-violet" />
+                  <span>IA Studio para Criação de Shorts</span>
+                </div>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-ink leading-[1.15]">
+                  Transforme vídeos longos em{' '}
+                  <span
+                    className="text-gradient-premium drop-shadow-[0_0_24px_rgba(168,85,247,0.4)]"
+                    style={{
+                      background: 'linear-gradient(135deg, #d8b4fe 0%, #a855f7 50%, #818cf8 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}
+                  >
+                    shorts virais
+                  </span>
+                </h1>
+                <p className="text-sm sm:text-base text-ink2/90 max-w-lg mx-auto leading-relaxed">
+                  Cole o link de qualquer vídeo ou faça upload do arquivo. A IA detecta os pontos altos, enquadra em 9:16 e gera legendas dinâmicas prontas para postar.
+                </p>
+              </div>
+
+              <PreflightModal isOpen={showPreflight} onClose={() => setShowPreflight(false)} />
+
+              <MediaInput onProcess={handleProcess} isProcessing={status === 'processing'} />
+
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-muted text-xs sm:text-sm">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-paper2/60 border border-rule/60 text-ink2"><Youtube size={15} className="text-red-500" /> YouTube</span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-paper2/60 border border-rule/60 text-ink2"><Instagram size={15} className="text-pink-500" /> Instagram</span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-paper2/60 border border-rule/60 text-ink2"><TikTokIcon size={15} /> TikTok</span>
+                <span className="text-[11px] text-muted">e centenas de outras fontes</span>
+              </div>
             </div>
-
-            <PreflightModal isOpen={showPreflight} onClose={() => setShowPreflight(false)} />
-
-            <MediaInput onProcess={handleProcess} isProcessing={status === 'processing'} />
-
-            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-muted text-xs sm:text-sm">
-              <span className="flex items-center gap-2"><Youtube size={16} /> YouTube</span>
-              <span className="flex items-center gap-2"><Instagram size={16} /> Instagram</span>
-              <span className="flex items-center gap-2"><TikTokIcon size={16} /> TikTok</span>
-            </div>
-          </div>
           </div>
         </div>
       )}
@@ -502,6 +497,7 @@ export default function DashboardView({
                       index={i}
                       rankIndex={rankIndex}
                       jobId={jobId}
+                      onEditClip={(index) => setEditingClip(index)}
                       onReframeClip={(index) => setReframingClip(index)}
                       initialState={projectState?.clips?.find((c) => c.index === i) || null}
                       onStateChange={handleClipStateChange}

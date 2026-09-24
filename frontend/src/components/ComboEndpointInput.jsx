@@ -106,20 +106,20 @@ export default function ComboEndpointInput({
   const hasAtLeastOneKey = Boolean(geminiKey.trim() || openrouterKey.trim() || mistralKey.trim());
 
   return (
-    <div className="card p-4 sm:p-6 mb-8 animate-fade space-y-6">
+    <div className="card p-5 sm:p-6 border border-rule/80 bg-paper2/90 shadow-card rounded-panel backdrop-blur-sm animate-fade space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-paper3 rounded-input text-brass shrink-0 mt-0.5">
-            <Layers size={20} />
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="p-2.5 bg-paper3 rounded-xl text-brass shrink-0 mt-0.5 border border-rule">
+            <Layers size={18} />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-display text-base sm:text-lg text-ink">Combo Gratuito: Gemini + OpenRouter + Mistral</h2>
-              <span className="badge-ok text-[10px] uppercase font-semibold">3-em-1 Free</span>
+              <h2 className="text-base sm:text-lg font-semibold text-ink">Combo Gratuito 3-em-1</h2>
+              <span className="badge-ok text-[10px] uppercase font-semibold">Alta Resiliência</span>
             </div>
             <p className="text-xs text-muted mt-1 leading-relaxed">
-              Alta disponibilidade com rotação inteligente e fallback automático entre os três provedores usando apenas modelos gratuitos.
+              Rotação inteligente e fallback automático entre Google Gemini, OpenRouter e Mistral AI utilizando apenas modelos gratuitos.
             </p>
           </div>
         </div>

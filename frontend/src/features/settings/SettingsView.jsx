@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Sparkles, Cpu, Server, Layers } from 'lucide-react';
+import { Shield, Sparkles, Server, Layers, Check } from 'lucide-react';
 import KeyInput from '../../components/KeyInput';
 import OpenAiEndpointInput from '../../components/OpenAiEndpointInput';
 import ComboEndpointInput from '../../components/ComboEndpointInput';
@@ -26,85 +26,104 @@ export default function SettingsView({
   setMistralApiKey,
 }) {
   return (
-    <div className="h-full overflow-y-auto p-4 sm:p-8 max-w-2xl mx-auto animate-fade">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+    <div className="h-full overflow-y-auto custom-scrollbar p-4 sm:p-6 md:p-8 max-w-4xl mx-auto animate-fade">
+      {/* Settings Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 pb-4 border-b border-rule">
         <div>
-          <p className="eyebrow mb-1.5">04 · CONFIGURAÇÕES</p>
-          <h1 className="font-display lowercase text-2xl text-ink">Configurações</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-ink">
+            Configurações do Sistema
+          </h1>
+          <p className="text-xs text-muted mt-1">
+            Gerencie modelos de inteligência artificial, provedores e endpoints locais.
+          </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted mt-1">
-          <Shield size={12} className="text-ok shrink-0" /> Privacidade: chaves e endpoints ficam salvos apenas no seu navegador
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-paper2 border border-rule text-xs text-muted shrink-0 self-start sm:self-auto">
+          <Shield size={13} className="text-ok shrink-0" />
+          <span>Privacidade Total · Armazenamento Local</span>
         </div>
       </div>
 
       {isManaged ? (
-        <div className="card p-6 mb-2">
+        <div className="card p-5 sm:p-6 border border-rule/80 bg-paper2/90 shadow-card rounded-panel backdrop-blur-sm mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
-                <Shield size={16} className="text-brass" />
+              <div className="p-2.5 bg-paper3 rounded-xl text-brass border border-rule shrink-0">
+                <Shield size={18} />
               </div>
-              <h2 className="text-base font-medium text-ink lowercase">Incluso no seu plano</h2>
+              <div>
+                <h2 className="text-base font-semibold text-ink">Incluso no seu plano</h2>
+                <p className="text-xs text-muted">Acesso gerenciado sem necessidade de chaves</p>
+              </div>
             </div>
             <span className="badge-ok">Gerenciado</span>
           </div>
-          <p className="text-xs text-muted mb-0 leading-relaxed">
-            Seu plano inclui o <strong>Gerador de Cortes</strong> e o <strong>Estúdio YouTube</strong>,
-            totalmente gerenciados — sem necessidade de chaves de API.
+          <p className="text-xs text-muted leading-relaxed">
+            Seu plano inclui o <strong>Gerador de Clipes</strong> e o <strong>Estúdio YouTube</strong>,
+            totalmente integrados na nuvem.
           </p>
         </div>
       ) : billingEnabled ? (
-        <div className="card p-6 mb-2">
-          <div className="flex items-center justify-between mb-3">
+        <div className="card p-5 sm:p-6 border border-rule/80 bg-paper2/90 shadow-card rounded-panel backdrop-blur-sm mb-6 space-y-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-input bg-paper3 flex items-center justify-center shrink-0">
-                <Sparkles size={16} className="text-brass" />
+              <div className="p-2.5 bg-paper3 rounded-xl text-brass border border-rule shrink-0">
+                <Sparkles size={18} />
               </div>
-              <h2 className="text-base font-medium text-ink lowercase">Escolha seu plano</h2>
+              <div>
+                <h2 className="text-base font-semibold text-ink">Plano e Licença</h2>
+                <p className="text-xs text-muted">Acesso instantâneo sem configurações manuais de API</p>
+              </div>
             </div>
-            <span className="badge-ok">Plano gratuito disponível</span>
+            <span className="badge-ok">Gratuito disponível</span>
           </div>
-          <p className="text-xs text-muted mb-5 leading-relaxed">
-            Gere shorts sem configurações complicadas — sem necessidade de chaves de API. Comece gratuitamente com 20 min/mês ou assine a partir de R$ 12/mês. Cancele quando quiser.
+          <p className="text-xs text-muted leading-relaxed">
+            Gere shorts sem precisar de chaves de API externas. Inicie gratuitamente com 20 min/mês ou assine planos a partir de R$ 12/mês.
           </p>
-          <button onClick={() => setShowPlanChoice(true)} className="btn-primary py-2 px-4 text-sm">
-            <Sparkles size={16} /> Escolher um plano
+          <button
+            onClick={() => setShowPlanChoice(true)}
+            className="btn-primary py-2 px-4 text-xs font-semibold"
+          >
+            <Sparkles size={14} /> Escolher um Plano
           </button>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Provider Selector Switch */}
-          <div className="card p-4 sm:p-5 space-y-4">
+          <div className="card p-5 sm:p-6 border border-rule/80 bg-paper2/90 shadow-card rounded-panel backdrop-blur-sm space-y-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1">Modelo de IA</p>
-              <p className="text-xs text-ink2">
-                Escolha qual provedor analisa o conteúdo do vídeo para encontrar momentos virais.
+              <h3 className="text-sm font-semibold text-ink">Selecione o Provedor de IA</h3>
+              <p className="text-xs text-muted mt-0.5">
+                Escolha qual mecanismo processa o vídeo e detecta os momentos virais.
               </p>
             </div>
 
             {/* Responsive 3-Card Option Selector */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Option 1: Google Gemini */}
               <button
                 type="button"
                 onClick={() => setLlmProvider && setLlmProvider('gemini')}
-                className={`p-3 rounded-card border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
+                className={`p-3.5 rounded-xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer min-h-[96px] ${
                   llmProvider === 'gemini'
-                    ? 'border-brass bg-paper3/90 shadow-sm'
-                    : 'border-rule bg-paper2/50 hover:border-rule2 hover:bg-paper3/40'
+                    ? 'border-violet bg-violet/[0.08] shadow-sm ring-1 ring-violet/30'
+                    : 'border-rule bg-paper/60 hover:border-rule2 hover:bg-paper2/50'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <Sparkles size={14} className={llmProvider === 'gemini' ? 'text-brass shrink-0' : 'text-muted shrink-0'} />
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Sparkles size={15} className={llmProvider === 'gemini' ? 'text-violet shrink-0' : 'text-muted shrink-0'} />
                     <span className="text-xs font-semibold text-ink truncate">Google Gemini</span>
                   </div>
-                  {llmProvider === 'gemini' && (
-                    <span className="w-2 h-2 rounded-full bg-brass shrink-0" />
+                  {llmProvider === 'gemini' ? (
+                    <div className="w-4 h-4 rounded-full bg-violet text-white flex items-center justify-center shrink-0">
+                      <Check size={10} strokeWidth={3} />
+                    </div>
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-rule2 shrink-0" />
                   )}
                 </div>
                 <p className="text-[11px] text-muted leading-relaxed line-clamp-2">
-                  Chave individual do Google AI Studio (Free Tier).
+                  Chave do Google AI Studio (Free Tier rápido).
                 </p>
               </button>
 
@@ -112,23 +131,27 @@ export default function SettingsView({
               <button
                 type="button"
                 onClick={() => setLlmProvider && setLlmProvider('openai')}
-                className={`p-3 rounded-card border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
+                className={`p-3.5 rounded-xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer min-h-[96px] ${
                   llmProvider === 'openai'
-                    ? 'border-brass bg-paper3/90 shadow-sm'
-                    : 'border-rule bg-paper2/50 hover:border-rule2 hover:bg-paper3/40'
+                    ? 'border-violet bg-violet/[0.08] shadow-sm ring-1 ring-violet/30'
+                    : 'border-rule bg-paper/60 hover:border-rule2 hover:bg-paper2/50'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <Server size={14} className={llmProvider === 'openai' ? 'text-brass shrink-0' : 'text-muted shrink-0'} />
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Server size={15} className={llmProvider === 'openai' ? 'text-violet shrink-0' : 'text-muted shrink-0'} />
                     <span className="text-xs font-semibold text-ink truncate">Endpoint OpenAI</span>
                   </div>
-                  {llmProvider === 'openai' && (
-                    <span className="w-2 h-2 rounded-full bg-brass shrink-0" />
+                  {llmProvider === 'openai' ? (
+                    <div className="w-4 h-4 rounded-full bg-violet text-white flex items-center justify-center shrink-0">
+                      <Check size={10} strokeWidth={3} />
+                    </div>
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-rule2 shrink-0" />
                   )}
                 </div>
                 <p className="text-[11px] text-muted leading-relaxed line-clamp-2">
-                  Ollama, LM Studio, vLLM ou servidor compatível.
+                  Ollama, LM Studio, vLLM ou OmniRoute local.
                 </p>
               </button>
 
@@ -136,20 +159,24 @@ export default function SettingsView({
               <button
                 type="button"
                 onClick={() => setLlmProvider && setLlmProvider('combo')}
-                className={`p-3 rounded-card border text-left transition-all relative flex flex-col justify-between cursor-pointer ${
+                className={`p-3.5 rounded-xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer min-h-[96px] ${
                   llmProvider === 'combo'
-                    ? 'border-brass bg-paper3/90 shadow-sm'
-                    : 'border-rule bg-paper2/50 hover:border-rule2 hover:bg-paper3/40'
+                    ? 'border-violet bg-violet/[0.08] shadow-sm ring-1 ring-violet/30'
+                    : 'border-rule bg-paper/60 hover:border-rule2 hover:bg-paper2/50'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <Layers size={14} className={llmProvider === 'combo' ? 'text-brass shrink-0' : 'text-muted shrink-0'} />
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Layers size={15} className={llmProvider === 'combo' ? 'text-violet shrink-0' : 'text-muted shrink-0'} />
                     <span className="text-xs font-semibold text-ink truncate">Combo 3-em-1</span>
                   </div>
-                  <span className="text-[9px] uppercase px-1.5 py-0.5 font-mono bg-paper3 border border-rule text-brass rounded font-semibold shrink-0">
-                    Free
-                  </span>
+                  {llmProvider === 'combo' ? (
+                    <div className="w-4 h-4 rounded-full bg-violet text-white flex items-center justify-center shrink-0">
+                      <Check size={10} strokeWidth={3} />
+                    </div>
+                  ) : (
+                    <span className="w-2 h-2 rounded-full bg-rule2 shrink-0" />
+                  )}
                 </div>
                 <p className="text-[11px] text-muted leading-relaxed line-clamp-2">
                   Gemini + OpenRouter + Mistral com fallback.

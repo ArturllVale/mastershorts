@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link2, Upload, FileVideo, X, Info, Loader2, ChevronDown, Sparkles, Check } from 'lucide-react';
+import { Link2, Upload, FileVideo, X, Info, ChevronDown, Sparkles, ClipboardPaste, Loader2 } from 'lucide-react';
 import { getApiUrl } from '../config';
 import { cn } from '../lib/utils';
-import Button from './ui/Button';
 
 const SUPPORTED_PLATFORMS = [
     'YouTube', 'Vimeo', 'TikTok', 'X / Twitter', 'Twitch',
@@ -11,7 +10,8 @@ const SUPPORTED_PLATFORMS = [
 
 export default function MediaInput({ onProcess, isProcessing }) {
     const [youtubeUrlEnabled, setYoutubeUrlEnabled] = useState(true);
-    const [mode, setMode] = useState('file'); // 'file' | 'url'
+    // 1st priority: 'url', 2nd priority: 'file'
+    const [mode, setMode] = useState('url');
     const [url, setUrl] = useState('');
     const [file, setFile] = useState(null);
     const [acknowledged, setAcknowledged] = useState(false);
@@ -44,7 +44,7 @@ export default function MediaInput({ onProcess, isProcessing }) {
 
     useEffect(() => {
         fetch(getApiUrl('/api/config'))
-            .then((r) => r.ok ? r.json() : null)
+            .then((r) => (r.ok ? r.json() : null))
             .then((cfg) => {
                 if (cfg && cfg.youtubeUrlEnabled === false) {
                     setYoutubeUrlEnabled(false);
@@ -66,9 +66,23 @@ export default function MediaInput({ onProcess, isProcessing }) {
         }
     }, []);
 
+    const handlePaste = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && text.trim()) {
+                setUrl(text.trim());
+            }
+        } catch {
+            // Clipboard permission denied or unsupported
+        }
+    };
+
+    const hasMedia = mode === 'url' ? Boolean(url?.trim()) : Boolean(file);
+    const canSubmit = !isProcessing && acknowledged && hasMedia;
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!acknowledged) return;
+        if (!canSubmit) return;
         const advanced = {
             targetClips: targetClips || null,
             clipMinSeconds: clipMinSeconds || null,
@@ -98,52 +112,76 @@ export default function MediaInput({ onProcess, isProcessing }) {
     };
 
     return (
-        <div className="card p-5 sm:p-7 animate-fade border-rule shadow-card">
-            {/* Source Mode Toggle Tabs */}
-            <div className="flex gap-2 p-1 bg-paper rounded-input border border-rule mb-6" data-tutorial="source-tabs">
-                <button
-                    type="button"
-                    onClick={() => setMode('file')}
-                    className={cn(
-                        'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-input text-xs font-medium transition-all duration-150',
-                        mode === 'file'
-                            ? 'bg-paper3 text-ink shadow-sm border border-rule2'
-                            : 'text-muted hover:text-ink hover:bg-paper2 border border-transparent'
-                    )}
-                >
-                    <Upload size={14} className={mode === 'file' ? 'text-violet' : ''} />
-                    <span>Enviar Arquivo de Vídeo</span>
-                </button>
+        <div className="card p-5 sm:p-7 animate-fade border border-white/[0.08] bg-paper2/90 shadow-elevated rounded-panel backdrop-blur-md">
+            {/* Source Mode Toggle Tabs (1st: Colar Link, 2nd: Enviar Arquivo) */}
+            <div className="flex p-1 bg-paper/80 rounded-xl border border-rule mb-6 shadow-inner gap-1" data-tutorial="source-tabs">
                 {youtubeUrlEnabled && (
                     <button
                         type="button"
                         onClick={() => setMode('url')}
                         className={cn(
-                            'flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-input text-xs font-medium transition-all duration-150',
+                            'flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 select-none cursor-pointer',
                             mode === 'url'
                                 ? 'bg-paper3 text-ink shadow-sm border border-rule2'
-                                : 'text-muted hover:text-ink hover:bg-paper2 border border-transparent'
+                                : 'text-muted hover:text-ink hover:bg-paper2/50 border border-transparent'
                         )}
                     >
-                        <Link2 size={14} className={mode === 'url' ? 'text-violet' : ''} />
+                        <Link2 size={15} className={mode === 'url' ? 'text-violet' : ''} />
                         <span>Colar Link do Vídeo</span>
                     </button>
                 )}
+                <button
+                    type="button"
+                    onClick={() => setMode('file')}
+                    className={cn(
+                        'flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-semibold transition-all duration-200 select-none cursor-pointer',
+                        mode === 'file'
+                            ? 'bg-paper3 text-ink shadow-sm border border-rule2'
+                            : 'text-muted hover:text-ink hover:bg-paper2/50 border border-transparent'
+                    )}
+                >
+                    <Upload size={15} className={mode === 'file' ? 'text-violet' : ''} />
+                    <span>Enviar Arquivo de Vídeo</span>
+                </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 {mode === 'url' ? (
                     <div className="space-y-3" data-tutorial="drop-zone">
-                        <div className="relative">
+                        <div className="relative flex items-center">
+                            <div className="absolute left-3.5 text-muted pointer-events-none">
+                                <Link2 size={16} />
+                            </div>
                             <input
                                 type="url"
                                 value={url}
                                 onChange={(e) => setUrl(e.target.value)}
-                                placeholder="Cole o link do vídeo (YouTube, Vimeo, TikTok, Twitch...)"
-                                className="input-field pr-10 text-sm"
+                                placeholder="Cole o link do vídeo (YouTube, TikTok, Vimeo, Twitch...)"
+                                className="input-field pl-10 pr-24 h-12 text-sm font-sans placeholder:text-muted/60 focus:border-violet focus:ring-1 focus:ring-violet/40 transition-all"
                                 required
                             />
-                            <div className="absolute inset-y-0 right-2 flex items-center" ref={infoRef}>
+                            <div className="absolute right-2 flex items-center gap-1" ref={infoRef}>
+                                {url ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setUrl('')}
+                                        aria-label="Limpar link"
+                                        className="p-1.5 text-muted hover:text-ink rounded-md transition-colors"
+                                        title="Limpar"
+                                    >
+                                        <X size={15} />
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={handlePaste}
+                                        className="px-2 py-1 text-[11px] font-mono text-violet hover:text-violet/90 bg-violet/10 hover:bg-violet/20 border border-violet/20 rounded transition-colors flex items-center gap-1"
+                                        title="Colar da área de transferência"
+                                    >
+                                        <ClipboardPaste size={12} />
+                                        <span>Colar</span>
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => setShowInfo((v) => !v)}
@@ -215,7 +253,7 @@ export default function MediaInput({ onProcess, isProcessing }) {
                                 </button>
                             </div>
                         ) : (
-                            <label className="cursor-pointer block space-y-2">
+                            <label className="cursor-pointer block space-y-2.5">
                                 <input
                                     type="file"
                                     accept="video/*"
@@ -226,8 +264,8 @@ export default function MediaInput({ onProcess, isProcessing }) {
                                     <Upload size={20} />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-ink">Clique para enviar ou arraste o vídeo aqui</p>
-                                    <p className="text-xs text-muted mt-1">MP4, MOV, WEBM ou MKV</p>
+                                    <p className="text-sm font-semibold text-ink">Clique para enviar ou arraste o vídeo aqui</p>
+                                    <p className="text-xs text-muted mt-1">MP4, MOV, WEBM ou MKV (até 2GB)</p>
                                 </div>
                             </label>
                         )}
@@ -236,14 +274,17 @@ export default function MediaInput({ onProcess, isProcessing }) {
 
                 {/* Output Format Picker */}
                 <div data-tutorial="output-format" className="space-y-2">
-                    <label className="block text-xs font-medium text-muted uppercase tracking-wider font-mono">
-                        Formato de Saída
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="flex items-center justify-between">
+                        <label className="block text-xs font-semibold text-muted uppercase tracking-wider font-mono">
+                            Formato de Saída
+                        </label>
+                        <span className="text-[11px] font-mono text-muted">9:16 Otimizado</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                         {[
-                            { value: 'vertical', label: '9:16 Vertical', hint: 'TikTok · Shorts · Reels', w: 16, h: 28 },
-                            { value: 'square', label: '1:1 Quadrado', hint: 'Feed e Redes Sociais', w: 22, h: 22 },
-                            { value: 'horizontal', label: '16:9 Paisagem', hint: 'YouTube e Desktop', w: 28, h: 16 },
+                            { value: 'vertical', label: '9:16 Vertical', hint: 'Shorts · TikTok · Reels', w: 15, h: 26, badge: 'Popular' },
+                            { value: 'square', label: '1:1 Quadrado', hint: 'Feed & Redes', w: 20, h: 20 },
+                            { value: 'horizontal', label: '16:9 Paisagem', hint: 'YouTube & Desktop', w: 26, h: 15 },
                         ].map((f) => {
                             const active = outputFormat === f.value;
                             return (
@@ -252,23 +293,28 @@ export default function MediaInput({ onProcess, isProcessing }) {
                                     type="button"
                                     onClick={() => setOutputFormat(f.value)}
                                     className={cn(
-                                        'py-3 px-2 rounded-input border flex flex-col items-center gap-2 transition-all duration-150 select-none cursor-pointer',
+                                        'relative py-3 px-2 sm:px-3 rounded-xl border flex flex-col items-center justify-between gap-1.5 transition-all duration-200 select-none cursor-pointer',
                                         active
-                                            ? 'border-violet bg-paper3 text-ink shadow-sm'
-                                            : 'border-rule bg-paper text-muted hover:border-rule2 hover:text-ink2 hover:bg-paper2'
+                                            ? 'border-violet bg-violet/[0.08] text-ink shadow-sm ring-1 ring-violet/30'
+                                            : 'border-rule bg-paper/60 text-muted hover:border-rule2 hover:text-ink2 hover:bg-paper2/50'
                                     )}
                                 >
+                                    {f.badge && (
+                                        <span className="absolute -top-2 right-2 text-[9px] font-mono font-bold uppercase tracking-wider bg-violet text-white px-1.5 py-0.2 rounded-full shadow-sm">
+                                            {f.badge}
+                                        </span>
+                                    )}
                                     <span
-                                        className="rounded-[3px] border-2 transition-colors flex items-center justify-center"
-                                        style={{
-                                            width: `${f.w}px`,
-                                            height: `${f.h}px`,
-                                            borderColor: active ? 'var(--color-accent)' : 'var(--color-rule-2)',
-                                            backgroundColor: active ? 'var(--color-accent-subtle)' : 'transparent',
-                                        }}
+                                        className={cn(
+                                            "rounded-[3px] border-2 transition-all flex items-center justify-center my-0.5",
+                                            active ? "border-violet bg-violet/20" : "border-rule2 bg-transparent"
+                                        )}
+                                        style={{ width: `${f.w}px`, height: `${f.h}px` }}
                                     />
-                                    <span className="font-semibold text-xs leading-none">{f.label}</span>
-                                    <span className="text-[11px] text-muted text-center leading-tight">{f.hint}</span>
+                                    <div className="text-center min-w-0 w-full">
+                                        <span className="block font-semibold text-xs leading-none truncate">{f.label}</span>
+                                        <span className="block text-[10px] text-muted truncate mt-0.5">{f.hint}</span>
+                                    </div>
                                 </button>
                             );
                         })}
@@ -276,7 +322,7 @@ export default function MediaInput({ onProcess, isProcessing }) {
                 </div>
 
                 {/* Collapsible Advanced Options */}
-                <div className="rounded-input border border-rule bg-paper/50 overflow-hidden">
+                <div className="rounded-xl border border-rule bg-paper/50 overflow-hidden">
                     <button
                         type="button"
                         onClick={() => setShowAdvanced((v) => !v)}
@@ -386,7 +432,12 @@ export default function MediaInput({ onProcess, isProcessing }) {
                 </div>
 
                 {/* Rights attestation */}
-                <label className="flex items-start gap-2.5 text-left text-xs text-muted cursor-pointer select-none">
+                <label className={cn(
+                    "flex items-start gap-2.5 text-left text-xs transition-all cursor-pointer select-none p-2 rounded-lg",
+                    hasMedia && !acknowledged
+                        ? "bg-violet/10 border border-violet/30 text-ink shadow-sm"
+                        : "text-muted hover:text-ink2"
+                )}>
                     <input
                         type="checkbox"
                         checked={acknowledged}
@@ -401,18 +452,29 @@ export default function MediaInput({ onProcess, isProcessing }) {
                 </label>
 
                 {/* Primary Submit Action */}
-                <Button
+                <button
                     type="submit"
-                    variant="primary"
-                    size="lg"
                     data-tutorial="generate"
-                    disabled={isProcessing || !acknowledged || (mode === 'url' && !url) || (mode === 'file' && !file)}
-                    loading={isProcessing}
-                    icon={Sparkles}
-                    className="w-full text-base font-semibold py-3"
+                    disabled={!canSubmit}
+                    className={cn(
+                        'w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl text-sm sm:text-base font-bold transition-all duration-300 select-none',
+                        canSubmit
+                            ? 'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 text-white shadow-[0_4px_24px_rgba(139,92,246,0.45)] hover:shadow-[0_6px_32px_rgba(139,92,246,0.65)] border border-violet-400/40 hover:border-violet-300/70 active:scale-[0.99] cursor-pointer'
+                            : 'bg-paper3/90 text-muted/70 border border-rule cursor-not-allowed shadow-none'
+                    )}
                 >
-                    {isProcessing ? 'Analisando e Processando Vídeo…' : 'Gerar Shorts Virais'}
-                </Button>
+                    {isProcessing ? (
+                        <>
+                            <Loader2 size={18} className="animate-spin text-white" />
+                            <span>Analisando e Processando Vídeo…</span>
+                        </>
+                    ) : (
+                        <>
+                            <Sparkles size={17} className={canSubmit ? 'text-amber-300 animate-pulse' : 'text-muted/40'} />
+                            <span>Gerar Shorts Virais</span>
+                        </>
+                    )}
+                </button>
             </form>
         </div>
     );

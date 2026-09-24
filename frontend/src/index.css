@@ -38,6 +38,14 @@
 }
 
 @layer components {
+  /* Premium SaaS Gradient Text */
+  .text-gradient-premium {
+    background: linear-gradient(135deg, #d8b4fe 0%, #a855f7 45%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+  }
+
   /* Studio Workstation Cards */
   .card,
   .glass-panel {
