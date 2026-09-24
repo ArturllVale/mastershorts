@@ -26,7 +26,7 @@ _RULES = [
     (re.compile(r'^❌\s*(.*)'), '❌ {0}'),
 
     # Download progress
-    (re.compile(r'📥 Baixando vídeo:\s*(\d+)%'), '📥 Baixando vídeo: {0}%'),
+    (re.compile(r'📥 Baixando vídeo:\s*(\d+(?:\.\d+)?)%'), '📥 Baixando vídeo: {0}%'),
     (re.compile(r'\[download\]\s+(\d+(?:\.\d+)?)%'), '📥 Baixando vídeo: {0}%'),
     (re.compile(r'(?:Downloading video from YouTube|Iniciando download do vídeo)', re.I), '📥 Iniciando download do vídeo...'),
     (re.compile(r'(?:Download succeeded|Video downloaded in|✅ Download concluído)', re.I), '✅ Download concluído com sucesso!'),
@@ -46,7 +46,7 @@ _RULES = [
 
     # Clip generation & subtitles
     (re.compile(r'(?:Processing Clip|Gerando corte|Creating clip)\s+(\d+)', re.I), '🎬 Gerando corte {0}…'),
-    (re.compile(r'(?:Captions burned|Auto-captions|Aplicando legendas automáticas)', re.I), '💬 Aplicando legendas automáticas…'),
+    (re.compile(r'(?:Captions burned|Auto-captions|Aplicando legendas automáticas|Aplicando legenda[s]?)(?:.*?(?:no|do)?\s*corte\s+(\d+))?', re.I), '💬 Aplicando legenda no corte {0}…'),
     (re.compile(r'(?:Clip|Corte)\s+(\d+)\s+(?:ready|pronto)', re.I), '✅ Corte {0} pronto!'),
 ]
 
@@ -63,17 +63,37 @@ def friendly_log_line(line):
                 return _strip_paths(stripped)
             # If the template references groups
             if '{0}' in template and match.groups():
-                cleaned_groups = [_strip_paths(str(g)) for g in match.groups()]
-                return template.format(*cleaned_groups)
+                if match.group(1) is not None:
+                    cleaned_groups = [_strip_paths(str(g)) for g in match.groups() if g is not None]
+                    return template.format(*cleaned_groups)
+                return template.replace(' no corte {0}', '').replace(' {0}', '').replace('{0}', '')
             return template
     return None
+
+
+_PCT_RE = re.compile(r'(\d+(?:\.\d+)?)%')
 
 
 def friendly_logs(logs):
     """Curated log list for users in pt-BR, consecutive duplicates collapsed."""
     out = []
+    last_dl_pct = None
     for line in logs:
         friendly = friendly_log_line(line)
-        if friendly and (not out or out[-1] != friendly):
+        if not friendly:
+            continue
+        if friendly.startswith('📥 Iniciando download') or friendly.startswith('✅ Download concluído'):
+            last_dl_pct = None
+        elif friendly.startswith('📥 Baixando vídeo:'):
+            m = _PCT_RE.search(friendly)
+            if m:
+                try:
+                    pct = float(m.group(1))
+                    if last_dl_pct is not None and pct <= last_dl_pct:
+                        continue
+                    last_dl_pct = pct
+                except ValueError:
+                    pass
+        if not out or out[-1] != friendly:
             out.append(friendly)
     return out

@@ -397,7 +397,7 @@ if __name__ == '__main__':
 
             start = clip['start']
             end = clip['end']
-            print(f"\n🎬 Gerando corte {i+1} de {len(shorts)}…", flush=True)
+            print(f"\n🎬 Gerando corte {i+1}…", flush=True)
             print(f"   Title: {clip.get('video_title_for_youtube_short', 'No Title')}")
 
             clip_filename = f"{video_title}_clip_{i+1}.mp4"
@@ -432,7 +432,7 @@ if __name__ == '__main__':
                     if hooked:
                         deliver_path, clip['auto_hook'] = hooked
                 if success:
-                    print(f"   💬 Aplicando legendas automáticas no corte {i+1}…", flush=True)
+                    print(f"   💬 Aplicando legenda no corte {i+1}…", flush=True)
                     captioned = auto_caption_clip(
                         deliver_path, transcript, start, end,
                         split_ranges=_layouts.split_ranges(clip['layout_ranges']))
@@ -443,7 +443,7 @@ if __name__ == '__main__':
                 if os.path.exists(clip_temp_path):
                     os.remove(clip_temp_path)
 
-        clip_workers = max(int(os.environ.get("CLIP_WORKERS", "3")), 1)
+        clip_workers = max(int(os.environ.get("CLIP_WORKERS", "1")), 1)
         # Mark all clips as queued before submitting to the executor so the
         # parent process sees an explicit initial state for every clip.
         for _qi in range(len(shorts)):

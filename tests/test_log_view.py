@@ -93,3 +93,40 @@ def test_errors_kept_without_paths():
 def test_consecutive_duplicates_collapse():
     logs = ["🎙️  Transcribing video...", "🎙️  Transcribing audio from: x.mp4"]
     assert friendly_logs(logs) == ["🎙️ Iniciando transcrição do áudio..."]
+
+
+def test_download_duplicate_and_backwards_percentages_filtered():
+    raw = [
+        "📥 Baixando vídeo: 80%",
+        "📥 Baixando vídeo: 85%",
+        "[download] 100% of 25.00MiB",
+        "[download]  99.0% of 2.00MiB",
+        "📥 Baixando vídeo: 100%",
+        "✅ Download succeeded (direct).",
+    ]
+    assert friendly_logs(raw) == [
+        "📥 Baixando vídeo: 80%",
+        "📥 Baixando vídeo: 85%",
+        "📥 Baixando vídeo: 100%",
+        "✅ Download concluído com sucesso!",
+    ]
+
+
+def test_clip_lifecycle_with_subtitles_per_corte():
+    raw = [
+        "🎬 Gerando corte 1…",
+        "   💬 Aplicando legenda no corte 1…",
+        "   ✅ Corte 1 pronto!",
+        "🎬 Gerando corte 2…",
+        "   💬 Aplicando legenda no corte 2…",
+        "   ✅ Corte 2 pronto!",
+    ]
+    assert friendly_logs(raw) == [
+        "🎬 Gerando corte 1…",
+        "💬 Aplicando legenda no corte 1…",
+        "✅ Corte 1 pronto!",
+        "🎬 Gerando corte 2…",
+        "💬 Aplicando legenda no corte 2…",
+        "✅ Corte 2 pronto!",
+    ]
+

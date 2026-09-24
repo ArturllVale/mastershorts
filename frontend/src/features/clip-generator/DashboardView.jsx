@@ -418,11 +418,6 @@ export default function DashboardView({
                     ⏱️ {processingTime}
                   </span>
                 )}
-                {results?.cost_analysis && !isManaged && (
-                  <span className="readout bg-paper3 border border-rule px-2 py-0.5 rounded-full text-xs" title={`Input: ${results.cost_analysis.input_tokens} | Output: ${results.cost_analysis.output_tokens}`}>
-                    GEMINI · ${results.cost_analysis.total_cost.toFixed(5)}
-                  </span>
-                )}
               </h2>
               {status === 'complete' && (
                 <div className="flex flex-wrap items-center gap-2 shrink-0">

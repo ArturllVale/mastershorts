@@ -177,6 +177,7 @@ def download_youtube_video(url, output_dir="."):
     def _base_opts(extractor_args, proxy, cookies=True):
         opts = {
             'quiet': False, 'verbose': True, 'no_warnings': False,
+            'noprogress': True,
             'cookiefile': cookies_path if (cookies and cookies_path) else None,
             'proxy': proxy, 'socket_timeout': 30, 'retries': 10, 'fragment_retries': 10,
             'nocheckcertificate': True, 'cachedir': False,
