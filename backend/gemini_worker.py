@@ -9,6 +9,25 @@ from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel
 
+# Fix google-genai bug where non-ASCII filenames in client.files.upload() cause
+# UnicodeEncodeError in httpx when setting X-Goog-Upload-File-Name header.
+try:
+    from google.genai import _extra_utils
+    from urllib.parse import quote
+
+    _orig_prepare_resumable_upload = _extra_utils.prepare_resumable_upload
+    def _safe_prepare_resumable_upload(file, user_http_options=None, user_mime_type=None):
+        http_options, size_bytes, mime_type = _orig_prepare_resumable_upload(file, user_http_options, user_mime_type)
+        if http_options and http_options.headers and 'X-Goog-Upload-File-Name' in http_options.headers:
+            raw_name = http_options.headers['X-Goog-Upload-File-Name']
+            if any(ord(c) > 127 for c in raw_name):
+                http_options.headers['X-Goog-Upload-File-Name'] = quote(raw_name)
+        return http_options, size_bytes, mime_type
+
+    _extra_utils.prepare_resumable_upload = _safe_prepare_resumable_upload
+except Exception:
+    pass
+
 from clip_selection import (clip_count_targets, clip_duration_bounds,
                             lookup_model_prices)
 

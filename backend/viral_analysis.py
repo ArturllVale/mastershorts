@@ -8,6 +8,7 @@ from google.genai import types as genai_types
 
 import gemini_worker
 import llm_backend
+from errors import TransientLLMError, InvalidModelOutput, NoCandidates, DependencyError
 from clip_selection import (build_transcript_windows, clip_count_targets,
                             clip_duration_bounds, snap_clip_to_words,
                             snap_to_sentence_end, classify_story_arc,
@@ -168,8 +169,7 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
         print("🤖  Analyzing with Gemini...")
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("❌ Error: GEMINI_API_KEY not found")
-            return None
+            raise DependencyError('GEMINI_API_KEY not found')
         client = genai.Client(api_key=api_key)
         model_name = os.environ.get("GEMINI_MODEL") or 'gemini-3.1-flash-lite'
 
@@ -257,7 +257,7 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
                     costs.extend(local_costs)
 
             scored.sort(key=lambda w: w.get("score", 0), reverse=True)
-            target = max(3, min(10, int(video_duration // 90) + 2))
+            target = max(4, min(15, int(video_duration // 90) + 3))
             by_id = {w["id"]: w for w in windows}
 
             # --- Story-arc annotation ----------------------------------------
@@ -404,17 +404,21 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
             print(f"💰 Total cost: ${cost_analysis['total_cost']:.6f}")
 
         if not shorts:
-            return None
+            raise NoCandidates("No viable clips were found in the source material.")
 
         result = {"shorts": shorts}
         if cost_analysis: result["cost_analysis"] = cost_analysis
         return result
     except gemini_worker.GeminiBlockedError as e:
         print(f"🚫 {e}")
+        raise InvalidModelOutput(f"Model blocked the response: {e}") from e
+    except json.JSONDecodeError as e:
+        raise InvalidModelOutput(f"Failed to parse model output: {e}") from e
+    except (TransientLLMError, InvalidModelOutput, NoCandidates, DependencyError):
         raise
     except Exception as e:
-        print(f"❌ Error: {e}")
-        return None
+        print(f"❌ Error during clip selection: {e}")
+        raise TransientLLMError(f"Unexpected error during clip selection: {e}", context={"original_error": str(e)}) from e
 
 # --- Speech too sparse to clip by transcript -------------------------------
 # The vision path used to fire only on a missing audio TRACK. A nursery-rhyme
@@ -526,10 +530,12 @@ def _compute_visual_clips(video_path, video_duration, language="en"):
         return result
     except gemini_worker.GeminiBlockedError as e:
         print(f"🚫 {e}")
+        raise InvalidModelOutput(f"Model blocked the response: {e}") from e
+    except (TransientLLMError, InvalidModelOutput, NoCandidates, DependencyError):
         raise
     except Exception as e:
         print(f"❌ Gemini vision error: {e}")
-        return None
+        raise TransientLLMError(f"Unexpected error during visual clip selection: {e}", context={"original_error": str(e)}) from e
     finally:
         if file_upload is not None:
             try:

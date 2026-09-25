@@ -101,6 +101,7 @@ from checkpointing import TRANSCRIPT_CHECKPOINT, _checkpoint_source_key, save_tr
 from core.path_utils import to_long_path, safe_exists, safe_getsize, safe_getmtime
 from viral_analysis import _run_gemini_stage, _run_stage_split, score_batch_size, detail_batch_size, get_viral_clips, speech_is_sparse, get_visual_clips, _compute_visual_clips, transcribe_video
 from download import download_youtube_video
+from errors import TransientLLMError, InvalidModelOutput, NoCandidates, DependencyError
 
 
 def cap_source_duration(input_video, max_minutes):
@@ -322,38 +323,57 @@ if __name__ == '__main__':
                 clips_data = None
 
         if clips_data is None:
-            # 4. Gemini Analysis (transcript-driven, or vision for silent videos)
             print("🤖 Analisando momentos virais com Inteligência Artificial...", flush=True)
-            if transcript is not None:
-                clips_data = get_viral_clips(transcript, duration, video_title=video_title)
-            else:
-                clips_data = get_visual_clips(input_video, duration)
+            max_attempts = 3
+            attempt = 0
+            while attempt < max_attempts:
+                attempt += 1
+                try:
+                    analysis_start = time.time()
+                    if transcript is not None:
+                        clips_data = get_viral_clips(transcript, duration, video_title=video_title)
+                    else:
+                        clips_data = get_visual_clips(input_video, duration)
+                        
+                    if not clips_data or 'shorts' not in clips_data:
+                        raise NoCandidates("O modelo não retornou clips utilizáveis.")
+                        
+                    cost = clips_data.get('cost_analysis', {}).get('total_cost', 0.0)
+                    print(f"✅ Análise concluída. Etapa: {attempt}/{max_attempts}, Duração: {time.time() - analysis_start:.1f}s, Custo: ${cost:.4f}", flush=True)
+                    break
+                except TransientLLMError as e:
+                    print(f"⚠️ Erro transiente (tentativa {attempt}/{max_attempts}): {e}", flush=True)
+                    if attempt >= max_attempts:
+                        raise RuntimeError(f"Falha de LLM após {max_attempts} tentativas: {e}")
+                    time.sleep(2 ** attempt)
+                except (InvalidModelOutput, NoCandidates, DependencyError) as e:
+                    print(f"❌ Erro terminal ({type(e).__name__}): {e}", flush=True)
+                    raise RuntimeError(f"Clip detection failed - {type(e).__name__}: {e}")
+                except Exception as e:
+                    print(f"❌ Erro inesperado: {e}", flush=True)
+                    raise RuntimeError(f"Clip detection failed - {e}")
 
             if not clips_data or 'shorts' not in clips_data:
-                # Deliberately fail instead of reframing the whole video: that path
-                # wrote no metadata.json, so app.py marked the job failed anyway
-                # (app.py:1087) after burning GPU on a render nobody could see.
-                raise RuntimeError(
-                    "Clip detection failed — the AI model did not return usable clips for this video.")
-            else:
-                print(f"🔥 {len(clips_data['shorts'])} momentos virais identificados!", flush=True)
-                # NOTE: clean_or_generate_clip_metadata() is already called in parallel
-                # for all clips inside get_viral_clips() (viral_analysis.py). Calling
-                # it again here was redundant serial overhead — removed (P0 perf fix).
+                raise RuntimeError("Clip detection failed — no usable clips returned.")
 
-                # Save metadata. Silent videos have no transcript → no subtitles,
-                # which is correct (there's no speech to caption).
-                clips_data['transcript'] = transcript or {"language": "none", "segments": []}
-                # The clip editor's re-render path needs to find the source video
-                # again and reproduce the render settings, so record both. The
-                # basename is enough — the file sits in the job dir (URL jobs with
-                # --keep-original) or in uploads/ (upload jobs).
-                clips_data['source_video'] = os.path.basename(input_video)
-                clips_data['output_format'] = output_format
-                metadata_file = os.path.join(output_dir, f"{video_title}_metadata.json")
-                with open(to_long_path(metadata_file), 'w', encoding='utf-8') as f:
-                    json.dump(clips_data, f, indent=2)
-                print(f"   Saved metadata to {metadata_file}")
+            print(f"🔥 {len(clips_data['shorts'])} momentos virais identificados!", flush=True)
+            # NOTE: clean_or_generate_clip_metadata() is already called in parallel
+            # for all clips inside get_viral_clips() (viral_analysis.py). Calling
+            # it again here was redundant serial overhead — removed (P0 perf fix).
+
+            # Save metadata. Silent videos have no transcript → no subtitles,
+            # which is correct (there's no speech to caption).
+            clips_data['transcript'] = transcript or {"language": "none", "segments": []}
+            # The clip editor's re-render path needs to find the source video
+            # again and reproduce the render settings, so record both. The
+            # basename is enough — the file sits in the job dir (URL jobs with
+            # --keep-original) or in uploads/ (upload jobs).
+            clips_data['source_video'] = os.path.basename(input_video)
+            clips_data['output_format'] = output_format
+            metadata_file = os.path.join(output_dir, f"{video_title}_metadata.json")
+            with open(to_long_path(metadata_file), 'w', encoding='utf-8') as f:
+                json.dump(clips_data, f, indent=2)
+            print(f"   Saved metadata to {metadata_file}")
 
         # 5. Process clips in parallel: each worker cuts + renders one
         # clip. Renders are mostly ffmpeg subprocesses (parallelize well);

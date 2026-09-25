@@ -47,10 +47,10 @@ def clip_count_targets(n_windows):
     import os
 
     n = max(1, int(n_windows or 1))
-    # Floor grows with the material: 3 windows -> 3, 5 -> 4, 10+ -> 6.
-    low = max(2, min(6, n // 2 + 2))
+    # Floor grows with the material: 3 windows -> 4, 5 -> 5, 10+ -> 7.
+    low = max(3, min(8, n // 2 + 2))
     # Ceiling allows a rich window to yield more than one without inviting padding.
-    high = min(12, max(4, n * 2))
+    high = min(18, max(6, n * 2))
     low = min(low, high)
 
     def _override(name, current):
@@ -68,38 +68,109 @@ def clip_count_targets(n_windows):
 
 
 def trim_to_best(shorts, max_clips):
-    """Cut an over-long detail-pass result down to ``max_clips`` BY SCORE.
+    """Cut an over-long detail-pass result down to ``max_clips`` BY SCORE,
+    applying Maximum Marginal Relevance (MMR) for diversity and temporal coverage.
 
-    The detail pass hands its clips back in transcript order, batch after
-    batch, so slicing the list keeps the EARLIEST clips rather than the best
-    ones. On a 9-minute walkthrough that quietly threw away everything past
-    minute three: the model proposed clips across the whole video, and the
-    ones covering the demo, the MCP walkthrough and the close were the tail
-    that got dropped. Worse, the failure scales the wrong way — the more
-    generous the model is, the more of the video disappears.
-
-    That sabotages the windowing: get_viral_clips builds scoring windows
-    precisely because "a single call over the whole transcript clusters picks
-    near the start", and a positional slice puts the clustering right back.
-
-    Ranking is by ``predicted_score`` (the detail prompt already asks for it,
-    and nothing else was reading it here). Ties keep transcript order, and the
-    survivors come back in transcript order too, so clip numbering still runs
-    front to back the way every caller downstream expects.
+    Ranking is initially by ``predicted_score``. A similarity penalty is applied
+    to prevent selecting overlapping or highly similar clips. We also enforce
+    a hard overlap limit and an optional quota for story arcs.
     """
     max_clips = max(1, int(max_clips or 1))
     if len(shorts) <= max_clips:
         return list(shorts)
 
-    def score(item):
+    def score(clip):
         try:
-            return float(item[1].get("predicted_score") or 0)
+            return float(clip.get("predicted_score") or 0)
         except (TypeError, ValueError, AttributeError):
             return 0.0
 
-    indexed = list(enumerate(shorts))
-    best = sorted(indexed, key=score, reverse=True)[:max_clips]
-    return [item for _, item in sorted(best, key=lambda pair: pair[0])]
+    def _similarity(clip_a, clip_b):
+        start_a = float(clip_a.get("start", 0))
+        end_a = float(clip_a.get("end", 0))
+        start_b = float(clip_b.get("start", 0))
+        end_b = float(clip_b.get("end", 0))
+        
+        if start_a >= end_b or start_b >= end_a:
+            # Not overlapping. Apply a small penalty if they are temporally very close
+            # to encourage wider temporal coverage across the video.
+            dist = max(start_a - end_b, start_b - end_a)
+            if dist < 15.0:
+                return 0.1 * (1.0 - dist / 15.0)
+            return 0.0
+        
+        intersection = min(end_a, end_b) - max(start_a, start_b)
+        min_dur = min(end_a - start_a, end_b - start_b)
+        if min_dur <= 0:
+            return 0.0
+        return intersection / min_dur
+
+    indexed_shorts = list(enumerate(shorts))
+    selected_indices = []
+    
+    # Hyperparameters for diversity and coverage
+    lambda_penalty = 40.0  # Assumes score is 0-100.
+    overlap_limit = 0.5    # Hard limit on overlap (50%).
+    arc_quota = max(1, max_clips // 2) # Quota per story arc (e.g., max 2 arcs for 5 clips).
+    selected_arcs = {}
+
+    while len(selected_indices) < max_clips and indexed_shorts:
+        best_idx = -1
+        best_mmr_score = -float('inf')
+        best_candidate = None
+        
+        for i, (orig_idx, clip) in enumerate(indexed_shorts):
+            relevance = score(clip)
+            
+            max_sim = 0.0
+            for sel_idx in selected_indices:
+                sel_clip = shorts[sel_idx]
+                sim = _similarity(clip, sel_clip)
+                if sim > max_sim:
+                    max_sim = sim
+                    
+            if max_sim > overlap_limit and selected_indices:
+                continue
+                
+            arc = clip.get("arc_label")
+            if arc and selected_arcs.get(arc, 0) >= arc_quota:
+                continue
+
+            selection_score = relevance - lambda_penalty * max_sim
+            
+            if selection_score > best_mmr_score:
+                best_mmr_score = selection_score
+                best_idx = i
+                best_candidate = (orig_idx, clip)
+                
+        if best_idx == -1:
+            # If all constraints fail, fall back to pure score without hard constraints
+            for i, (orig_idx, clip) in enumerate(indexed_shorts):
+                relevance = score(clip)
+                max_sim = 0.0
+                for sel_idx in selected_indices:
+                    sel_clip = shorts[sel_idx]
+                    sim = _similarity(clip, sel_clip)
+                    if sim > max_sim:
+                        max_sim = sim
+                selection_score = relevance - lambda_penalty * max_sim
+                if selection_score > best_mmr_score:
+                    best_mmr_score = selection_score
+                    best_idx = i
+                    best_candidate = (orig_idx, clip)
+            
+        if best_candidate is None:
+            break
+
+        orig_idx, clip = best_candidate
+        selected_indices.append(orig_idx)
+        indexed_shorts.pop(best_idx)
+        
+        arc = clip.get("arc_label")
+        if arc:
+            selected_arcs[arc] = selected_arcs.get(arc, 0) + 1
+
+    return [shorts[i] for i in sorted(selected_indices)]
 
 
 def clip_duration_bounds():
@@ -118,7 +189,7 @@ def clip_duration_bounds():
             return default
 
     lo = _read("CLIP_MIN_SECONDS", 15.0)
-    hi = _read("CLIP_MAX_SECONDS", 60.0)
+    hi = _read("CLIP_MAX_SECONDS", 90.0)
     lo = min(max(lo, 5.0), 175.0)
     hi = min(max(hi, 10.0), 180.0)
     if hi < lo + 5.0:  # keep a real band: degenerate ranges starve the model
@@ -276,7 +347,7 @@ def snap_to_sentence_end(
     words: list,
     video_duration: float,
     max_duration: float = 60.0,
-    look_ahead: float = 4.0,
+    look_ahead: float = 15.0,
     check_window: float = 2.0,
 ) -> tuple:
     """Extend a clip's end to the next sentence boundary if it is mid-thought.
@@ -285,7 +356,7 @@ def snap_to_sentence_end(
     checks whether the last word of the clip ends a sentence.  If not, it
     scans forward up to ``look_ahead`` seconds to find the next word whose
     text ends with strong punctuation (.  !  ?  …) and moves the cut there,
-    provided the resulting duration stays within ``max_duration``.
+    provided the resulting duration stays within ``max_duration`` (plus look_ahead).
 
     Rationale: LLMs routinely propose a cut time that falls inside a
     sentence — they optimise for content, not prosody.  The word-snapper
@@ -294,9 +365,8 @@ def snap_to_sentence_end(
     full-stop/exclamation/question-mark ensures the viewer receives a
     complete thought rather than an abrupt half-sentence.
 
-    The function never shortens the clip and never violates ``max_duration``
-    or ``video_duration``.  If no sentence-ender is found within
-    ``look_ahead`` it returns the input unchanged (safe fallback).
+    The function never shortens the clip and never violates ``video_duration``.
+    If no sentence-ender is found within ``look_ahead`` it returns the input unchanged (safe fallback).
 
     words: [{'w': str, 's': float, 'e': float}, ...] sorted by start.
     """
@@ -305,7 +375,8 @@ def snap_to_sentence_end(
 
     end_f = round(float(end), 3)
     start_f = round(float(start), 3)
-    cap = min(float(video_duration), start_f + max_duration)
+    # Allow exceeding max_duration by look_ahead if it means finishing the thought cleanly
+    cap = min(float(video_duration), start_f + max_duration + look_ahead)
 
     # 1. Check whether the current end already sits at a sentence boundary.
     #    Look at words whose end-timestamp is within check_window BEFORE the cut
@@ -337,7 +408,7 @@ def snap_to_sentence_end(
 
     best = min(candidates, key=lambda w: float(w.get("e", 0)))
     new_end = round(min(float(best.get("e", end_f)) + 0.15, cap), 3)
-    if new_end > end_f and new_end - start_f <= max_duration:
+    if new_end > end_f and new_end - start_f <= (max_duration + look_ahead):
         return (start_f, new_end)
 
     return (start_f, end_f)
