@@ -91,19 +91,27 @@ def trim_to_best(shorts, max_clips):
         start_b = float(clip_b.get("start", 0))
         end_b = float(clip_b.get("end", 0))
         
-        if start_a >= end_b or start_b >= end_a:
-            # Not overlapping. Apply a small penalty if they are temporally very close
-            # to encourage wider temporal coverage across the video.
-            dist = max(start_a - end_b, start_b - end_a)
-            if dist < 15.0:
-                return 0.1 * (1.0 - dist / 15.0)
-            return 0.0
-        
-        intersection = min(end_a, end_b) - max(start_a, start_b)
-        min_dur = min(end_a - start_a, end_b - start_b)
-        if min_dur <= 0:
-            return 0.0
-        return intersection / min_dur
+        # Temporal overlap
+        overlap = 0.0
+        if not (start_a >= end_b or start_b >= end_a):
+            intersection = min(end_a, end_b) - max(start_a, start_b)
+            min_dur = min(end_a - start_a, end_b - start_b)
+            if min_dur > 0:
+                overlap = intersection / min_dur
+
+        # Semantic similarity
+        text_a = clip_a.get("text", "").lower().split()
+        text_b = clip_b.get("text", "").lower().split()
+        semantic_sim = 0.0
+        if text_a and text_b:
+            set_a, set_b = set(text_a), set(text_b)
+            intersection = len(set_a.intersection(set_b))
+            union = len(set_a.union(set_b))
+            if union > 0:
+                semantic_sim = intersection / union
+
+        # Combine
+        return 0.6 * overlap + 0.4 * semantic_sim
 
     indexed_shorts = list(enumerate(shorts))
     selected_indices = []
@@ -188,10 +196,10 @@ def clip_duration_bounds():
         except ValueError:
             return default
 
-    lo = _read("CLIP_MIN_SECONDS", 15.0)
-    hi = _read("CLIP_MAX_SECONDS", 90.0)
-    lo = min(max(lo, 5.0), 175.0)
-    hi = min(max(hi, 10.0), 180.0)
+    lo = _read("CLIP_MIN_SECONDS", 60.0)
+    hi = _read("CLIP_MAX_SECONDS", 120.0)
+    lo = min(max(lo, 10.0), 175.0)
+    hi = min(max(hi, 20.0), 180.0)
     if hi < lo + 5.0:  # keep a real band: degenerate ranges starve the model
         hi = min(180.0, lo + 5.0)
     return round(lo, 3), round(hi, 3)
@@ -268,7 +276,7 @@ def build_transcript_windows(transcript_result, video_duration,
 
 
 def snap_clip_to_words(start, end, words, video_duration,
-                       min_duration=15.0, max_duration=60.0,
+                       min_duration=60.0, max_duration=120.0,
                        search_window=1.5, max_lead=0.35, max_tail=0.45):
     """
     Snap Gemini-proposed clip boundaries onto real word boundaries plus a bit
@@ -346,7 +354,7 @@ def snap_to_sentence_end(
     end: float,
     words: list,
     video_duration: float,
-    max_duration: float = 60.0,
+    max_duration: float = 120.0,
     look_ahead: float = 15.0,
     check_window: float = 2.0,
 ) -> tuple:
@@ -356,26 +364,18 @@ def snap_to_sentence_end(
     checks whether the last word of the clip ends a sentence.  If not, it
     scans forward up to ``look_ahead`` seconds to find the next word whose
     text ends with strong punctuation (.  !  ?  …) and moves the cut there,
-    provided the resulting duration stays within ``max_duration`` (plus look_ahead).
+    provided the resulting duration stays within ``max_duration + look_ahead``.
 
-    Rationale: LLMs routinely propose a cut time that falls inside a
-    sentence — they optimise for content, not prosody.  The word-snapper
-    lands on the nearest word boundary, but that word is often "and", "so",
-    "but", or a dangling noun.  Moving forward a few seconds to the next
-    full-stop/exclamation/question-mark ensures the viewer receives a
-    complete thought rather than an abrupt half-sentence.
-
-    The function never shortens the clip and never violates ``video_duration``.
-    If no sentence-ender is found within ``look_ahead`` it returns the input unchanged (safe fallback).
-
-    words: [{'w': str, 's': float, 'e': float}, ...] sorted by start.
+    Allows clips to exceed max_duration by look_ahead if it ensures a complete
+    thought and supports monetization (e.g. TikTok Creator Rewards > 60s,
+    YouTube Shorts up to 180s).
     """
     if not words:
         return (round(float(start), 3), round(float(end), 3))
 
     end_f = round(float(end), 3)
     start_f = round(float(start), 3)
-    # Allow exceeding max_duration by look_ahead if it means finishing the thought cleanly
+    # Cap allows look_ahead so thoughts resolve cleanly
     cap = min(float(video_duration), start_f + max_duration + look_ahead)
 
     # 1. Check whether the current end already sits at a sentence boundary.
@@ -394,7 +394,7 @@ def snap_to_sentence_end(
             # Already a clean cut — nothing to do.
             return (start_f, end_f)
 
-    # 2. Scan forward for the next sentence-ending word.
+    # 2. Scan forward for the next sentence-ending word within scan_limit.
     scan_limit = min(end_f + look_ahead, cap)
     candidates = [
         w for w in words
@@ -413,100 +413,77 @@ def snap_to_sentence_end(
 
     return (start_f, end_f)
 
-
-def classify_story_arc(window_text: str) -> dict:
-    """Lightweight heuristic to detect whether a transcript window contains a
-    narrative story arc (setup → conflict/tension → resolution/payoff).
-
-    Returns a dict with:
-        ``has_story``    – bool, True when a story arc is detected.
-        ``arc_score``    – int 0-30 bonus to add to the viral score.
-        ``arc_label``    – short human-readable label (e.g. "story-arc").
-        ``arc_reason``   – one sentence explaining what was found.
-
-    The detection is intentionally fast (no LLM call) and conservative:
-    it requires at LEAST two distinct phases to avoid false positives on
-    ordinary expository monologues.  The bonus is capped at 30 so it never
-    overrides a genuine quality signal from the model.
-
-    Design note: this function intentionally uses only Python stdlib so it
-    can be imported without the heavy video stack, exactly like the rest of
-    clip_selection.py.
-    """
-    import re
-
-    text = str(window_text or "").lower()
-    words_in_text = text.split()
-    word_count = len(words_in_text)
-
-    # ------------------------------------------------------------------ #
-    # Phase markers – each list is a set of signal tokens.  A "phase" is  #
-    # detected when ≥1 token from its list appears in the window.         #
-    # ------------------------------------------------------------------ #
-    setup_tokens = [
-        r"\bum dia\b", r"\bcerta vez\b", r"\bera uma vez\b", r"\bcomecei\b",
-        r"\bcomecou\b", r"\bno começo\b", r"\bno inicio\b", r"\bantes\b",
-        r"\bcrescendo\b", r"\bquando era\b", r"\bna época\b", r"\bvivi\b",
-        r"\btinha\b", r"\bestava\b", r"\bfui\b", r"\bprimeiro\b",
-        r"\boriginalmente\b", r"\binicialmente\b", r"\bà princípio\b",
-        r"\bprimeiramente\b",
-    ]
-    conflict_tokens = [
-        r"\bmas\b", r"\bporém\b", r"\bentretanto\b", r"\bno entanto\b",
-        r"\bproblema\b", r"\bdificuldade\b", r"\bdesafio\b", r"\bcrise\b",
-        r"\bfracasso\b", r"\berro\b", r"\bfalhei\b", r"\bperdeu\b",
-        r"\bperdi\b", r"\bquase\b", r"\bde repente\b", r"\binesperadamente\b",
-        r"\bchoque\b", r"\bsurpresa\b", r"\bnão conseguia\b", r"\bnão sabia\b",
-        r"\btive que\b", r"\btinha que\b", r"\bprecisava\b",
-    ]
-    resolution_tokens = [
-        r"\bentão\b", r"\bfinalmente\b", r"\bno fim\b", r"\bno final\b",
-        r"\bdepois\b", r"\baí\b", r"\bconsegui\b", r"\baprendi\b",
-        r"\bmudei\b", r"\btransformei\b", r"\bdescobri\b", r"\bpercebi\b",
-        r"\bhoje\b", r"\bagora\b", r"\bresolveu\b", r"\bfuncionou\b",
-        r"\bvaleu a pena\b", r"\bfez diferença\b", r"\bresultado\b",
-        r"\bgraças a\b", r"\bpor isso\b", r"\blição\b",
-    ]
-
-    def _phase_hit(tokens):
-        return any(re.search(t, text) for t in tokens)
-
-    has_setup = _phase_hit(setup_tokens)
-    has_conflict = _phase_hit(conflict_tokens)
-    has_resolution = _phase_hit(resolution_tokens)
-
-    phases_detected = sum([has_setup, has_conflict, has_resolution])
-
-    # Require at least 2 phases AND a minimum length (stories need space).
-    has_story = phases_detected >= 2 and word_count >= 80
-
-    arc_score = 0
-    arc_label = ""
-    arc_reason = ""
-
-    if has_story:
-        phase_labels = []
-        if has_setup:
-            phase_labels.append("setup")
-        if has_conflict:
-            phase_labels.append("conflict")
-        if has_resolution:
-            phase_labels.append("resolution")
-
-        # Score bonus: 10 per phase (max 30), with length boost for long stories.
-        arc_score = min(30, phases_detected * 10)
-        if word_count >= 200:
-            arc_score = min(30, arc_score + 5)
-
-        arc_label = "story-arc"
-        arc_reason = (
-            f"Narrative arc detected ({' → '.join(phase_labels)}) "
-            f"across {word_count} words."
-        )
-
-    return {
-        "has_story": has_story,
-        "arc_score": arc_score,
-        "arc_label": arc_label,
-        "arc_reason": arc_reason,
-    }
+def generate_multi_scale_candidates(anchors, words, video_duration, min_secs=60.0, max_secs=120.0):
+    candidates = []
+    c_idx = 1
+    
+    for a in anchors:
+        a_start = float(a.get("start", 0))
+        a_end = float(a.get("end", 0))
+        a_type = str(a.get("anchor_type", "other")).lower()
+        
+        if "opinion" in a_type:
+            scales = [35.0, 50.0, 65.0]
+        elif "story" in a_type:
+            scales = [60.0, 80.0, 100.0]
+        elif "joke" in a_type or "revelation" in a_type:
+            scales = [30.0, 45.0, 60.0]
+        else:
+            scales = [45.0, 60.0, 80.0]
+            
+        valid_scales = []
+        for s in scales:
+            if s < min_secs:
+                valid_scales.append(min_secs)
+            elif s > max_secs:
+                valid_scales.append(max_secs)
+            else:
+                valid_scales.append(s)
+        valid_scales = sorted(list(set(valid_scales)))
+        
+        for scale in valid_scales:
+            shifts = [0.0]
+            if scale >= 45.0:
+                shifts.append(scale * 0.33)
+                
+            for shift in shifts:
+                c_start = max(0.0, a_start - shift)
+                c_end = min(video_duration, c_start + scale)
+                
+                cand_words = [w for w in words if w['e'] > c_start and w['s'] < c_end]
+                if not cand_words:
+                    continue
+                    
+                real_start = float(cand_words[0]['s'])
+                real_end = float(cand_words[-1]['e'])
+                cand_text = " ".join([w['w'] for w in cand_words])
+                
+                ctx_secs = 15.0
+                before_words = [w for w in words if real_start - ctx_secs <= w['s'] < real_start]
+                after_words = [w for w in words if real_end < w['s'] <= real_end + ctx_secs]
+                
+                candidates.append({
+                    "id": f"c_{c_idx:03d}",
+                    "anchor_id": a.get("id", "a_unk"),
+                    "anchor_sentence": a.get("text", ""),
+                    "start": round(real_start, 3),
+                    "end": round(real_end, 3),
+                    "duration": round(real_end - real_start, 3),
+                    "word_count": len(cand_words),
+                    "before_context": " ".join([w['w'] for w in before_words]),
+                    "text": cand_text,
+                    "after_context": " ".join([w['w'] for w in after_words])
+                })
+                c_idx += 1
+                
+    unique_cands = []
+    for c in candidates:
+        duplicate = False
+        for u in unique_cands:
+            if abs(c["start"] - u["start"]) < 2.0 and abs(c["end"] - u["end"]) < 2.0:
+                duplicate = True
+                break
+        if not duplicate:
+            unique_cands.append(c)
+            
+    return unique_cands

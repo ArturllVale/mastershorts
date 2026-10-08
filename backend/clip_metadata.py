@@ -5,6 +5,7 @@ Guarantees that every clip delivered to the user has:
 - A non-empty, curiosity-driven, high-CTR YouTube/Shorts title (NEVER verbatim speech quotes).
 - Ready-to-copy TikTok and Instagram descriptions with hook, CTA, and well-targeted hashtags.
 - A valid viral explanation and score.
+- STRICT language integrity: English for English content, Portuguese for Portuguese content. Never mix languages.
 """
 from __future__ import annotations
 
@@ -20,9 +21,10 @@ _PLACEHOLDER_PATTERNS = re.compile(
     re.IGNORECASE
 )
 
-_COMMON_HASHTAGS = "#shorts #viral #reels #foryou #reflexao #desenvolvimentopessoal"
+_COMMON_HASHTAGS_PT = "#shorts #viral #reels #foryou #reflexao #desenvolvimentopessoal"
+_COMMON_HASHTAGS_EN = "#shorts #viral #reels #foryou #mindset #motivation #podcast"
 
-_TOPIC_KEYWORDS = {
+_TOPIC_KEYWORDS_PT = {
     "medo": {
         "label": "o Medo",
         "hashtags": ["#medo", "#superacao", "#coragem", "#saudemental", "#ansiedade"],
@@ -99,7 +101,84 @@ _TOPIC_KEYWORDS = {
     },
 }
 
-_GENERAL_VIRAL_TITLES = [
+_TOPIC_KEYWORDS_EN = {
+    "fear": {
+        "label": "Fear",
+        "hashtags": ["#fear", "#courage", "#mindset", "#overcoming", "#mentalhealth"],
+        "titles": [
+            "The Truth Nobody Tells You About Fear 😱",
+            "The Biggest Mistake People Make With Fear ⚠️",
+            "Are You Paralyzed by Fear? Watch This! 👀",
+            "How to Overcome Fear Once and for All 🧠",
+            "The Lesson That Will Free Your Mind from Fear 💡",
+        ]
+    },
+    "anxiety": {
+        "label": "Anxiety",
+        "hashtags": ["#anxiety", "#mentalhealth", "#calm", "#mindset", "#innerpeace"],
+        "titles": [
+            "What Anxiety Really Does to You ⚠️",
+            "How to Calm Your Mind in Difficult Moments 🧠",
+            "The Truth About Anxiety Few People Know 💡",
+        ]
+    },
+    "money": {
+        "label": "Money",
+        "hashtags": ["#money", "#finance", "#wealth", "#investing", "#financialfreedom"],
+        "titles": [
+            "The Money Secret They Don't Teach in School 💰",
+            "The Biggest Financial Mistake You're Making ⚠️",
+            "How the Wealthy Actually Think About Money 🧠",
+        ]
+    },
+    "success": {
+        "label": "Success",
+        "hashtags": ["#success", "#discipline", "#focus", "#productivity", "#motivation"],
+        "titles": [
+            "The Brutal Truth About Success Nobody Speaks About 🏆",
+            "The One Habit That Separates Winners from Quitters 💡",
+            "Do You Want to Succeed? Pay Attention to This! 👀",
+        ]
+    },
+    "discipline": {
+        "label": "Discipline",
+        "hashtags": ["#discipline", "#focus", "#habits", "#consistency", "#mindset"],
+        "titles": [
+            "Why Discipline Matters Way More Than Motivation 🧠",
+            "How to Build Unstoppable Daily Discipline 💡",
+            "The Secret to Consistency Few People Master ⚡",
+        ]
+    },
+    "mind": {
+        "label": "Your Mind",
+        "hashtags": ["#mindset", "#psychology", "#brain", "#thoughts", "#selfgrowth"],
+        "titles": [
+            "What Actually Happens to Your Mind When You Do This 🤯",
+            "The Psychological Truth That Will Open Your Eyes 🧠",
+            "How to Rewire Negative Thinking Today 💡",
+        ]
+    },
+    "relationship": {
+        "label": "Relationships",
+        "hashtags": ["#relationships", "#communication", "#boundaries", "#love", "#connection"],
+        "titles": [
+            "The Biggest Relationship Mistake That Ruins Everything ⚠️",
+            "The Truth About Toxic People You Need to Realize 👀",
+            "How to Know If a Relationship Is Truly Worth It 💡",
+        ]
+    },
+    "health": {
+        "label": "Your Health",
+        "hashtags": ["#health", "#wellness", "#lifestyle", "#energy", "#habits"],
+        "titles": [
+            "What This Habit Does to Your Body Without You Knowing ⚠️",
+            "The Simple Habit That Improves Your Health Today 💡",
+            "The Secret to Lasting Energy and Vitality ⚡",
+        ]
+    },
+}
+
+_GENERAL_VIRAL_TITLES_PT = [
     "A Verdade Que Ninguém Te Conta Sobre Isso! 😱",
     "O Maior Erro Que Quase Todo Mundo Comete ⚠️",
     "Você Precisa Ouvir Isso Antes Que Seja Tarde! 👀",
@@ -108,6 +187,20 @@ _GENERAL_VIRAL_TITLES = [
     "Isso Vai Fazer Você Pensar Muito Diferente 🤯",
     "Apenas Quem Entende Isso Consegue Ir Longe! 🚀",
 ]
+
+_GENERAL_VIRAL_TITLES_EN = [
+    "The Truth Nobody Tells You About This! 😱",
+    "The Biggest Mistake Almost Everyone Makes ⚠️",
+    "You Need to Hear This Before It's Too Late! 👀",
+    "The Lesson That Changed My Life Forever 💡",
+    "The Secret Revealed That Few People Know... 🧠",
+    "This Will Completely Change How You Think 🤯",
+    "Only Those Who Understand This Will Succeed! 🚀",
+]
+
+
+def _is_en(language: Optional[str]) -> bool:
+    return str(language or "").strip().lower().startswith("en")
 
 
 def is_placeholder_or_empty(text: Optional[str]) -> bool:
@@ -138,25 +231,32 @@ def is_verbatim_transcript_quote(title: Optional[str], clip_text: str) -> bool:
     return False
 
 
-def _clean_subject_from_title(video_title: Optional[str]) -> str:
+def _clean_subject_from_title(video_title: Optional[str], is_en: bool = False) -> str:
     """Extract a clean subject noun phrase from the main video title."""
     if not video_title:
         return ""
     clean = re.sub(r"\.[a-zA-Z0-9]+$", "", video_title)
     clean = re.sub(r"[-_]+", " ", clean)
     clean = re.sub(r"[^\w\sÀ-ÿ]", " ", clean)
-    clean = re.sub(
-        r"^(um\s+vídeo\s+necessário\s+(para|pra)\s+(você|vc)\s+(que\s+)?|vídeo\s+sobre\s+|corte\s+do\s+|podcast\s+episodio\s+\d+\s+)",
-        "", clean, flags=re.IGNORECASE
-    )
+    if is_en:
+        clean = re.sub(
+            r"^(a\s+must\s+watch\s+video\s+for\s+you\s+|video\s+about\s+|clip\s+from\s+|podcast\s+episode\s+\d+\s+)",
+            "", clean, flags=re.IGNORECASE
+        )
+    else:
+        clean = re.sub(
+            r"^(um\s+vídeo\s+necessário\s+(para|pra)\s+(você|vc)\s+(que\s+)?|vídeo\s+sobre\s+|corte\s+do\s+|podcast\s+episodio\s+\d+\s+)",
+            "", clean, flags=re.IGNORECASE
+        )
     clean = " ".join(clean.split()).strip()
     return clean
 
 
-def _detect_topic(clip_text: str, video_title: Optional[str] = None) -> Optional[dict]:
+def _detect_topic(clip_text: str, video_title: Optional[str] = None, is_en: bool = False) -> Optional[dict]:
     """Detect main topic data based on video title and transcript keywords."""
     combined = f"{video_title or ''} {clip_text or ''}".lower()
-    for key, data in _TOPIC_KEYWORDS.items():
+    topic_dict = _TOPIC_KEYWORDS_EN if is_en else _TOPIC_KEYWORDS_PT
+    for key, data in topic_dict.items():
         if key in combined:
             return data
     return None
@@ -188,6 +288,7 @@ def get_clip_transcript_text(transcript: Optional[dict], start: float, end: floa
 
 def generate_fallback_hook(clip_text: str, language: str = "pt") -> str:
     """Generate a punchy, scroll-stopping hook overlay from the clip's spoken text."""
+    en = _is_en(language)
     if clip_text:
         sentences = re.split(r"[.?!]\s+", clip_text)
         for s in sentences:
@@ -201,9 +302,9 @@ def generate_fallback_hook(clip_text: str, language: str = "pt") -> str:
         words = clip_text.split()
         if len(words) >= 4:
             phrase = " ".join(words[:min(6, len(words))]).strip()
-            return f"Olha isso: \"{phrase}…\" 👀"
+            return f"Look at this: \"{phrase}…\" 👀" if en else f"Olha isso: \"{phrase}…\" 👀"
 
-    return "Você não vai acreditar nisso! 🤯"
+    return "You won't believe this! 🤯" if en else "Você não vai acreditar nisso! 🤯"
 
 
 def generate_fallback_title(clip_text: str, video_title: Optional[str] = None, language: str = "pt") -> str:
@@ -213,7 +314,8 @@ def generate_fallback_title(clip_text: str, video_title: Optional[str] = None, l
     - NEVER dumps a verbatim transcript quote or raw speech excerpt.
     - Creates high-CTR, click-worthy curiosity titles (max 70 chars).
     """
-    topic_data = _detect_topic(clip_text, video_title)
+    en = _is_en(language)
+    topic_data = _detect_topic(clip_text, video_title, is_en=en)
     seed = abs(hash(clip_text or video_title or "title"))
 
     # 1. Use curated viral titles for the detected topic
@@ -223,7 +325,12 @@ def generate_fallback_title(clip_text: str, video_title: Optional[str] = None, l
 
     # 2. Check if the clip text naturally asks an intriguing question
     if clip_text:
-        q_matches = re.findall(r"(por que|como|qual|o que|será que|você já)[^.?!]{8,45}\?", clip_text, flags=re.IGNORECASE)
+        pattern = (
+            r"(why|how|what|is it possible|did you know|have you ever)[^.?!]{8,45}\?"
+            if en else
+            r"(por que|como|qual|o que|será que|você já)[^.?!]{8,45}\?"
+        )
+        q_matches = re.findall(pattern, clip_text, flags=re.IGNORECASE)
         if q_matches:
             q = q_matches[0].strip()
             q_clean = q[0].upper() + q[1:]
@@ -233,21 +340,30 @@ def generate_fallback_title(clip_text: str, video_title: Optional[str] = None, l
 
     # 3. Use cleaned subject from video title
     if video_title:
-        subject = _clean_subject_from_title(video_title)
+        subject = _clean_subject_from_title(video_title, is_en=en)
         if subject and len(subject) >= 3:
-            templates = [
-                f"A Verdade Sobre {subject} Que Poucos Sabem 😱",
-                f"O Maior Erro Sobre {subject} ⚠️",
-                f"Você Precisa Ouvir Isso Sobre {subject}! 👀",
-                f"A Lição Que Mudou Minha Visão Sobre {subject} 💡",
-            ]
+            if en:
+                templates = [
+                    f"The Truth About {subject} Few People Know 😱",
+                    f"The Biggest Mistake With {subject} ⚠️",
+                    f"You Need to Hear This About {subject}! 👀",
+                    f"The Lesson That Changed How I View {subject} 💡",
+                ]
+            else:
+                templates = [
+                    f"A Verdade Sobre {subject} Que Poucos Sabem 😱",
+                    f"O Maior Erro Sobre {subject} ⚠️",
+                    f"Você Precisa Ouvir Isso Sobre {subject}! 👀",
+                    f"A Lição Que Mudou Minha Visão Sobre {subject} 💡",
+                ]
             cand = templates[seed % len(templates)]
             if len(cand) <= 70:
                 return cand
-            return f"{subject[:50]} (Corte Viral)"
+            return f"{subject[:50]} (Viral Clip)" if en else f"{subject[:50]} (Corte Viral)"
 
     # 4. General viral titles
-    return _GENERAL_VIRAL_TITLES[seed % len(_GENERAL_VIRAL_TITLES)][:70]
+    general_titles = _GENERAL_VIRAL_TITLES_EN if en else _GENERAL_VIRAL_TITLES_PT
+    return general_titles[seed % len(general_titles)][:70]
 
 
 def generate_fallback_description(
@@ -257,22 +373,34 @@ def generate_fallback_description(
     language: str = "pt"
 ) -> str:
     """Generate a complete description ready to copy for social media with hook, CTA, and hashtags."""
-    topic_data = _detect_topic(clip_text, video_title)
+    en = _is_en(language)
+    topic_data = _detect_topic(clip_text, video_title, is_en=en)
     seed = abs(hash(clip_text or video_title or "desc"))
 
     # 1. Hook opening line
-    hook_lines = [
-        "👀 Presta atenção nessa reflexão importante:",
-        "💡 Uma perspectiva que todo mundo deveria ouvir:",
-        "🔥 Você já parou para pensar nisso?",
-        "⚠️ Essa lição pode mudar a sua visão sobre as coisas:",
-    ]
+    if en:
+        hook_lines = [
+            "👀 Pay close attention to this insight:",
+            "💡 A perspective everyone needs to hear:",
+            "🔥 Have you ever stopped to think about this?",
+            "⚠️ This lesson might change how you see things:",
+        ]
+    else:
+        hook_lines = [
+            "👀 Presta atenção nessa reflexão importante:",
+            "💡 Uma perspectiva que todo mundo deveria ouvir:",
+            "🔥 Você já parou para pensar nisso?",
+            "⚠️ Essa lição pode mudar a sua visão sobre as coisas:",
+        ]
     hook = hook_lines[seed % len(hook_lines)]
 
     # 2. Context / Value takeaway
     if topic_data:
         label = topic_data["label"]
-        summary = f"Entender como {label} impacta nossas escolhas é essencial para retomar o controle e transformar sua vida."
+        if en:
+            summary = f"Understanding how {label} impacts our choices is key to regaining control and moving forward."
+        else:
+            summary = f"Entender como {label} impacta nossas escolhas é essencial para retomar o controle e transformar sua vida."
     elif clip_text:
         sentences = [s.strip() for s in re.split(r"[.?!]\s+", clip_text) if len(s.strip().split()) >= 4]
         if sentences:
@@ -281,24 +409,40 @@ def generate_fallback_description(
                 s_text += "."
             summary = s_text
         else:
-            summary = "Reflita sobre esse momento e absorva o aprendizado compartilhado aqui."
+            summary = "Reflect on this moment and absorb the key takeaway shared here." if en else "Reflita sobre esse momento e absorva o aprendizado compartilhado aqui."
     else:
-        summary = "Um insight poderoso para você refletir e aplicar no seu dia a dia."
+        summary = "A powerful insight to reflect on and apply in your everyday life." if en else "Um insight poderoso para você refletir e aplicar no seu dia a dia."
 
     # 3. Call to Action
-    if platform == "instagram":
-        cta = (
-            "💬 Você concorda ou pensa diferente? Deixe sua visão nos comentários! 👇\n"
-            "📌 Salve este post para rever depois e envie para alguém que precisa ver isso!"
-        )
-    else:  # tiktok / shorts
-        cta = (
-            "💬 Qual é a sua opinião sobre isso? Comenta aqui embaixo! 👇\n"
-            "👉 Compartilhe com quem precisa ouvir essa mensagem hoje!"
-        )
+    if en:
+        if platform == "instagram":
+            cta = (
+                "💬 Do you agree or see it differently? Share your thoughts below! 👇\n"
+                "📌 Save this post for later and share it with a friend!"
+            )
+        else:  # tiktok / shorts
+            cta = (
+                "💬 What's your opinion on this? Comment below! 👇\n"
+                "👉 Share this with someone who needs to hear it today!"
+            )
+    else:
+        if platform == "instagram":
+            cta = (
+                "💬 Você concorda ou pensa diferente? Deixe sua visão nos comentários! 👇\n"
+                "📌 Salve este post para rever depois e envie para alguém que precisa ver isso!"
+            )
+        else:  # tiktok / shorts
+            cta = (
+                "💬 Qual é a sua opinião sobre isso? Comenta aqui embaixo! 👇\n"
+                "👉 Compartilhe com quem precisa ouvir essa mensagem hoje!"
+            )
 
     # 4. Hashtags
-    hashtags = ["#shorts", "#viral", "#reels", "#foryou", "#reflexao", "#desenvolvimentopessoal"]
+    hashtags = (
+        ["#shorts", "#viral", "#reels", "#foryou", "#mindset", "#podcast"]
+        if en else
+        ["#shorts", "#viral", "#reels", "#foryou", "#reflexao", "#desenvolvimentopessoal"]
+    )
     if topic_data:
         for tag in topic_data.get("hashtags", []):
             if tag not in hashtags:
@@ -306,8 +450,9 @@ def generate_fallback_description(
 
     if video_title:
         words = re.findall(r"[a-zA-ZÀ-ÿ]{4,}", video_title.lower())
+        stopwords = {"video", "watch", "about", "clip", "podcast", "shorts", "episode", "para", "voce", "necessario", "sobre", "corte"}
         for w in words:
-            if w not in ("video", "necessario", "sobre", "corte", "podcast", "para", "voce", "shorts"):
+            if w not in stopwords:
                 tag = f"#{w}"
                 if tag not in hashtags and len(hashtags) < 12:
                     hashtags.append(tag)
@@ -326,22 +471,58 @@ def generate_ai_clip_metadata(
     if not clip_text or len(clip_text.strip()) < 10:
         return None
 
-    prompt = f"""Você é um especialista em criação de conteúdo viral para YouTube Shorts, TikTok e Instagram Reels.
-Com base na transcrição do corte abaixo (do vídeo "{video_title or 'Vídeo'}"), crie títulos e descrições magnéticos em {language}.
+    en = _is_en(language)
+    lang_name = "English" if en else "Portuguese (pt-br)"
+
+    if en:
+        prompt = f"""You are a viral content strategist for YouTube Shorts, TikTok, and Instagram Reels.
+Based on the transcript below (from video "{video_title or 'Video'}"), generate magnetic titles and captions in {lang_name}.
+CRITICAL RULE: The content is in English. Write ALL copy (title, hook, captions) 100% in English. Do NOT mix languages.
+
+CLIP TRANSCRIPT:
+"{clip_text[:2000]}"
+
+RULES:
+1. ideo_title_for_youtube_short: Irresistible high-CTR viral title (MAX 65 CHARACTERS, in English).
+   CRITICAL: NEVER copy verbatim sentences from speech! Craft a curiosity-gap headline sparking surprise, revelation, or emotion (e.g., "The Secret Nobody Tells You About Fear 😱", "Are You Making This Costly Mistake? ⚠️", "The Truth That Changed Everything...").
+2. iral_hook_text: 3 to 7 punchy words for the on-screen hook overlay with an emoji (e.g. "Do you live in fear? 👀").
+3. ideo_description_for_tiktok: Complete ready-to-post TikTok caption with:
+   - Attention-grabbing opening hook with emoji
+   - 1-2 sentence compelling summary of the core insight
+   - Clear CTA inviting comments ("What's your take on this? Comment below! 👇")
+   - 6 to 9 relevant hashtags (#shorts #viral #foryou and topic tags).
+4. ideo_description_for_instagram: Complete ready-to-post Instagram Reels caption with:
+   - Hook line with emoji
+   - Concise context / takeaway
+   - CTA encouraging saves/shares ("Save this for later and share with a friend! 📌")
+   - 6 to 9 well-organized hashtags.
+
+Return ONLY a valid JSON object:
+{{
+  "video_title_for_youtube_short": "viral title here",
+  "viral_hook_text": "on-screen hook",
+  "video_description_for_tiktok": "full TikTok caption with CTA and hashtags",
+  "video_description_for_instagram": "full Instagram caption with CTA and hashtags"
+}}
+"""
+    else:
+        prompt = f"""Você é um especialista em criação de conteúdo viral para YouTube Shorts, TikTok e Instagram Reels.
+Com base na transcrição do corte abaixo (do vídeo "{video_title or 'Vídeo'}"), crie títulos e descrições magnéticos em português ({lang_name}).
+REGRA CRÍTICA: O conteúdo é em português. Escreva TODA a copy (título, gancho, legendas) 100% em português. Não misture línguas.
 
 TRANSCRIÇÃO DO CORTE:
 "{clip_text[:2000]}"
 
 REGRAS:
-1. `video_title_for_youtube_short`: Título viral irresistível com alto CTR (MÁXIMO 65 CARACTERES).
+1. ideo_title_for_youtube_short: Título viral irresistível com alto CTR (MÁXIMO 65 CARACTERES, em português).
    CRÍTICO: NUNCA copie frases da transcrição nem citações literais da fala! Crie uma chamada magnética com gatilho de curiosidade, choque, identificação ou revelação (ex: "O Segredo Que Ninguém Te Conta Sobre o Medo 😱", "Você Comete Esse Erro Sem Perceber? ⚠️", "A Verdade Que Mudou Tudo...").
-2. `viral_hook_text`: Gancho visual para tela de 3 a 7 palavras com emoji (ex: "Você vive com medo? 👀").
-3. `video_description_for_tiktok`: Legenda completa para postagem no TikTok com:
+2. iral_hook_text: Gancho visual para tela de 3 a 7 palavras com emoji (ex: "Você vive com medo? 👀").
+3. ideo_description_for_tiktok: Legenda completa para postagem no TikTok com:
    - Gancho inicial impactante com emoji
    - 1 ou 2 frases curtas com a lição / insight do vídeo
    - Chamada para ação (CTA) provocativa para comentários
    - 6 a 9 hashtags relevantes (#shorts #viral #foryou e tags do assunto do vídeo).
-4. `video_description_for_instagram`: Legenda completa pronta para publicação no Instagram Reels com:
+4. ideo_description_for_instagram: Legenda completa pronta para publicação no Instagram Reels com:
    - Gancho de abertura com emoji
    - Breve contexto/reflexão de valor
    - CTA para salvar e compartilhar ("Salva para ver depois! 📌")
@@ -355,6 +536,7 @@ Retorne EXCLUSIVAMENTE um objeto JSON válido no formato:
   "video_description_for_instagram": "legenda completa com CTA e hashtags"
 }}
 """
+
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
@@ -402,6 +584,7 @@ def clean_or_generate_clip_metadata(
 
     Mutates and returns the clip dict.
     """
+    en = _is_en(language)
     clip_start = float(clip.get("start") if clip.get("start") is not None else (start or 0.0))
     clip_end = float(clip.get("end") if clip.get("end") is not None else (end or 0.0))
     clip_text = get_clip_transcript_text(transcript, clip_start, clip_end)
@@ -453,7 +636,11 @@ def clean_or_generate_clip_metadata(
 
     # 4. Sanitize Explanation & Score
     if is_placeholder_or_empty(clip.get("explanation")):
-        clip["explanation"] = "Trecho com alto potencial de engajamento e retenção."
+        clip["explanation"] = (
+            "Segment with high viral potential and audience engagement."
+            if en else
+            "Trecho com alto potencial de engajamento e retenção."
+        )
 
     score = clip.get("predicted_score")
     if not isinstance(score, (int, float)) or score <= 0:

@@ -176,8 +176,12 @@ def run_whisper_transcription(media_path, **params):
         return _run_whisper_once(media_path, **params)
 
 
-def _transcribe_with_whisper(media_path):
-    segments, info = run_whisper_transcription(media_path, **WHISPER_TRANSCRIBE_PARAMS)
+def _transcribe_with_whisper(media_path, language=None):
+    params = dict(WHISPER_TRANSCRIBE_PARAMS)
+    if language and str(language).lower() not in ("auto", "none", "unknown"):
+        lang_code = "pt" if str(language).lower().startswith("pt") else ("en" if str(language).lower().startswith("en") else str(language).lower())
+        params["language"] = lang_code
+    segments, info = run_whisper_transcription(media_path, **params)
 
     out_segments = []
     text_parts = []
@@ -444,8 +448,10 @@ def _has_audio_stream(media_path) -> bool:
         return True  # probe failed — don't block, let the backend try
 
 
-def transcribe_media(media_path):
+def transcribe_media(media_path, language=None):
     """Transcribe with the configured backend, falling back to whisper."""
+    if not language:
+        language = os.environ.get("TARGET_LANGUAGE")
     # Silent videos (AI-generated clips, muted screen recordings) have no audio
     # stream; every ASR backend then crashes deep inside libav with an opaque
     # "tuple index out of range". Detect it up front and fail with a clear,
@@ -471,4 +477,4 @@ def transcribe_media(media_path):
             print(f"⚠️ [ASR] parakeet failed ({type(e).__name__}: {e}) — "
                   f"falling back to whisper")
 
-    return _transcribe_with_whisper(media_path)
+    return _transcribe_with_whisper(media_path, language=language)

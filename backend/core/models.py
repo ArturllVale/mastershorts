@@ -43,6 +43,7 @@ class JobRecord(BaseModel):
 
 class ProcessRequest(BaseModel):
     url: str
+    target_language: Optional[str] = None
 
 
 class EditRequest(BaseModel):

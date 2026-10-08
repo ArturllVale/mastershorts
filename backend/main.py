@@ -87,7 +87,6 @@ load_dotenv()
 # --- Constants ---
 ASPECT_RATIO = 9 / 16
 
-from core.prompts import GEMINI_PROMPT_TEMPLATE
 from cameraman import SmoothedCameraman, SpeakerTracker
 
 # JUMP_CONFIRM_FRAMES: Consecutive detections a large target move must survive
@@ -295,8 +294,22 @@ if __name__ == '__main__':
                       f"({len(transcript['segments'])} segments) — skipping transcription.")
         if transcript is None:
             try:
+                from media_cache import find_existing_transcript
+                transcript = find_existing_transcript(getattr(args, 'url', None), input_video, duration)
+                if transcript is not None:
+                    print(f"♻️ Transcrição reutilizada de cache/projeto anterior ({len(transcript.get('segments', []))} segmentos) — pulando transcrição!", flush=True)
+                    save_transcript_checkpoint(output_dir, transcript, input_video, duration)
+            except Exception as e:
+                print(f"⚠️ Transcript cache lookup failed: {e}")
+        if transcript is None:
+            try:
                 transcript = transcribe_video(input_video)
                 save_transcript_checkpoint(output_dir, transcript, input_video, duration)
+                try:
+                    from media_cache import save_cached_transcript
+                    save_cached_transcript(getattr(args, 'url', None), input_video, transcript, duration)
+                except Exception:
+                    pass
             except NoAudioError as e:
                 print(f"🔇 {e} — switching to visual analysis.")
 
@@ -331,7 +344,8 @@ if __name__ == '__main__':
                 try:
                     analysis_start = time.time()
                     if transcript is not None:
-                        clips_data = get_viral_clips(transcript, duration, video_title=video_title)
+                        target_lang = os.environ.get("TARGET_LANGUAGE")
+                        clips_data = get_viral_clips(transcript, duration, video_title=video_title, target_language=target_lang)
                     else:
                         clips_data = get_visual_clips(input_video, duration)
                         
@@ -364,6 +378,7 @@ if __name__ == '__main__':
             # Save metadata. Silent videos have no transcript → no subtitles,
             # which is correct (there's no speech to caption).
             clips_data['transcript'] = transcript or {"language": "none", "segments": []}
+            clips_data['source_url'] = getattr(args, 'url', None) or ""
             # The clip editor's re-render path needs to find the source video
             # again and reproduce the render settings, so record both. The
             # basename is enough — the file sits in the job dir (URL jobs with
@@ -374,6 +389,12 @@ if __name__ == '__main__':
             with open(to_long_path(metadata_file), 'w', encoding='utf-8') as f:
                 json.dump(clips_data, f, indent=2)
             print(f"   Saved metadata to {metadata_file}")
+
+            try:
+                from media_cache import save_cached_transcript
+                save_cached_transcript(getattr(args, 'url', None), input_video, clips_data['transcript'], duration)
+            except Exception:
+                pass
 
         # 5. Process clips in parallel: each worker cuts + renders one
         # clip. Renders are mostly ffmpeg subprocesses (parallelize well);

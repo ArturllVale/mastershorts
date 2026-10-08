@@ -88,9 +88,17 @@ def download_youtube_video(url, output_dir="."):
     if reason:
         raise NotASingleVideo(f"This link is {reason}.")
 
-    # Fast reuse: if output_dir already has the source video from an earlier run, skip download
+    # Fast reuse: check project-wide cache and previous job directories
     try:
-        # 1. Check metadata.json
+        from media_cache import find_existing_video
+        cached_match = find_existing_video(url, output_dir)
+        if cached_match:
+            return cached_match
+    except Exception as e:
+        print(f"⚠️ Cache lookup failed: {e}")
+
+    try:
+        # 1. Check metadata.json in output_dir
         meta_files = glob.glob(os.path.join(output_dir, "*_metadata.json"))
         if meta_files:
             try:
@@ -404,5 +412,11 @@ def download_youtube_video(url, output_dir="."):
 
     video_path = max(candidates, key=safe_getsize)
     print(f"✅ Download finalizado em {time.time() - step_start_time:.2f}s: {video_path}", flush=True)
+
+    try:
+        from media_cache import register_cached_video
+        register_cached_video(url, video_path, sanitized_title)
+    except Exception:
+        pass
 
     return video_path, sanitized_title

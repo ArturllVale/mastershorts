@@ -21,8 +21,13 @@ async def compute_source_hash(
     registre "não verificável" no hash para não bloquear.
     """
     if url:
-        normalized = _normalize_url(url)
-        return hashlib.sha256(f"url_unverifiable:{normalized}".encode()).hexdigest()
+        try:
+            from media_cache import extract_video_identifier
+            key = extract_video_identifier(url)
+            return hashlib.sha256(f"source_key:{key}".encode()).hexdigest()
+        except Exception:
+            normalized = _normalize_url(url)
+            return hashlib.sha256(f"url_unverifiable:{normalized}".encode()).hexdigest()
     
     if file_path and os.path.exists(file_path):
         sha256 = hashlib.sha256()

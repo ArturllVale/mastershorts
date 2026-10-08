@@ -288,6 +288,7 @@ export function useAppController() {
         auto_hook: data.autoHook ? '1' : '0',
         auto_hook_style: data.autoHook ? (data.autoHookStyle || 'classic') : null,
         layouts: data.layout && data.layout !== 'auto' ? data.layout : null,
+        language: data.language || null,
         max_minutes: data.maxMinutes || null,
         llm_provider: llmProvider,
         force_rerun: data.forceRerun ? 'true' : null,

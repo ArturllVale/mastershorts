@@ -178,6 +178,7 @@ async def process_endpoint(
     upload_id: Optional[str] = Form(None),
     max_minutes: Optional[str] = Form(None),
     force_rerun: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
 ):
     req_llm_base = request.headers.get("X-LLM-Base-URL") or request.headers.get("x-llm-base-url")
     req_llm_model = request.headers.get("X-LLM-Model") or request.headers.get("x-llm-model")
@@ -213,6 +214,8 @@ async def process_endpoint(
         captions = body.get("captions")
         upload_id = body.get("upload_id")
         max_minutes = body.get("max_minutes")
+        if not language and body.get("language"):
+            language = body.get("language")
         if not force_rerun and (body.get("force_rerun") or body.get("force")):
             force_rerun = body.get("force_rerun") or body.get("force")
         if not req_llm_provider and body.get("llm_provider"):
@@ -375,6 +378,16 @@ async def process_endpoint(
     # still dies before it renders anything -- the server starts and every job
     # fails instead. setdefault, so an explicit PYTHONIOENCODING still wins.
     env.setdefault("PYTHONIOENCODING", "utf-8")
+    req_lang = str(language or "").strip().lower()
+    if req_lang in ("pt", "pt-br", "pt_br", "portuguese", "português"):
+        env["TARGET_LANGUAGE"] = "pt"
+    elif req_lang in ("en", "en-us", "en-gb", "english", "inglês"):
+        env["TARGET_LANGUAGE"] = "en"
+    elif req_lang and req_lang != "auto":
+        env["TARGET_LANGUAGE"] = req_lang
+    if "TARGET_LANGUAGE" in env:
+        print(f"[language] job={job_id} target_language={env['TARGET_LANGUAGE']}")
+
 
     # Optional layouts are per job. The renderer reads these at import time in
     # the subprocess, so they must be set before Popen — same path WATERMARK

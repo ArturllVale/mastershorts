@@ -30,6 +30,9 @@ export default function MediaInput({ onProcess, isProcessing }) {
     const [layout, setLayout] = useState(() => {
         try { return localStorage.getItem('os_layout') || 'auto'; } catch { return 'auto'; }
     });
+    const [language, setLanguage] = useState(() => {
+        try { return localStorage.getItem('os_language') || 'auto'; } catch { return 'auto'; }
+    });
     const [forceRerun, setForceRerun] = useState(false);
     const infoRef = useRef(null);
 
@@ -90,11 +93,13 @@ export default function MediaInput({ onProcess, isProcessing }) {
             autoHook,
             autoHookStyle,
             layout,
+            language: language !== 'auto' ? language : null,
         };
         try {
             localStorage.setItem('os_auto_hook', autoHook ? '1' : '0');
             localStorage.setItem('os_auto_hook_style', autoHookStyle);
             localStorage.setItem('os_layout', layout);
+            localStorage.setItem('os_language', language);
         } catch { /* ignore */ }
         if (mode === 'url' && url) {
             onProcess({ type: 'url', payload: url, acknowledged: true, outputFormat, forceRerun, ...advanced });
@@ -364,7 +369,7 @@ export default function MediaInput({ onProcess, isProcessing }) {
                                         step="1"
                                         value={clipMinSeconds}
                                         onChange={(e) => setClipMinSeconds(e.target.value)}
-                                        placeholder="15"
+                                        placeholder="60 (Monetizável)"
                                         className="input-field text-xs py-1.5"
                                     />
                                 </div>
@@ -377,7 +382,7 @@ export default function MediaInput({ onProcess, isProcessing }) {
                                         step="1"
                                         value={clipMaxSeconds}
                                         onChange={(e) => setClipMaxSeconds(e.target.value)}
-                                        placeholder="60"
+                                        placeholder="120"
                                         className="input-field text-xs py-1.5"
                                     />
                                 </div>
@@ -398,6 +403,23 @@ export default function MediaInput({ onProcess, isProcessing }) {
                                     <option value="split">Dois oradores empilhados (Split)</option>
                                     <option value="screencast">Tela sobre apresentador</option>
                                     <option value="none">Corte simples único</option>
+                                </select>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-rule">
+                                <div>
+                                    <p className="text-xs font-medium text-ink">Idioma dos Cortes</p>
+                                    <p className="text-[11px] text-muted">Garante legendas, ganchos e títulos 100% no idioma selecionado</p>
+                                </div>
+                                <select
+                                    value={language}
+                                    onChange={(e) => setLanguage(e.target.value)}
+                                    className="input-field !w-auto text-xs py-1.5 cursor-pointer"
+                                    aria-label="Idioma dos cortes"
+                                >
+                                    <option value="auto">Automático (Detectar do áudio)</option>
+                                    <option value="pt">Português (pt-br)</option>
+                                    <option value="en">Inglês (en)</option>
                                 </select>
                             </div>
 

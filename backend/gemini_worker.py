@@ -37,6 +37,24 @@ load_dotenv()
 # --- Structured output schemas (passed as response_schema so the API
 # --- guarantees the format instead of us repairing free-form JSON). ---
 
+
+class AnchorModel(BaseModel):
+    id: str
+    start: float
+    end: float
+    text: str
+    anchor_type: str
+
+class AnchorResponse(BaseModel):
+    anchors: List[AnchorModel]
+
+class TournamentWinnerModel(BaseModel):
+    winner_id: str
+    reason: str
+
+class TournamentResponse(BaseModel):
+    winner: TournamentWinnerModel
+
 class ScoredWindowModel(BaseModel):
     id: str
     start: float
@@ -56,10 +74,10 @@ class DetailClipModel(BaseModel):
     explanation: str
     reasons: List[str] = []
     risks: List[str] = []
-    video_title_for_youtube_short: str = ""
-    viral_hook_text: str = ""
-    video_description_for_tiktok: str = ""
-    video_description_for_instagram: str = ""
+    hook_type: str = ""
+    payoff_type: str = ""
+    story_type: str = ""
+    context_dependency: float = 0.0
 
 
 class DetailResponse(BaseModel):
@@ -85,6 +103,42 @@ class VisualClipModel(BaseModel):
 class VisualResponse(BaseModel):
     shorts: List[VisualClipModel]
 
+
+
+ANCHOR_PROMPT_TEMPLATE = """
+You are a short-form video expert. Your task is to find "Anchors" in this transcript chunk.
+An Anchor is a specific sentence or event that is the perfect starting point or center of a short-form clip.
+
+Examples of good anchors:
+- "I lost $80,000." (revelation/hook)
+- "I think most people are completely wrong about this." (strong opinion)
+- "I was running my company..." (start of a story)
+- "Nobody told me this." (curiosity gap)
+
+Identify the best anchors in this transcript. 
+For each, return an id (e.g. "a_01"), the exact start and end timestamps, the text, and classify the anchor_type as "opinion", "story", "revelation", "joke", or "other".
+
+TRANSCRIPT_LANGUAGE: {language}
+TRANSCRIPT_JSON:
+{transcript_json}
+
+Return only valid JSON.
+"""
+
+PAIRWISE_PROMPT_TEMPLATE = """
+You are a short-form video ranking expert. 
+Which of these two candidate clips is more likely to retain a cold viewer and perform better on TikTok/Shorts?
+
+Candidate A (ID: {id_a}):
+{text_a}
+
+Candidate B (ID: {id_b}):
+{text_b}
+
+Consider the hooks, the narrative momentum, and the payoff.
+Return the ID of the winner ("{id_a}" or "{id_b}") and a short reason why.
+Return only valid JSON.
+"""
 
 VISUAL_PROMPT_TEMPLATE = """
 You are a senior short-form video editor. This video has NO speech/audio — judge
@@ -273,32 +327,39 @@ def _log(message: str) -> None:
     stream.flush()
 
 SCORE_PROMPT_TEMPLATE = """
-You are a senior short-form video strategist.
-Select the MOST viral candidate windows from this batch.
+You are a short-form video ranking specialist.
 
-Rules:
-- Return only valid JSON.
-- Choose up to 3 windows from this batch.
-- `score` must be an integer from 0 to 100.
-- THE 2-SECOND TEST is the main criterion: would the first 2 seconds of this
-  moment force a cold viewer (no context) to keep watching? Windows that only
-  work with prior context score low.
-- Prefer windows with strong hooks, conflict, surprise, outrage, emotion,
-  novelty, big numbers, or a clear payoff.
-- STORY-ARC BONUS: if a window tells a COMPLETE narrative story — meaning it
-  has a clear setup (context/beginning), a conflict or tension (problem,
-  challenge, unexpected turn), AND a resolution or payoff (lesson, outcome,
-  transformation) — add 15 to 25 points to its score. Story-driven clips
-  (2–3 minutes) that feel like a mini-documentary or personal anecdote
-  outperform raw highlight clips on TikTok saves and shares. A window does
-  not need to be short to score high: a rich 2-minute story arc beats a
-  30-second talking-head any day.
-- Ignore weak filler, housekeeping, outros, rambling transitions, and
-  low-signal padding unless there is an obvious hook or payoff.
+Your task is to rank candidate moments by their probability of holding
+a cold viewer's attention.
+
+Do NOT write titles, hooks, captions, descriptions, or creative copy.
+
+Evaluate the CONTENT ONLY. 
+Each candidate window contains the `text` of the clip, as well as `before_context` and `after_context` to help you understand the full picture.
+
+For every candidate, consider:
+
+1. Immediate Appeal
+2. Curiosity/Tension
+3. Payoff
+4. Information Density
+5. Standalone Clarity
+6. Narrative Momentum
+7. Emotional / Social Value
+8. Editability
+9. Setup Cost
+10. Weak Ending Risk
+
+IMPORTANT:
+Judge the expected viewing experience as a whole.
+A 70-second story can beat a 25-second statement.
+A 20-second statement can beat a 70-second story.
+
+Return a calibrated score for every candidate.
 
 TRANSCRIPT_LANGUAGE: {language}
 VIDEO_DURATION_SECONDS: {video_duration}
-WINDOWS_JSON:
+CANDIDATES_JSON:
 {windows_json}
 
 Return only:
@@ -313,7 +374,6 @@ Return only:
   ]
 }}
 """
-
 
 DETAIL_PROMPT_TEMPLATE = """
 You are a senior short-form video editor.
@@ -335,54 +395,40 @@ CLIP RULES:
   Fix this by moving the START earlier, never by cutting the ending short: a
   clip that loses its payoff to gain context has traded down.
 - HOW MANY: return {min_clips} to {max_clips} clips. Work through EVERY candidate
-  window — they were already scored as the best moments in the video, so a window
+  window - they were already scored as the best moments in the video, so a window
   that yields nothing should be the exception, not the norm. Two or three clips
   from one window are fine when they are genuinely different moments. The rules
   above let you skip a weak clip; they are not a licence to return one clip and
   stop. Only fall short of {min_clips} when the material truly does not hold
   them, and never pad with a clip you would not publish yourself.
 - DIVERSITY: never return two clips that make the same point, tell the same
-  story, or land the same joke — even across different windows. Pick the
+  story, or land the same joke - even across different windows. Pick the
   stronger one and drop the other. Two clips on the same broad topic are fine
   as long as each lands its own moment.
-- COMPLETE MESSAGE — END ON A FULL SENTENCE: the `end` timestamp MUST land
+- COMPLETE MESSAGE - END ON A FULL SENTENCE: the `end` timestamp MUST land
   after the speaker finishes a complete thought. Never end the clip mid-clause,
   mid-phrase, or on a conjunction/filler word (e.g. "and", "because", "so",
   "mas", "porque", "então"). Scan forward from your intended cut point until
   you find the next sentence-ending punctuation (. ! ? …) and place the cut
-  THERE. It is always better to run 2–3 seconds longer than to leave the viewer
-  hanging on a half-sentence. The title and the hook text you write must reflect
-  the FULL message delivered inside the clip boundaries you choose.
+  THERE. It is always better to run 2-3 seconds longer than to leave the viewer
+  hanging on a half-sentence.
 - STORY-ARC CLIPS: if the candidate window contains a narrative arc (a personal
   story, a challenge overcome, a before-and-after transformation), prefer ONE
   clip that spans the FULL arc (setup → conflict → resolution) rather than
-  splitting it into fragments. These "mini-documentary" clips (90–{max_secs:g}s)
+  splitting it into fragments. These "mini-documentary" clips (90-{max_secs:g}s)
   generate significantly more saves and shares than short highlights. Keep the
   whole story intact.
 
-COPY RULES:
+CLASSIFICATION RULES:
 - `predicted_score`: honest 0-100 estimate of viral potential.
 - `explanation`: a short 1-2 sentence justification for the score in TRANSCRIPT_LANGUAGE ({language}). Why is this specific moment viral?
-- `reasons`: list of 3-5 short bullet points explaining why this clip is viral (e.g. "conflito/opinião forte", "frase inicial boa"). In TRANSCRIPT_LANGUAGE ({language}).
-- `risks`: list of 1-3 short bullet points of potential risks or weaknesses (e.g. "contexto insuficiente", "áudio baixo"). In TRANSCRIPT_LANGUAGE ({language}).
-- `video_title_for_youtube_short`: A powerful, curiosity-driven YouTube Shorts title (max 70 chars, in {language}).
-  CRITICAL: Do NOT copy a random spoken sentence or quote verbatim from the transcript! Craft a high-CTR, scroll-stopping headline that sparks curiosity, emotion, or promises a revelation (e.g., "O Segredo Que Ninguém Te Conta Sobre o Medo 😱", "Você Comete Esse Erro Sem Perceber? ⚠️", "A Verdade Que Mudou Minha Mente...").
-- `viral_hook_text`: 3 to 7 punchy words for the on-screen hook overlay with an emoji (e.g. "Você vive com medo? 👀", "Pare de fazer isso agora! ⚠️").
-  ABOUT THIS MOMENT, NOT THE VIDEO: the hook and the title name the concrete
-  thing that happens inside this clip — the tool being set up, the action,
-  the number, the claim, the name. A line that could sit on any clip of this
-  video is wrong. If nothing concrete can be named, quote the clip's strongest
-  sentence instead of summarising the topic.
-- `video_description_for_tiktok`: Ready-to-publish TikTok post caption in {language}. Include:
-  1) An attention-grabbing hook line with emojis
-  2) A 1-2 sentence compelling summary of the core insight/takeaway
-  3) A clear call-to-action (CTA) inviting comments ("Qual sua opinião sobre isso? Comenta aí! 👇")
-  4) 5-8 relevant hashtags (#shorts #viral #foryou + topic tags matching the video content).
-- `video_description_for_instagram`: Ready-to-publish Instagram Reels caption in {language}. Include:
-  1) Hook line with emojis
-  2) Concise context/insight
-  3) CTA encouraging saves/shares ("Salva esse post para não esquecer e compartilha com um amigo! 📌")
-  4) 5-8 organized, targeted hashtags.
+- `reasons`: list of 3-5 short bullet points explaining why this clip is viral. In TRANSCRIPT_LANGUAGE ({language}).
+- `risks`: list of 1-3 short bullet points of potential risks or weaknesses. In TRANSCRIPT_LANGUAGE ({language}).
+- `hook_type`: classify the hook (e.g., "unexpected_result", "strong_opinion", "question", "story_start", "curiosity_gap").
+- `payoff_type`: classify the payoff (e.g., "revelation", "punchline", "lesson", "cliffhanger", "resolution").
+- `story_type`: classify the story structure (e.g., "anecdote", "case_study", "tutorial", "opinion", "reaction").
+- `context_dependency`: a float from 0.0 to 1.0 indicating how much the clip relies on prior context (0 = stands alone perfectly, 1 = incomprehensible).
+- LANGUAGE PURITY: All output strings (explanation, reasons, risks) MUST be 100% in {language}. Never mix Portuguese and English.
 
 TRANSCRIPT_LANGUAGE: {language}
 VIDEO_DURATION_SECONDS: {video_duration}
@@ -398,10 +444,12 @@ Return only:
       "source_window_id": "<window id>",
       "predicted_score": <integer 0-100>,
       "explanation": "<short justification max 20 words>",
-      "video_title_for_youtube_short": "<high-CTR viral title max 70 chars>",
-      "viral_hook_text": "<punchy on-screen hook 3-7 words>",
-      "video_description_for_tiktok": "<ready-to-post TikTok caption with hook, summary, CTA and #hashtags>",
-      "video_description_for_instagram": "<ready-to-post Instagram caption with hook, summary, CTA and #hashtags>"
+      "reasons": ["<reason 1>", "<reason 2>"],
+      "risks": ["<risk 1>"],
+      "hook_type": "<string>",
+      "payoff_type": "<string>",
+      "story_type": "<string>",
+      "context_dependency": <float>
     }}
   ]
 }}
@@ -525,7 +573,14 @@ def _config_for_strategy(strategy: str, mode: str, model_name: str) -> genai_typ
         kwargs["temperature"] = 0.2 if creative else 0.0
     else:  # structured-schema: schema-enforced output, primary strategy
         kwargs["temperature"] = 0.9 if creative else 0.2
-        kwargs["response_schema"] = DetailResponse if mode == "detail" else ScoreResponse
+        if mode == "detail":
+            kwargs["response_schema"] = DetailResponse
+        elif mode == "score":
+            kwargs["response_schema"] = ScoreResponse
+        elif mode == "anchor":
+            kwargs["response_schema"] = AnchorResponse
+        elif mode == "tournament":
+            kwargs["response_schema"] = TournamentResponse
         if mode == "score":
             thinking = _thinking_config_from_env(model_name)
             if thinking is not None:
@@ -537,7 +592,7 @@ def main() -> int:
     _configure_stdio()
 
     parser = argparse.ArgumentParser(description="Run a single Gemini request for clip scoring/detailing.")
-    parser.add_argument("--mode", choices=["score", "detail"], required=True)
+    parser.add_argument("--mode", choices=["score", "detail", "anchor", "tournament"], required=True)
     parser.add_argument("--input", dest="input_path", required=True)
     parser.add_argument("--output", dest="output_path", required=True)
     parser.add_argument("--strategy", default="structured-schema")
@@ -556,7 +611,14 @@ def main() -> int:
     config = _config_for_strategy(args.strategy, args.mode, model_name)
     language = str(payload.get("language") or "unknown")
 
-    template = SCORE_PROMPT_TEMPLATE if args.mode == "score" else DETAIL_PROMPT_TEMPLATE
+    if args.mode == "score":
+        template = SCORE_PROMPT_TEMPLATE
+    elif args.mode == "anchor":
+        template = ANCHOR_PROMPT_TEMPLATE
+    elif args.mode == "tournament":
+        template = PAIRWISE_PROMPT_TEMPLATE
+    else:
+        template = DETAIL_PROMPT_TEMPLATE
     fmt = {
         "video_duration": payload["video_duration"],
         "language": language,

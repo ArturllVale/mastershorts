@@ -11,19 +11,20 @@ import llm_backend
 from errors import TransientLLMError, InvalidModelOutput, NoCandidates, DependencyError
 from clip_selection import (build_transcript_windows, clip_count_targets,
                             clip_duration_bounds, snap_clip_to_words,
-                            snap_to_sentence_end, classify_story_arc,
+                            snap_to_sentence_end,
                             trim_to_best)
 
-def transcribe_video(video_path):
+def transcribe_video(video_path, language=None):
     print("🎙️ Iniciando transcrição do áudio...", flush=True)
     from transcribe_backends import transcribe_media
     from services.cache import get_or_compute
     import asyncio
     
     source_hash = os.environ.get("SOURCE_HASH")
+    target_lang = language or os.environ.get("TARGET_LANGUAGE")
     
     def _compute():
-        return transcribe_media(video_path)
+        return transcribe_media(video_path, language=target_lang)
 
     if source_hash:
         transcript = asyncio.run(get_or_compute(source_hash, "transcript", _compute))
@@ -155,9 +156,17 @@ def detail_batch_size():
     return 2 if llm_backend.active() else 4
 
 
-def get_viral_clips(transcript_result, video_duration, video_title=None):
+def get_viral_clips(transcript_result, video_duration, video_title=None, target_language=None):
     """Two-pass clip selection with adaptive batching."""
-    language = str(transcript_result.get('language') or 'unknown')
+    target_lang = target_language or os.environ.get("TARGET_LANGUAGE")
+    raw_lang = target_lang or transcript_result.get('language') or 'pt'
+    lang_str = str(raw_lang).strip().lower()
+    if lang_str.startswith("en"):
+        language = "en"
+    elif lang_str.startswith("pt"):
+        language = "pt"
+    else:
+        language = lang_str
     if llm_backend.active():
         client = None
         model_name = llm_backend.model_name()
@@ -198,155 +207,172 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
 
         min_clips, max_clips = clip_count_targets(1 if use_single_pass else int(video_duration // 90))
 
-        if use_single_pass:
-            print("⚡ Usando Single-Pass para vídeo curto/leve...")
-            full_text = " ".join(w['w'] for w in words)
-            win = [{"id": "full_video", "start": 0, "end": video_duration, "text": full_text}]
-            
-            def _detail_prompt(ws):
-                return gemini_worker.DETAIL_PROMPT_TEMPLATE.format(
-                    video_duration=video_duration, language=language,
-                    min_clips=min_clips, max_clips=max_clips,
-                    min_secs=min_secs, max_secs=max_secs,
-                    windows_json=json.dumps(_payload(ws), ensure_ascii=False))
 
-            shorts = _run_stage_split(client, model_name, win, _detail_prompt,
-                                     gemini_worker.DetailResponse, "shorts", costs, "detail")
+        print("🔍 [Passo 1/4] Descobrindo âncoras...")
+        chunk_windows = build_transcript_windows(transcript_result, video_duration, window_seconds=180, overlap_seconds=20)
+        
+        anchors = []
+        def _anchor_prompt(ws):
+            return gemini_worker.ANCHOR_PROMPT_TEMPLATE.format(
+                language=language,
+                transcript_json=json.dumps([{"start": w["start"], "end": w["end"], "text": w["text"]} for w in ws], ensure_ascii=False)
+            )
+            
+        anchor_batch_items = [ (idx, [w]) for idx, w in enumerate(chunk_windows, 1) ]
+        def _run_anchor_batch(item):
+            b_idx, batch_windows = item
+            local_costs = []
+            batch_anchors = _run_stage_split(
+                client, model_name, batch_windows, _anchor_prompt,
+                gemini_worker.AnchorResponse, "anchors", local_costs, "anchor"
+            )
+            return b_idx, batch_anchors, local_costs
+
+        with ThreadPoolExecutor(max_workers=min(4, len(anchor_batch_items))) as executor:
+            anchor_results = list(executor.map(_run_anchor_batch, anchor_batch_items))
+        for _, batch_anchors, local_costs in sorted(anchor_results, key=lambda r: r[0]):
+            anchors.extend(batch_anchors)
+            costs.extend(local_costs)
+
+        print(f"🔗 Encontradas {len(anchors)} âncoras potenciais.")
+        
+        print("🛠️ [Passo 2/4] Gerando candidatos multi-escala...")
+        from clip_selection import generate_multi_scale_candidates
+        candidates = generate_multi_scale_candidates(anchors, words, video_duration, min_secs, max_secs)
+        print(f"🎬 Gerados {len(candidates)} candidatos.")
+        
+        if not candidates:
+            candidates = build_transcript_windows(transcript_result, video_duration, window_seconds=90)
+            
+        print("📊 [Passo 3/4] Ranking (Pointwise)...")
+        def _score_prompt(ws):
+            return gemini_worker.SCORE_PROMPT_TEMPLATE.format(
+                video_duration=video_duration, language=language,
+                windows_json=json.dumps(ws, ensure_ascii=False))
+                
+        SCORE_BATCH = score_batch_size()
+        scored = []
+        total_batches = (len(candidates) + SCORE_BATCH - 1) // SCORE_BATCH
+        score_batch_items = [
+            (batch_idx, candidates[b:b + SCORE_BATCH])
+            for batch_idx, b in enumerate(range(0, len(candidates), SCORE_BATCH), 1)
+        ]
+        
+        def _run_score_batch(item):
+            batch_idx, batch_windows = item
+            local_costs = []
+            batch_scored = _run_stage_split(
+                client, model_name, batch_windows, _score_prompt,
+                gemini_worker.ScoreResponse, "windows", local_costs, "score")
+            return batch_idx, batch_scored, local_costs
+            
+        if total_batches > 1:
+            with ThreadPoolExecutor(max_workers=min(4, total_batches)) as executor:
+                score_results = list(executor.map(_run_score_batch, score_batch_items))
+            for _, batch_scored, local_costs in sorted(score_results, key=lambda r: r[0]):
+                scored.extend(batch_scored)
+                costs.extend(local_costs)
         else:
-            print("📊 Usando Two-Pass para vídeo longo...")
-            windows = build_transcript_windows(
-                transcript_result, video_duration,
-                window_seconds=max(90, int(max_secs * 1.5)))
-                
-            scored = []
-            SCORE_BATCH = score_batch_size()
-            if 600 < video_duration <= 1800 and not llm_backend.active():
-                SCORE_BATCH = 15 
+            for item in score_batch_items:
+                _, batch_scored, local_costs = _run_score_batch(item)
+                scored.extend(batch_scored)
+                costs.extend(local_costs)
             
-            def _score_prompt(ws):
-                return gemini_worker.SCORE_PROMPT_TEMPLATE.format(
-                    video_duration=video_duration, language=language,
-                    windows_json=json.dumps(_payload(ws), ensure_ascii=False))
-
-            total_batches = (len(windows) + SCORE_BATCH - 1) // SCORE_BATCH
-            score_batch_items = [
-                (batch_idx, windows[b:b + SCORE_BATCH])
-                for batch_idx, b in enumerate(range(0, len(windows), SCORE_BATCH), 1)
-            ]
-
-            def _run_score_batch(item):
-                batch_idx, batch_windows = item
-                print(f"📊 [Passo 1/2] Lote {batch_idx}/{total_batches}...", flush=True)
-                local_costs = []
-                batch_scored = _run_stage_split(
-                    client, model_name, batch_windows, _score_prompt,
-                    gemini_worker.ScoreResponse, "windows", local_costs, "score")
-                return batch_idx, batch_scored, local_costs
-
-            if total_batches > 1:
-                with ThreadPoolExecutor(max_workers=min(4, total_batches)) as executor:
-                    score_results = list(executor.map(_run_score_batch, score_batch_items))
-                score_results.sort(key=lambda r: r[0])
-                for _, batch_scored, local_costs in score_results:
-                    scored.extend(batch_scored)
-                    costs.extend(local_costs)
-            else:
-                for item in score_batch_items:
-                    _, batch_scored, local_costs = _run_score_batch(item)
-                    scored.extend(batch_scored)
-                    costs.extend(local_costs)
-
-            scored.sort(key=lambda w: w.get("score", 0), reverse=True)
-            target = max(4, min(15, int(video_duration // 90) + 3))
-            by_id = {w["id"]: w for w in windows}
-
-            # --- Story-arc annotation ----------------------------------------
-            # Run the lightweight heuristic over EVERY window (not just the
-            # shortlist) so story windows get their score bonus before the
-            # shortlist is cut.  The bonus is capped at 30 inside classify_story_arc
-            # so it can never override the model's quality signal entirely, but it
-            # is enough to pull a rich narrative past a plain talking-head moment.
-            for win in windows:
-                arc = classify_story_arc(win.get("text", ""))
-                win["_arc"] = arc
-                if arc["has_story"]:
-                    print(f"   📖 Story arc in {win['id']}: {arc['arc_reason']}")
-
-            # Merge the story-arc bonus into scored list.
-            scored_bonus = {w["id"]: arc["arc_score"]
-                            for w in windows
-                            for arc in [w.get("_arc", {})]}
-            for w in scored:
-                bonus = scored_bonus.get(w["id"], 0)
-                if bonus:
-                    w["score"] = min(100, w.get("score", 0) + bonus)
-            # Re-sort with bonuses applied.
-            scored.sort(key=lambda w: w.get("score", 0), reverse=True)
-            # -----------------------------------------------------------------
-
-            shortlist = [by_id[w["id"]] for w in scored[:target] if w.get("id") in by_id]
-            if not shortlist: shortlist = windows[:target]
-
-            DETAIL_BATCH = detail_batch_size()
-            if 600 < video_duration <= 1800 and not llm_backend.active():
-                DETAIL_BATCH = 8
+        cand_by_id = {c["id"]: c for c in candidates}
+        scored_candidates = []
+        for s in scored:
+            if s["id"] in cand_by_id:
+                cand = dict(cand_by_id[s["id"]])
+                cand["predicted_score"] = s.get("score", 0)
+                scored_candidates.append(cand)
                 
-            detail_batches = (len(shortlist) + DETAIL_BATCH - 1) // DETAIL_BATCH
-            detail_batch_items = [
-                (b_idx, shortlist[b:b + DETAIL_BATCH])
-                for b_idx, b in enumerate(range(0, len(shortlist), DETAIL_BATCH), 1)
-            ]
-
-            def _run_detail_batch(item):
-                b_idx, batch_windows = item
-                b_min = max(1, int(round(min_clips * len(batch_windows) / len(shortlist))))
-                b_max = max(b_min, int(round(max_clips * len(batch_windows) / len(shortlist))) + 1)
-
-                def _detail_prompt(ws):
-                    return gemini_worker.DETAIL_PROMPT_TEMPLATE.format(
-                        video_duration=video_duration, language=language,
-                        min_clips=b_min, max_clips=b_max,
-                        min_secs=min_secs, max_secs=max_secs,
-                        windows_json=json.dumps(_payload(ws), ensure_ascii=False))
-
-                print(f"🎯 [Passo 2/2] Lote {b_idx}/{detail_batches}...", flush=True)
+        scored_candidates.sort(key=lambda x: x["predicted_score"], reverse=True)
+        top_candidates = scored_candidates[:12]
+        
+        print("🏆 [Passo 4/4] Pairwise Reranking (Torneio)...")
+        current_pool = top_candidates
+        while len(current_pool) > max_clips and len(current_pool) > 1:
+            next_pool = []
+            pair_items = []
+            for i in range(0, len(current_pool), 2):
+                if i + 1 < len(current_pool):
+                    pair_items.append((current_pool[i], current_pool[i+1]))
+                else:
+                    next_pool.append(current_pool[i])
+                    
+            def _run_pair(pair):
+                ca, cb = pair
                 local_costs = []
-                batch_shorts = _run_stage_split(client, model_name, batch_windows, _detail_prompt,
-                                               gemini_worker.DetailResponse, "shorts", local_costs, "detail")
-                return b_idx, batch_shorts, local_costs
-
-            if detail_batches > 1:
-                with ThreadPoolExecutor(max_workers=min(4, detail_batches)) as executor:
-                    detail_results = list(executor.map(_run_detail_batch, detail_batch_items))
-                detail_results.sort(key=lambda r: r[0])
-                for _, batch_shorts, local_costs in detail_results:
-                    shorts.extend(batch_shorts)
+                prompt = gemini_worker.PAIRWISE_PROMPT_TEMPLATE.format(
+                    id_a=ca["id"], text_a=ca["text"],
+                    id_b=cb["id"], text_b=cb["text"],
+                    audio_a=json.dumps(ca.get("audio_features", {})),
+                    audio_b=json.dumps(cb.get("audio_features", {}))
+                )
+                try:
+                    parsed, cost = _run_gemini_stage(client, model_name, prompt, gemini_worker.TournamentResponse)
+                    if cost: local_costs.append(cost)
+                    winner_id = parsed.get("winner", {}).get("winner_id")
+                    return winner_id, local_costs
+                except Exception as e:
+                    return ca["id"], local_costs
+                    
+            if pair_items:
+                with ThreadPoolExecutor(max_workers=min(4, len(pair_items))) as executor:
+                    pair_results = list(executor.map(_run_pair, pair_items))
+                for idx, (winner_id, local_costs) in enumerate(pair_results):
                     costs.extend(local_costs)
-            else:
-                for item in detail_batch_items:
-                    _, batch_shorts, local_costs = _run_detail_batch(item)
-                    shorts.extend(batch_shorts)
-                    costs.extend(local_costs)
+                    ca, cb = pair_items[idx]
+                    if winner_id == cb["id"]:
+                        next_pool.append(cb)
+                    else:
+                        next_pool.append(ca)
+            current_pool = next_pool
+            
+        shorts = current_pool[:max_clips]
+        print(f"🔥 Vencedores do torneio: {len(shorts)} shorts!")
+        
+        print("🎯 [Passo 5/5] Extração de Detalhes e Metadados...")
+        def _detail_prompt(ws):
+            return gemini_worker.DETAIL_PROMPT_TEMPLATE.format(
+                video_duration=video_duration, language=language,
+                min_clips=len(ws), max_clips=len(ws),
+                min_secs=min_secs, max_secs=max_secs,
+                windows_json=json.dumps([{"id": w["id"], "start": w["start"], "end": w["end"], "text": w["text"]} for w in ws], ensure_ascii=False))
                 
-            if len(shorts) < min_clips:
-                print(f"ℹ️ Completando {len(shorts)} -> {min_clips}...")
-                for win in shortlist:
-                    if len(shorts) >= min_clips: break
-                    w_start, w_end = float(win.get("start") or 0.0), float(win.get("end") or 0.0)
-                    overlaps = any(not (s.get("end", 0) <= w_start or s.get("start", 0) >= w_end) for s in shorts)
-                    if not overlaps:
-                        clip_len = min(45.0, max_secs)
-                        c_start = w_start
-                        c_end = min(w_end, c_start + clip_len)
-                        if c_end - c_start >= min_secs:
-                            shorts.append({
-                                "start": c_start, "end": c_end,
-                                "source_window_id": win.get("id", "window_fallback"),
-                                "predicted_score": win.get("score", 75),
-                                "explanation": "Fallback clip.",
-                            })
+        local_costs = []
+        detail_results = _run_stage_split(client, model_name, shorts, _detail_prompt, gemini_worker.DetailResponse, "shorts", local_costs, "detail")
+        costs.extend(local_costs)
+        
+        det_by_id = {d.get("source_window_id"): d for d in detail_results}
+        final_shorts = []
+        for s in shorts:
+            det = det_by_id.get(s["id"], {})
+            merged = dict(s)
+            for k in ["predicted_score", "explanation", "reasons", "risks", "hook_type", "payoff_type", "story_type", "context_dependency"]:
+                if k in det:
+                    merged[k] = det[k]
+            if "start" in det and "end" in det:
+                merged["start"] = det["start"]
+                merged["end"] = det["end"]
+            final_shorts.append(merged)
+            
+        shorts = final_shorts
 
-        print(f"🔥 Encontrados {len(shorts)} shorts!")
+            # Inject text for semantic MMR
+        for s in shorts:
+            s_start = float(s.get("start", 0))
+            s_end = float(s.get("end", 0))
+            s_words = []
+            for w in words:
+                if w['e'] >= s_start and w['s'] <= s_end:
+                    s_words.append(w['w'])
+            s['text'] = " ".join(s_words)
+
+        # Quality filter
+        shorts = [s for s in shorts if s.get("predicted_score", 0) >= 83]
+
+        print(f"🔥 Encontrados {len(shorts)} shorts (após filtro de score >= 83)!")
         if len(shorts) > max_clips:
             dropped = len(shorts) - max_clips
             shorts = trim_to_best(shorts, max_clips)
@@ -368,17 +394,7 @@ def get_viral_clips(transcript_result, video_duration, video_title=None):
                                           max_duration=max_secs)
             s["start"], s["end"] = ns, ne
 
-            # Propagate story-arc label if the source window was classified as one.
-            if not s.get("arc_label"):
-                win_id = s.get("source_window_id", "")
-                # windows list is only available in the two-pass branch; skip silently otherwise.
-                win_arc = next(
-                    (w.get("_arc", {}) for w in locals().get("windows", []) if w.get("id") == win_id),
-                    {}
-                )
-                if win_arc.get("has_story"):
-                    s["arc_label"] = win_arc.get("arc_label", "story-arc")
-                    s["arc_reason"] = win_arc.get("arc_reason", "")
+            
 
         from clip_metadata import clean_or_generate_clip_metadata
         import concurrent.futures
