@@ -194,7 +194,8 @@ def install_python_and_node(base_dir: Path):
     # 1. Dependencias Python
     log_info("Instalando pacotes Python do backend...")
     req_file = base_dir / "backend" / "requirements.txt"
-    run_cmd(f"{sys.executable} -m pip install --quiet --upgrade pip setuptools wheel")
+    # Mantem setuptools compativel com torch do Colab (torch cu130 requer setuptools<82)
+    run_cmd(f"{sys.executable} -m pip install --quiet 'setuptools<82' wheel")
 
     # Preserva o PyTorch acelerado por CUDA ja nativo do Google Colab
     try:
@@ -203,17 +204,25 @@ def install_python_and_node(base_dir: Path):
     except ImportError:
         has_cuda_torch = False
 
-    if has_cuda_torch:
-        log_info("Preservando PyTorch com aceleracao CUDA do Colab...")
-        req_lines = [
-            line.strip() for line in req_file.read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.strip().startswith(("#", "torch==", "torchvision=="))
-        ]
-        tmp_req = base_dir / "backend" / "requirements.colab.txt"
-        tmp_req.write_text("\n".join(req_lines), encoding="utf-8")
-        run_cmd(f"{sys.executable} -m pip install --quiet -r {tmp_req}")
-    else:
-        run_cmd(f"{sys.executable} -m pip install --quiet -r {req_file}")
+    log_info("Configurando lista de dependencias compativel com o ambiente Colab...")
+    raw_reqs = req_file.read_text(encoding="utf-8").splitlines()
+    colab_reqs = []
+    for line in raw_reqs:
+        line_s = line.strip()
+        if not line_s or line_s.startswith("#"):
+            continue
+        # Nao sobrescrever torch CUDA pré-instalado
+        if has_cuda_torch and (line_s.startswith("torch==") or line_s.startswith("torchvision==")):
+            continue
+        # Compatibilidade com Python 3.12 (MediaPipe wheels para 3.12 iniciam em 0.10.30)
+        if line_s.startswith("mediapipe"):
+            colab_reqs.append("mediapipe>=0.10.14")
+            continue
+        colab_reqs.append(line_s)
+
+    tmp_req = base_dir / "backend" / "requirements.colab.txt"
+    tmp_req.write_text("\n".join(colab_reqs), encoding="utf-8")
+    run_cmd(f"{sys.executable} -m pip install --quiet -r {tmp_req}")
     log_success("Dependencias Python instaladas.")
 
     # 2. Dependencias Node.js nos modulos do monorepo
