@@ -147,12 +147,17 @@ def install_system_dependencies():
 
     # 3. Bibliotecas do sistema para Chromium / Remotion Headless
     log_info("Instalando bibliotecas nativas para renderizacao Remotion / Chromium...")
+    run_cmd("apt-get update -qq", check=False)
+    # Suporte hibrido para Ubuntu 22.04 (Jammy) e 24.04 (Noble t64 transition)
     run_cmd(
-        "apt-get update -qq && apt-get install -y -qq "
-        "libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxcomposite1 "
-        "libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libasound2 fonts-liberation"
+        "apt-get install -y -qq --no-install-recommends "
+        "libnss3 libxcomposite1 libxdamage1 libxrandr2 libgbm1 "
+        "libpango-1.0-0 fonts-liberation "
+        "libasound2t64 libasound2 libatk1.0-0t64 libatk1.0-0 "
+        "libatk-bridge2.0-0t64 libatk-bridge2.0-0 libcups2t64 libcups2 || true",
+        check=False
     )
-    log_success("Bibliotecas graficas de sistema instaladas.")
+    log_success("Bibliotecas graficas de sistema configuradas.")
 
     # 4. FFmpeg com suporte a NVENC
     has_nvenc = False
@@ -180,7 +185,7 @@ def install_system_dependencies():
                 log_warn("NVENC nao detectado no binario; o sistema utilizara fallback CPU (libx264).")
         except Exception as e:
             log_warn(f"Instalacao do FFmpeg com NVENC falhou ({e}). Utilizando pacote apt.")
-            run_cmd("apt-get install -y -qq ffmpeg")
+            run_cmd("apt-get install -y -qq ffmpeg", check=False)
 
 
 def install_python_and_node(base_dir: Path):
@@ -190,7 +195,25 @@ def install_python_and_node(base_dir: Path):
     log_info("Instalando pacotes Python do backend...")
     req_file = base_dir / "backend" / "requirements.txt"
     run_cmd(f"{sys.executable} -m pip install --quiet --upgrade pip setuptools wheel")
-    run_cmd(f"{sys.executable} -m pip install --quiet -r {req_file}")
+
+    # Preserva o PyTorch acelerado por CUDA ja nativo do Google Colab
+    try:
+        import torch
+        has_cuda_torch = torch.cuda.is_available()
+    except ImportError:
+        has_cuda_torch = False
+
+    if has_cuda_torch:
+        log_info("Preservando PyTorch com aceleracao CUDA do Colab...")
+        req_lines = [
+            line.strip() for line in req_file.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith(("#", "torch==", "torchvision=="))
+        ]
+        tmp_req = base_dir / "backend" / "requirements.colab.txt"
+        tmp_req.write_text("\n".join(req_lines), encoding="utf-8")
+        run_cmd(f"{sys.executable} -m pip install --quiet -r {tmp_req}")
+    else:
+        run_cmd(f"{sys.executable} -m pip install --quiet -r {req_file}")
     log_success("Dependencias Python instaladas.")
 
     # 2. Dependencias Node.js nos modulos do monorepo
