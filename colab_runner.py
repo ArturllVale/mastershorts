@@ -223,6 +223,7 @@ def install_python_and_node(base_dir: Path):
     tmp_req = base_dir / "backend" / "requirements.colab.txt"
     tmp_req.write_text("\n".join(colab_reqs), encoding="utf-8")
     run_cmd(f"{sys.executable} -m pip install --quiet -r {tmp_req}")
+    run_cmd(f"{sys.executable} -m pip install --quiet yt-dlp-youtube-oauth2", check=False)
     log_success("Dependencias Python instaladas.")
 
     # 2. Dependencias Node.js nos modulos do monorepo

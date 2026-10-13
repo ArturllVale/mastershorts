@@ -219,7 +219,11 @@ def download_youtube_video(url, output_dir="."):
             'retry_sleep_functions': {'file_access': lambda n: 0.5 * (2 ** min(n, 3))},
             'windowsfilenames': True,
             'extractor_args': extractor_args,
+            'js_runtimes': {'node': {}},
         }
+        if os.environ.get("YOUTUBE_OAUTH2", "").lower() in ("true", "1", "yes"):
+            opts['username'] = 'oauth2'
+            opts['password'] = ''
         if not is_youtube_url(url):
             opts['http_headers'] = {
                 'User-Agent': (
