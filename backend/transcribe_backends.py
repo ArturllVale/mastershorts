@@ -39,6 +39,22 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+# Compatibilidade retroativa de av.open para faster-whisper
+try:
+    import av
+    _orig_av_open = av.open
+    def _safe_av_open(*args, **kwargs):
+        try:
+            return _orig_av_open(*args, **kwargs)
+        except TypeError as te:
+            if "metadata_errors" in str(te) and "metadata_errors" in kwargs:
+                kwargs.pop("metadata_errors", None)
+                return _orig_av_open(*args, **kwargs)
+            raise
+    av.open = _safe_av_open
+except Exception:
+    pass
+
 from subtitles import (
     get_whisper_config,
     WHISPER_TRANSCRIBE_PARAMS,
