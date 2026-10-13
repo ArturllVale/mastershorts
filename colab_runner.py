@@ -284,6 +284,18 @@ ASR_GPU_CONCURRENCY=1
 GEMINI_MODEL_THUMBNAIL=gemini-2.5-flash
 GEMINI_IMAGE_MODEL=imagen-3.0-generate-002
 """
+    # Vinculacao de cookies do YouTube para bypass de datacenter block
+    yt_cookies = os.environ.get("YOUTUBE_COOKIES", "").strip()
+    if yt_cookies:
+        env_content += f'\nYOUTUBE_COOKIES="""{yt_cookies}"""\n'
+        log_success("Variavel YOUTUBE_COOKIES injetada no .env")
+
+    for c_path in ["/content/cookies.txt", str(base_dir / "cookies.txt")]:
+        if os.path.isfile(c_path):
+            env_content += f'\nYOUTUBE_COOKIES_FILE="{c_path}"\n'
+            log_success(f"Arquivo de cookies vinculado ao .env: {c_path}")
+            break
+
     env_path.write_text(env_content, encoding="utf-8")
     log_success(f"Arquivo .env gerado em {env_path}")
 

@@ -139,21 +139,44 @@ def download_youtube_video(url, output_dir="."):
     print("📥 Iniciando download do vídeo...", flush=True)
     step_start_time = time.time()
 
-    cookies_path = '/app/cookies.txt'
     cookies_env = os.environ.get("YOUTUBE_COOKIES")
-    if cookies_env:
-        print("🍪 Found YOUTUBE_COOKIES env var, creating cookies file inside container...")
-        try:
-            with open(cookies_path, 'w') as f:
-                f.write(cookies_env)
-            if os.path.exists(cookies_path):
-                 print(f"   Debug: Cookies file created. Size: {os.path.getsize(cookies_path)} bytes")
-        except Exception as e:
-            print(f"⚠️ Failed to write cookies file: {e}")
-            cookies_path = None
-    else:
-        cookies_path = None
-        print("⚠️ YOUTUBE_COOKIES env var not found.")
+    cookies_file_candidate = os.environ.get("YOUTUBE_COOKIES_FILE") or os.environ.get("YOUTUBE_COOKIES_PATH")
+
+    possible_cookie_paths = [
+        cookies_file_candidate,
+        os.path.join(output_dir, "cookies.txt"),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cookies.txt")),
+        "/content/mastershorts/cookies.txt",
+        "/content/cookies.txt",
+        "/app/cookies.txt",
+    ]
+
+    cookies_path = None
+    for cp in possible_cookie_paths:
+        if cp and os.path.isfile(cp):
+            cookies_path = cp
+            print(f"🍪 Found existing cookies file: {cp} ({os.path.getsize(cp)} bytes)")
+            break
+
+    if not cookies_path and cookies_env:
+        for target in [
+            os.path.join(output_dir, "cookies.txt"),
+            "/tmp/youtube_cookies.txt",
+            "/app/cookies.txt"
+        ]:
+            try:
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with open(target, 'w', encoding='utf-8') as f:
+                    f.write(cookies_env)
+                if os.path.exists(target):
+                    cookies_path = target
+                    print(f"🍪 Created cookies file at {cookies_path} ({os.path.getsize(cookies_path)} bytes)")
+                    break
+            except Exception:
+                continue
+
+    if not cookies_path:
+        print("⚠️ No YouTube cookies found (env var YOUTUBE_COOKIES or cookies.txt).")
 
     _proxy = os.environ.get("PROXY_URL", "").strip() or None
     if _proxy:
