@@ -215,9 +215,8 @@ def install_python_and_node(base_dir: Path):
         # Nao sobrescrever torch CUDA pré-instalado
         if has_cuda_torch and (line_s.startswith("torch==") or line_s.startswith("torchvision==")):
             continue
-        # Compatibilidade com Python 3.12 (MediaPipe wheels para 3.12 iniciam em 0.10.30)
+        # MediaPipe e substituido pelo adaptador nativo YOLOv8 (GPU) em backend/detection.py
         if line_s.startswith("mediapipe"):
-            colab_reqs.append("mediapipe>=0.10.14")
             continue
         colab_reqs.append(line_s)
 
@@ -331,14 +330,17 @@ def kill_stale_processes():
     log_info("Garantindo limpeza de processos antigos em background...")
     if sys.platform != "win32":
         try:
-            subprocess.run(["fuser", "-k", "8000/tcp", "3100/tcp", "5173/tcp"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.run("fuser -k 8000/tcp 3100/tcp 5173/tcp 2>/dev/null || true", shell=True)
         except Exception:
             pass
-        for pattern in ["uvicorn app:app", "dist/server.js", "vite", "cloudflared tunnel"]:
-            try:
-                subprocess.run(["pkill", "-9", "-f", pattern], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
-            except Exception:
-                pass
+        try:
+            subprocess.run("pkill -9 -f uvicorn 2>/dev/null || true", shell=True)
+            subprocess.run("pkill -9 -f server.js 2>/dev/null || true", shell=True)
+            subprocess.run("pkill -9 -f vite 2>/dev/null || true", shell=True)
+            subprocess.run("pkill -9 -f cloudflared 2>/dev/null || true", shell=True)
+            subprocess.run("pkill -9 -f main.py 2>/dev/null || true", shell=True)
+        except Exception:
+            pass
         time.sleep(1)
 
 

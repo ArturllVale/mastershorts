@@ -10,7 +10,7 @@ av>=12.0.0
 py3langid==0.4.0
 google-genai==2.24.0
 python-dotenv==1.2.3
-mediapipe>=0.10.14
+# mediapipe>=0.10.14  # Deprecated in Python 3.12: replaced by native YOLOv8 adapter in detection.py
 boto3==1.43.99
 
 fastapi==0.141.1

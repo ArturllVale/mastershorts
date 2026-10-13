@@ -512,7 +512,8 @@ if __name__ == '__main__':
                         "traceback": _tb_text,
                     }
                     print(_json.dumps({"v": 1, "type": "clip.failed", "index": i, "error": _err_payload}, ensure_ascii=False), flush=True)
-                    print(f"   ❌ Clip {i+1} failed: {type(e).__name__}: {e}")
+                    print(f"   ❌ Clip {i+1} failed: {type(e).__name__}: {e}", flush=True)
+                    print(f"   [Clip {i+1} Traceback]\n{_tb_text}", flush=True)
 
         # Signal to the parent how many clips landed in each terminal state
         # so it can apply the canonical job-status policy without re-scanning
@@ -543,5 +544,9 @@ if __name__ == '__main__':
     from ffmpeg_utils import get_selected_encoder_name
     encoder_name = get_selected_encoder_name()
     print(f"\n⏱️ Tempo total de processamento: {time_str} ({encoder_name})", flush=True)
-    print("🎉 Processamento finalizado com sucesso!", flush=True)
+    if not args.skip_analysis and len(shorts) > 0 and _n_ready == 0:
+        print(f"\n❌ Nenhum dos {len(shorts)} cortes pôde ser renderizado com sucesso ({_n_failed} falhas).", flush=True)
+        sys.exit(1)
+    else:
+        print("🎉 Processamento finalizado com sucesso!", flush=True)
 

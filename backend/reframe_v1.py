@@ -209,8 +209,10 @@ def process_video_to_vertical(input_video, final_output_video, aspect_ratio=ASPE
                 raise RuntimeError(
                     f"manual framing needs the v2 reframe engine, which failed "
                     f"({type(e).__name__}: {e})") from e
+            import traceback
             print(f"   ⚠️ Reframe v2 failed ({type(e).__name__}: {e}) — "
-                  f"falling back to v1 frame loop")
+                  f"falling back to v1 frame loop", flush=True)
+            print(f"   [Reframe v2 Traceback]\n{traceback.format_exc()}", flush=True)
 
     # The v1 loop stages its work next to the final file: a silent video track
     # first, then the source audio, muxed together at the end.

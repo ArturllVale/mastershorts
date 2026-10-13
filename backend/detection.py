@@ -86,20 +86,18 @@ class _YoloFaceDetectorAdapter:
         return _FallbackResults(detections)
 
 
-# Register MediaPipe emulation in sys.modules so any import of mediapipe.solutions succeeds
+# Emulate mediapipe solutions globally so legacy imports and external packages never fail
+class _SolutionsMock:
+    class face_detection:
+        FaceDetection = _YoloFaceDetectorAdapter
+
 try:
     import mediapipe as mp
+    mp.solutions = _SolutionsMock
 except Exception:
     mp = types.ModuleType("mediapipe")
+    mp.solutions = _SolutionsMock
     sys.modules["mediapipe"] = mp
-
-_solutions_mod = types.ModuleType("mediapipe.solutions")
-_fd_submod = types.ModuleType("mediapipe.solutions.face_detection")
-_fd_submod.FaceDetection = _YoloFaceDetectorAdapter
-_solutions_mod.face_detection = _fd_submod
-
-if not hasattr(mp, "solutions"):
-    mp.solutions = _solutions_mod
 
 for mod_name in [
     "mediapipe.solutions",
@@ -107,29 +105,13 @@ for mod_name in [
     "mediapipe.python.solutions",
     "mediapipe.python.solutions.face_detection",
 ]:
-    if mod_name not in sys.modules:
-        sys.modules[mod_name] = _fd_submod if "face_detection" in mod_name else _solutions_mod
+    sys.modules[mod_name] = _SolutionsMock.face_detection if "face_detection" in mod_name else _SolutionsMock
 
 
 def _get_face_detector():
     global _face_detection
     if _face_detection is None:
-        try:
-            from mediapipe.python.solutions import face_detection as mp_face_detection
-            _face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
-        except Exception:
-            try:
-                import mediapipe.solutions.face_detection as mp_face_detection
-                _face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
-            except Exception:
-                try:
-                    if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_detection"):
-                        _face_detection = mp.solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
-                    else:
-                        _face_detection = _YoloFaceDetectorAdapter()
-                except Exception as e:
-                    print(f"⚠️ MediaPipe FaceDetection unavailable ({e}) — activating YOLOv8 adapter.", flush=True)
-                    _face_detection = _YoloFaceDetectorAdapter()
+        _face_detection = _YoloFaceDetectorAdapter()
     return _face_detection
 
 
