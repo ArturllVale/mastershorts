@@ -123,13 +123,12 @@ def detect_faces_full_res(frame):
     screencast candidates only.
     """
     import cv2
-    import main as m
     import detection
 
     h, w, _ = frame.shape
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    with m.DETECT_LOCK:
-        results = m.face_detection.process(rgb)
+    with detection.DETECT_LOCK:
+        results = detection.face_detection.process(rgb)
     if not results.detections:
         return []
 
