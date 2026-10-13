@@ -163,7 +163,7 @@ def install_system_dependencies():
     has_nvenc = False
     if shutil.which("ffmpeg"):
         try:
-            test_ret = run_cmd("ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=s=64x64:d=0.04 -c:v h264_nvenc -f null -", check=False)
+            test_ret = run_cmd("ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=s=256x256:d=0.04 -c:v h264_nvenc -f null -", check=False)
             if test_ret == 0:
                 has_nvenc = True
                 log_success("FFmpeg existente validado com aceleracao funcional h264_nvenc (GPU).")
@@ -178,7 +178,7 @@ def install_system_dependencies():
                 "| tar -xJ --strip-components=1 -C /usr/local/bin/ --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'",
                 check=False
             )
-            test_ret = run_cmd("/usr/local/bin/ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=s=64x64:d=0.04 -c:v h264_nvenc -f null -", check=False)
+            test_ret = run_cmd("/usr/local/bin/ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=s=256x256:d=0.04 -c:v h264_nvenc -f null -", check=False)
             if test_ret == 0:
                 has_nvenc = True
                 log_success("FFmpeg BtbN compilado com NVENC validado com sucesso na GPU T4.")

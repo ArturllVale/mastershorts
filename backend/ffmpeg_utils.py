@@ -150,7 +150,7 @@ def _probe_nvenc():
 
     cmd_test = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-        "-f", "lavfi", "-i", "color=s=64x64:d=0.04",
+        "-f", "lavfi", "-i", "color=s=256x256:d=0.04",
         "-c:v", "h264_nvenc",
         "-f", "null", "-"
     ]
