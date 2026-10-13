@@ -326,8 +326,26 @@ def wait_for_service(url: str, name: str, timeout: int = 120, check_fn=None):
     return False
 
 
+def kill_stale_processes():
+    """Mata qualquer processo antigo ainda rodando em portas 8000, 3100 e 5173."""
+    log_info("Garantindo limpeza de processos antigos em background...")
+    if sys.platform != "win32":
+        try:
+            subprocess.run(["fuser", "-k", "8000/tcp", "3100/tcp", "5173/tcp"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        except Exception:
+            pass
+        for pattern in ["uvicorn app:app", "dist/server.js", "vite", "cloudflared tunnel"]:
+            try:
+                subprocess.run(["pkill", "-9", "-f", pattern], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            except Exception:
+                pass
+        time.sleep(1)
+
+
 def start_services(base_dir: Path):
     log_step("5/7", "Inicializacao dos Servicos em Background")
+
+    kill_stale_processes()
 
     env = os.environ.copy()
     env["SHARED_OUTPUT_DIR"] = str(base_dir / "output")
