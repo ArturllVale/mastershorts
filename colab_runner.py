@@ -163,28 +163,29 @@ def install_system_dependencies():
     has_nvenc = False
     if shutil.which("ffmpeg"):
         try:
-            encoders = run_cmd("ffmpeg -hide_banner -encoders", capture=True)
-            if "h264_nvenc" in encoders:
+            test_ret = run_cmd("ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=s=64x64:d=0.04 -c:v h264_nvenc -f null -", check=False)
+            if test_ret == 0:
                 has_nvenc = True
-                log_success("FFmpeg existente ja possui suporte a h264_nvenc (Hardware GPU).")
+                log_success("FFmpeg existente validado com aceleracao funcional h264_nvenc (GPU).")
         except Exception:
             pass
 
     if not has_nvenc:
-        log_info("Instalando build estatico otimizado do FFmpeg com suporte NVIDIA NVENC...")
+        log_info("Instalando build estatico otimizado do FFmpeg com suporte NVIDIA NVENC (BtbN)...")
         try:
             run_cmd(
                 "wget -qO- https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz "
                 "| tar -xJ --strip-components=1 -C /usr/local/bin/ --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'",
                 check=False
             )
-            encoders = run_cmd("ffmpeg -hide_banner -encoders", capture=True)
-            if "h264_nvenc" in encoders:
-                log_success("FFmpeg compilado com NVENC instalado com sucesso.")
+            test_ret = run_cmd("/usr/local/bin/ffmpeg -y -hide_banner -loglevel error -f lavfi -i color=s=64x64:d=0.04 -c:v h264_nvenc -f null -", check=False)
+            if test_ret == 0:
+                has_nvenc = True
+                log_success("FFmpeg BtbN compilado com NVENC validado com sucesso na GPU T4.")
             else:
-                log_warn("NVENC nao detectado no binario; o sistema utilizara fallback CPU (libx264).")
+                log_warn("NVENC indisponivel no hardware atual; fallback CPU (libx264) ativo.")
         except Exception as e:
-            log_warn(f"Instalacao do FFmpeg com NVENC falhou ({e}). Utilizando pacote apt.")
+            log_warn(f"Instalacao do FFmpeg com NVENC falhou ({e}). Utilizando pacote padrao.")
             run_cmd("apt-get install -y -qq ffmpeg", check=False)
 
 

@@ -13,11 +13,58 @@ _model = None
 _face_detection = None
 
 
+class _FallbackDetection:
+    def __init__(self, location_data):
+        self.location_data = location_data
+
+class _FallbackLocationData:
+    def __init__(self, relative_bounding_box):
+        self.relative_bounding_box = relative_bounding_box
+
+class _FallbackBoundingBox:
+    def __init__(self, xmin, ymin, width, height):
+        self.xmin = xmin
+        self.ymin = ymin
+        self.width = width
+        self.height = height
+
+class _FallbackResults:
+    def __init__(self, detections):
+        self.detections = detections
+
+class _YoloFaceDetectorAdapter:
+    """Fallback detector using YOLOv8 person detection when MediaPipe solutions is unavailable."""
+    def process(self, rgb_frame):
+        yolo_box = detect_person_yolo(rgb_frame)
+        if not yolo_box:
+            return _FallbackResults([])
+        h, w = rgb_frame.shape[:2]
+        x, y, bw, bh = yolo_box
+        bbox = _FallbackBoundingBox(max(0.0, x / w), max(0.0, y / h), min(1.0, bw / w), min(1.0, bh / h))
+        loc = _FallbackLocationData(bbox)
+        return _FallbackResults([_FallbackDetection(loc)])
+
+
 def _get_face_detector():
     global _face_detection
     if _face_detection is None:
-        mp_face_detection = mp.solutions.face_detection
-        _face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+        try:
+            from mediapipe.python.solutions import face_detection as mp_face_detection
+            _face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+        except Exception:
+            try:
+                import mediapipe.solutions.face_detection as mp_face_detection
+                _face_detection = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+            except Exception:
+                try:
+                    import mediapipe as mp
+                    if hasattr(mp, "solutions"):
+                        _face_detection = mp.solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+                    else:
+                        raise AttributeError("no solutions attribute in mediapipe")
+                except Exception as e:
+                    print(f"⚠️ MediaPipe FaceDetection unavailable ({e}) — activating YOLOv8 adapter.", flush=True)
+                    _face_detection = _YoloFaceDetectorAdapter()
     return _face_detection
 
 
