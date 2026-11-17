@@ -1,94 +1,63 @@
-import pytest
+"""Fast, deterministic pipeline benchmark with schema-correct fake LLM stages.
+
+Unlike the historical test, mock outputs must match the CURRENT anchor,
+score and detail schemas and use real candidate ids. No Gemini calls.
+"""
 import time
-import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
+
 
 @pytest.fixture
 def mock_video_17min():
-    """Mock a 17-minute video transcript."""
-    video_duration = 17 * 60
-    # Simulate roughly 150 words per minute -> 2550 words
+    duration = 17 * 60
     words = []
     for i in range(2550):
         start = i * 0.4
-        end = start + 0.3
-        words.append({'word': f'word_{i}', 'start': start, 'end': end, 'text': f'word_{i}'})
-    
-    transcript = {
-        'language': 'pt',
-        'segments': [
-            {'start': 0, 'end': video_duration, 'words': words}
-        ]
-    }
-    return transcript, video_duration
+        words.append({"word": f"word_{i}", "start": start,
+                      "end": start + 0.3, "text": f"word_{i}"})
+    return {"language": "pt", "segments": [
+        {"start": 0, "end": duration,
+         "text": " ".join(w["word"] for w in words),
+         "words": words}]}, duration
 
-@patch('backend.gemini_worker.genai.Client')
-def test_17min_video_performance_benchmark(mock_genai, mock_video_17min):
-    from backend.viral_analysis import get_viral_clips
-    import backend.llm_backend as llm_backend
-    
+
+def test_17min_video_performance_benchmark(mock_video_17min):
+    from backend import viral_analysis as va
+
     transcript, duration = mock_video_17min
-    
-    # Mock LLM active locally? Let's say we use Gemini
-    llm_backend.active = MagicMock(return_value=False)
-    
-    mock_client = MagicMock()
-    mock_genai.return_value = mock_client
-    
-    # Mock responses
-    def mock_generate_content(*args, **kwargs):
-        # We need to simulate the latency and output
-        # PASS 1: ScoreResponse
-        prompt = kwargs.get('contents')[1] if 'contents' in kwargs and len(kwargs.get('contents')) > 1 else ''
-        if 'SCORE_PROMPT_TEMPLATE' in str(prompt) or 'pontuar' in str(prompt).lower():
-            # mock pass 1
-            response = MagicMock()
-            # 3 windows
-            response.text = json.dumps({
-                "windows": [
-                    {"id": f"win_{i}", "score": 90 - i} for i in range(10)
-                ]
-            })
-            return response
-        else:
-            # mock pass 2
-            response = MagicMock()
-            response.text = json.dumps({
-                "shorts": [
-                    {
-                        "start": 0, "end": 45, 
-                        "source_window_id": "win_0", 
-                        "predicted_score": 95, 
-                        "explanation": "test"
-                    }
-                ]
-            })
-            return response
-            
-    mock_client.models.generate_content.side_effect = mock_generate_content
+    stages = []
 
-    # Measure performance
-    import os
-    os.environ['GEMINI_API_KEY'] = 'test-key'
-    
-    start_time = time.time()
-    
-    with patch('backend.viral_analysis.clip_duration_bounds', return_value=(30, 60)), \
-         patch('backend.viral_analysis.clip_count_targets', return_value=(3, 10)), \
-         patch('backend.viral_analysis.score_batch_size', return_value=15), \
-         patch('backend.viral_analysis.detail_batch_size', return_value=8):
-         
-         result = get_viral_clips(transcript, duration, "Test Video")
-    
-    end_time = time.time()
-    total_time = end_time - start_time
-    
-    assert result is not None
-    assert 'shorts' in result
-    
-    # Validate it didn't take excessively long in code paths
-    # (Not counting actual network wait, which is mocked, but verifying the logic doesn't loop infinitely)
-    assert total_time < 5.0 
-    
-    print(f"Benchmark completed in {total_time:.2f}s")
-    print(f"Total LLM calls mocked: {mock_client.models.generate_content.call_count}")
+    def fake_stage(client, model, items, build_prompt, schema, key, costs, label):
+        stages.append(schema.__name__)
+        if schema.__name__ == "AnchorResponse":
+            return [{"id": "a_001", "start": 45, "end": 55,
+                     "text": "interesting moment", "anchor_type": "story"}]
+        if schema.__name__ == "ScoreResponse":
+            return [{"id": c["id"], "start": c["start"], "end": c["end"],
+                     "score": 95} for c in items]
+        if schema.__name__ == "DetailResponse":
+            return [{"source_window_id": c["id"], "start": c["start"],
+                     "end": c["end"], "predicted_score": 95,
+                     "explanation": "Strong payoff"} for c in items]
+        raise AssertionError(f"Unexpected schema: {schema.__name__}")
+
+    def fake_pair(client, model, prompt, schema):
+        return {"winner": {"winner_id": "c_001", "reason": "best hook"}}, None
+
+    started = time.monotonic()
+    with patch.object(va.llm_backend, "active", return_value=False), \
+         patch.object(va.genai, "Client"), \
+         patch.object(va, "_run_stage_split", side_effect=fake_stage), \
+         patch.object(va, "_run_gemini_stage", side_effect=fake_pair), \
+         patch("clip_metadata.clean_or_generate_clip_metadata"):
+        result = va.get_viral_clips(transcript, duration, "Test Video")
+
+    elapsed = time.monotonic() - started
+    assert result["shorts"]
+    assert all(s["predicted_score"] >= 83 for s in result["shorts"])
+    assert "AnchorResponse" in stages
+    assert "ScoreResponse" in stages
+    assert "DetailResponse" in stages
+    assert elapsed < 5.0, f"Pure Python selection too slow: {elapsed:.2f}s"
