@@ -200,6 +200,13 @@ export default function SettingsView({
             </div>
           </div>
 
+          {hybridVision && llmProvider !== 'gemini' && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted">Chave Gemini para análise visual (separada do provedor de texto):</p>
+              <KeyInput onKeySet={setApiKey} savedKey={apiKey} />
+            </div>
+          )}
+
           {/* Active Provider Configuration */}
           {llmProvider === 'gemini' ? (
             <KeyInput onKeySet={setApiKey} savedKey={apiKey} />
