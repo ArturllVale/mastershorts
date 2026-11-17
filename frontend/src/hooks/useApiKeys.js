@@ -54,6 +54,13 @@ export function useApiKeys() {
     return '';
   });
 
+  // Per-job opt-in: separate from the LLM provider choice.
+  const [hybridVision, setHybridVisionState] = useState(() => localStorage.getItem('ms_hybrid_vision') === '1');
+  const setHybridVision = (enabled) => {
+    setHybridVisionState(Boolean(enabled));
+    localStorage.setItem('ms_hybrid_vision', enabled ? '1' : '0');
+  };
+
   // Saving methods that persist to localStorage (encrypting as needed)
   const saveApiKey = (key) => {
     setApiKey(key);
@@ -124,6 +131,8 @@ export function useApiKeys() {
   return {
     apiKey,
     setApiKey: saveApiKey,
+    hybridVision,
+    setHybridVision,
     llmProvider,
     setLlmProvider: saveLlmProvider,
     saveLlmProvider,
