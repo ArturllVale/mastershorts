@@ -77,7 +77,7 @@ export default function OpenAiEndpointInput({
 
   const applyPreset = (preset) => {
     // Never carry a secret from one host (e.g. NVIDIA) to another (Deploy).
-    if (baseUrl.trim().replace(/\\/$/, '') !== preset.url.replace(/\\/$/, '')) setApiKey('');
+    if (baseUrl.trim().replace(/\/$/, '') !== preset.url.replace(/\/$/, '')) setApiKey('');
     setBaseUrl(preset.url);
     setModel(preset.model);
     if (preset.fallbackModels !== undefined) {
