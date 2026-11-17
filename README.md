@@ -211,3 +211,33 @@ Para garantir que o FFmpeg está usando sua GPU (`h264_nvenc`):
 
 **Proprietário e Confidencial.** Todos os direitos reservados.  
 Este software é privado e de uso restrito. Nenhuma parte deste código-fonte pode ser copiada, distribuída, sublicenciada, modificada ou utilizada comercialmente sem autorização prévia por escrito do autor.
+
+
+---
+
+## Descoberta híbrida de momentos virais (experimental)
+
+Para conteúdo baseado em **gameplay, lives, reações e humor visual**, habilite:
+
+```env
+HYBRID_VISION=1
+```
+
+O pipeline existente continua identificando cortes pelo texto. Com essa opção ativa,
+o Gemini também **assiste ao vídeo** e propõe trechos visuais, mesmo quando a live
+contém bastante fala. Os resultados são intercalados, com remoção de trechos
+fortemente sobrepostos, e mantêm a estrutura já usada no renderizador.
+Sem a opção, o comportamento anterior permanece. Vídeos sem fala utilizam
+a rota visual existente automaticamente.
+
+**Custos e limites:** exige `GEMINI_API_KEY` e a chamada visual extra pode aumentar
+consideravelmente o custo de processamento e o tempo de execução, especialmente
+em lives longas. Não use o modo híbrido sem monitorar consumo da API. Ele
+não verifica chat da transmissão, eventos do jogo ou direitos de uso dos vídeos,
+e nenhum modelo consegue assegurar que um corte será viral.
+
+**Qualidade:** rode `PYTHONPATH=backend pytest -q tests/test_hybrid_selection.py`
+e teste com vídeos reais. Compare diversidade, precisão dos timestamps,
+ausência de duplicações e cortes com começo/contexto/desfecho coerentes.
+A pontuação de modelos diferentes não é diretamente comparável; por isso
+a mesclagem intercala candidatos em vez de somar scores arbitrários.
