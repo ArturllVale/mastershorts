@@ -55,7 +55,7 @@ export default function SettingsView({
             onChange={(e) => setHybridVision?.(e.target.checked)} className="w-5 h-5 accent-violet shrink-0" />
         </div>
         {hybridVision && !apiKey && !isManaged && <p className="text-xs text-amber-600">Informe também uma chave Gemini: provedores de texto (Deploy/NVIDIA) não substituem a análise visual de vídeo.</p>}
-        <p className="text-[11px] text-muted">O custo depende da duração e da resolução do vídeo, do modelo e dos tokens gerados. A opção permanece desligada até você habilitá-la.</p>
+        <p className="text-[11px] text-muted">Estimativa da passagem visual extra, com Gemini 3.1 Flash-Lite: 10 minutos ≈ US$ 0,02–0,05; 60 minutos ≈ US$ 0,12–0,29 em tokens de entrada (resolução baixa–alta). Tokens de saída e demais etapas são cobrados à parte. O uso real varia.</p>
       </div>
 
       {isManaged ? (
