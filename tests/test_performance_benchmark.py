@@ -47,7 +47,8 @@ def test_17min_video_performance_benchmark(mock_video_17min):
         return {"winner": {"winner_id": "c_001", "reason": "best hook"}}, None
 
     started = time.monotonic()
-    with patch.object(va.llm_backend, "active", return_value=False), \
+    with patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}), \
+         patch.object(va.llm_backend, "active", return_value=False), \
          patch.object(va.genai, "Client"), \
          patch.object(va, "_run_stage_split", side_effect=fake_stage), \
          patch.object(va, "_run_gemini_stage", side_effect=fake_pair), \
