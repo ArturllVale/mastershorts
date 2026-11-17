@@ -76,6 +76,8 @@ export default function OpenAiEndpointInput({
   };
 
   const applyPreset = (preset) => {
+    // Never carry a secret from one host (e.g. NVIDIA) to another (Deploy).
+    if (baseUrl.trim().replace(/\\/$/, '') !== preset.url.replace(/\\/$/, '')) setApiKey('');
     setBaseUrl(preset.url);
     setModel(preset.model);
     if (preset.fallbackModels !== undefined) {
@@ -211,6 +213,11 @@ export default function OpenAiEndpointInput({
             type="text"
             value={baseUrl}
             onChange={(e) => {
+              try {
+                const previousHost = new URL(baseUrl).host;
+                const nextHost = new URL(e.target.value).host;
+                if (previousHost !== nextHost) setApiKey('');
+              } catch { setApiKey(''); }
               setBaseUrl(e.target.value);
               setIsSaved(false);
               setTestStatus(null);
