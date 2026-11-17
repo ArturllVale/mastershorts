@@ -217,11 +217,7 @@ Este software é privado e de uso restrito. Nenhuma parte deste código-fonte po
 
 ## Descoberta híbrida de momentos virais (experimental)
 
-Para conteúdo baseado em **gameplay, lives, reações e humor visual**, habilite:
-
-```env
-HYBRID_VISION=1
-```
+Para conteúdo baseado em **gameplay, lives, reações e humor visual**, abra **Configurações do Sistema** e ative **Descoberta híbrida de cortes**. A configuração é persistida no navegador e enviada por trabalho (`hybrid_vision`) ao backend; não é necessário editar o `.env`. A configuração do servidor `HYBRID_VISION` é sobreposta pela escolha explícita de cada novo trabalho.
 
 O pipeline existente continua identificando cortes pelo texto. Com essa opção ativa,
 o Gemini também **assiste ao vídeo** e propõe trechos visuais, mesmo quando a live
@@ -230,7 +226,7 @@ fortemente sobrepostos, e mantêm a estrutura já usada no renderizador.
 Sem a opção, o comportamento anterior permanece. Vídeos sem fala utilizam
 a rota visual existente automaticamente.
 
-**Custos e limites:** exige `GEMINI_API_KEY` e a chamada visual extra pode aumentar
+**Custos e limites:** exige uma chave Gemini, inclusive quando o seletor de texto estiver em Deploy/NVIDIA. A chamada visual extra pode aumentar
 consideravelmente o custo de processamento e o tempo de execução, especialmente
 em lives longas. Não use o modo híbrido sem monitorar consumo da API. Ele
 não verifica chat da transmissão, eventos do jogo ou direitos de uso dos vídeos,
@@ -241,3 +237,22 @@ e teste com vídeos reais. Compare diversidade, precisão dos timestamps,
 ausência de duplicações e cortes com começo/contexto/desfecho coerentes.
 A pontuação de modelos diferentes não é diretamente comparável; por isso
 a mesclagem intercala candidatos em vez de somar scores arbitrários.
+
+
+### Provedores de modelos no frontend
+
+Em **Configurações → Provedor de IA → Endpoint OpenAI → Predefinições Rápidas**, há presets de:
+
+- **Deploy (SF1)**: `https://api-sf1.deploy.com/api/v1`; modelo `deepseek-ai/deepseek-v4.1-flash-1017`.
+- **Deploy (VA1)**: `https://api-va1.deploy.com/api/v1` para contas Virginia.
+- **NVIDIA NIM**: `https://integrate.api.nvidia.com/v1`; modelo padrão `nvidia/nemotron-3-super-120b-a12b` (ajustável).
+
+Use o campo **Chave de API** do endpoint: **nunca** coloque chaves em arquivos versionados ou links públicos. As chaves atuais do navegador usam Base64 no `localStorage`, **não criptografia real**: não utilizar em computadores compartilhados ou com extensões não confiáveis. Para ambientes multiusuário, migrar para armazenamento seguro no servidor.
+
+### Enquadramento de duas pessoas
+
+No frontend, **Automático + vídeo vertical** agora solicita `auto,split`: em cenas com dois participantes distintos e detectáveis, o renderizador utiliza crops empilhados (participante à esquerda na metade superior e à direita na inferior). Requer dois rostos simultaneamente visíveis com separação suficiente; cenas sem esses sinais mantêm o enquadramento anterior. A opção manual **Dois oradores empilhados (Split)** permanece. Também foi corrigida a importação do detector facial em `split_layout.py`.
+
+### Estimativa de custo visual Gemini 3.1 Flash-Lite (tarifas de novembro de 2026)
+
+A chamada visual de vídeo utiliza aproximadamente **100 tokens/s** de entrada em resolução baixa, ou **300 tokens/s** em alta. A taxa de entrada de vídeo/imagem é US$0,25 por milhão, áudio US$0,50 por milhão e saída US$1,50 por milhão. Para uma live de 60 min, estime **~US$0,12 (baixa)** ou **~US$0,29 (alta)** apenas em entradas multimodais, mais saída, metadados e outras chamadas. São projeções, não cobranças garantidas. Uma sessão de 10 min equivale aproximadamente a US$0,02–0,05 em entrada. Referências oficiais: https://ai.google.dev/gemini-api/docs/video-understanding e https://ai.google.dev/gemini-api/docs/pricing. Verifique sempre a fatura real e a resolução efetiva do modelo.
