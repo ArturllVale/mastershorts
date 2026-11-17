@@ -77,6 +77,7 @@ function App() {
     llmFallbackModels, setLlmFallbackModels,
     openrouterApiKey, setOpenrouterApiKey,
     mistralApiKey, setMistralApiKey,
+    hybridVision, setHybridVision,
     handleClipStateChange, handleClipRerendered,
     handleRetry, isRetrying,
     handleDeleteProject, isDeleting,
@@ -253,6 +254,8 @@ function App() {
               setOpenrouterApiKey={setOpenrouterApiKey}
               mistralApiKey={mistralApiKey}
               setMistralApiKey={setMistralApiKey}
+              hybridVision={hybridVision}
+              setHybridVision={setHybridVision}
             />
           )}
 
