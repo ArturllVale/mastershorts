@@ -376,6 +376,8 @@ Return only:
 """
 
 DETAIL_PROMPT_TEMPLATE = """
+ABOUT THIS MOMENT, NOT THE VIDEO: write hooks about the specific selected action,
+revelation or payoff, never generic summaries of the source video's topic.
 You are a senior short-form video editor.
 Choose the BEST short clips from these shortlisted candidate windows.
 
