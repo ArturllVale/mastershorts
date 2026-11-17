@@ -346,6 +346,23 @@ if __name__ == '__main__':
                     if transcript is not None:
                         target_lang = os.environ.get("TARGET_LANGUAGE")
                         clips_data = get_viral_clips(transcript, duration, video_title=video_title, target_language=target_lang)
+                        # Optional multimodal discovery for gameplay/streams. The existing
+                        # transcript selection stays unchanged unless explicitly enabled.
+                        # Gemini actually watches the video; never infer visual events
+                        # from words alone. A failed vision pass must not discard speech.
+                        if os.environ.get("HYBRID_VISION", "").strip().lower() in ("1", "true", "yes", "on"):
+                            try:
+                                vision_data = get_visual_clips(input_video, duration,
+                                    language=(target_lang or transcript.get("language") or "en"))
+                                if vision_data and vision_data.get("shorts"):
+                                    from hybrid_selection import combine_clip_results
+                                    from clip_selection import clip_count_targets
+                                    _, max_hybrid = clip_count_targets(max(1, int(duration // 90)))
+                                    clips_data = combine_clip_results(
+                                        clips_data, vision_data, duration, max_clips=max_hybrid)
+                                    print(f"🎥 Hybrid discovery: {len(clips_data['shorts'])} unique highlights", flush=True)
+                            except Exception as vision_error:
+                                print(f"⚠️ Hybrid vision unavailable; keeping transcript clips: {vision_error}", flush=True)
                     else:
                         clips_data = get_visual_clips(input_video, duration)
                         
