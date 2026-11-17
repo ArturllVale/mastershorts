@@ -345,7 +345,41 @@ if __name__ == '__main__':
                     analysis_start = time.time()
                     if transcript is not None:
                         target_lang = os.environ.get("TARGET_LANGUAGE")
-                        clips_data = get_viral_clips(transcript, duration, video_title=video_title, target_language=target_lang)
+                        hybrid_enabled = os.environ.get("HYBRID_VISION", "").strip().lower() in ("1", "true", "yes", "on")
+                        if hybrid_enabled:
+                            # A stream may have abundant speech but no worthwhile
+                            # speech-based candidates. In hybrid mode the visual
+                            # pass must still run even after NoCandidates.
+                            speech_data = None
+                            try:
+                                speech_data = get_viral_clips(transcript, duration,
+                                    video_title=video_title, target_language=target_lang)
+                            except NoCandidates:
+                                print("ℹ️ No transcript highlights; trying visual discovery.", flush=True)
+
+                            vision_data = None
+                            try:
+                                vision_data = get_visual_clips(input_video, duration,
+                                    language=(target_lang or transcript.get("language") or "en"))
+                            except (InvalidModelOutput, TransientLLMError, DependencyError) as vision_error:
+                                if speech_data is None or not speech_data.get("shorts"):
+                                    raise
+                                print(f"⚠️ Hybrid vision unavailable; keeping transcript clips: {vision_error}", flush=True)
+
+                            if vision_data and vision_data.get("shorts"):
+                                from hybrid_selection import combine_clip_results
+                                from clip_selection import clip_count_targets
+                                _, max_hybrid = clip_count_targets(max(1, int(duration // 90)))
+                                clips_data = combine_clip_results(
+                                    speech_data, vision_data, duration, max_clips=max_hybrid)
+                                print(f"🎥 Hybrid discovery: {len(clips_data['shorts'])} unique highlights", flush=True)
+                            elif speech_data and speech_data.get("shorts"):
+                                clips_data = speech_data
+                            else:
+                                raise NoCandidates("Neither transcript nor video produced usable clips.")
+                        else:
+                            clips_data = get_viral_clips(transcript, duration,
+                                video_title=video_title, target_language=target_lang)
                     else:
                         clips_data = get_visual_clips(input_video, duration)
                         

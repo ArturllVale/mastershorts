@@ -3,6 +3,24 @@ import { Terminal, Eye, EyeOff, Check, Loader2, Sparkles, Server, AlertCircle, L
 
 const PRESETS = [
   {
+    name: 'Deploy (SF1)',
+    url: 'https://api-sf1.deploy.com/api/v1',
+    model: 'deepseek-ai/deepseek-v4.1-flash-1017',
+    fallbackModels: '',
+  },
+  {
+    name: 'Deploy (VA1)',
+    url: 'https://api-va1.deploy.com/api/v1',
+    model: 'deepseek-ai/deepseek-v4.1-flash-1017',
+    fallbackModels: '',
+  },
+  {
+    name: 'NVIDIA NIM',
+    url: 'https://integrate.api.nvidia.com/v1',
+    model: 'nvidia/nemotron-3-super-120b-a12b',
+    fallbackModels: '',
+  },
+  {
     name: 'OmniRoute (Local)',
     url: 'http://localhost:20128/v1',
     model: 'auto',
@@ -58,6 +76,8 @@ export default function OpenAiEndpointInput({
   };
 
   const applyPreset = (preset) => {
+    // Never carry a secret from one host (e.g. NVIDIA) to another (Deploy).
+    if (baseUrl.trim().replace(/\/$/, '') !== preset.url.replace(/\/$/, '')) setApiKey('');
     setBaseUrl(preset.url);
     setModel(preset.model);
     if (preset.fallbackModels !== undefined) {
@@ -156,7 +176,7 @@ export default function OpenAiEndpointInput({
               <span className="badge-ok text-[10px] uppercase font-semibold">BYOK / Local</span>
             </div>
             <p className="text-xs text-muted mt-1 leading-relaxed">
-              OmniRoute, Ollama, LM Studio, vLLM, OpenRouter ou NVIDIA NIM com suporte a modelos locais ou customizados.
+              Deploy (DeepSeek 4.1 Flash), NVIDIA NIM, OmniRoute, Ollama e outros endpoints OpenAI-compatible. Selecione a região correta na Deploy (SF1 ou VA1), preencha sua chave secreta e salve.
             </p>
           </div>
         </div>
@@ -193,6 +213,11 @@ export default function OpenAiEndpointInput({
             type="text"
             value={baseUrl}
             onChange={(e) => {
+              try {
+                const previousHost = new URL(baseUrl).host;
+                const nextHost = new URL(e.target.value).host;
+                if (previousHost !== nextHost) setApiKey('');
+              } catch { setApiKey(''); }
               setBaseUrl(e.target.value);
               setIsSaved(false);
               setTestStatus(null);

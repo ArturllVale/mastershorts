@@ -24,6 +24,8 @@ export default function SettingsView({
   setOpenrouterApiKey,
   mistralApiKey = '',
   setMistralApiKey,
+  hybridVision = false,
+  setHybridVision,
 }) {
   return (
     <div className="h-full p-4 sm:p-6 md:p-8 max-w-5xl mx-auto animate-fade">
@@ -41,6 +43,19 @@ export default function SettingsView({
           <Shield size={13} className="text-ok shrink-0" />
           <span>Privacidade Total · Armazenamento Local</span>
         </div>
+      </div>
+
+      <div className="card p-5 sm:p-6 border border-rule/80 rounded-panel mb-6 space-y-3">
+        <div className="flex justify-between items-center gap-4">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Descoberta híbrida de cortes (vídeo + fala)</h2>
+            <p className="text-xs text-muted mt-1">Analisa também reações visuais e jogadas, mesmo quando há bastante fala. Adiciona uma chamada Gemini de vídeo e pode aumentar custos/tokens.</p>
+          </div>
+          <input type="checkbox" aria-label="Ativar descoberta híbrida" checked={hybridVision}
+            onChange={(e) => setHybridVision?.(e.target.checked)} className="w-5 h-5 accent-violet shrink-0" />
+        </div>
+        {hybridVision && !apiKey && !isManaged && <p className="text-xs text-amber-600">Informe também uma chave Gemini: provedores de texto (Deploy/NVIDIA) não substituem a análise visual de vídeo.</p>}
+        <p className="text-[11px] text-muted">Estimativa da passagem visual extra, com Gemini 3.1 Flash-Lite: 10 minutos ≈ US$ 0,02–0,05; 60 minutos ≈ US$ 0,12–0,29 em tokens de entrada (resolução baixa–alta). Tokens de saída e demais etapas são cobrados à parte. O uso real varia.</p>
       </div>
 
       {isManaged ? (
@@ -184,6 +199,13 @@ export default function SettingsView({
               </button>
             </div>
           </div>
+
+          {hybridVision && llmProvider !== 'gemini' && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted">Chave Gemini para análise visual (separada do provedor de texto):</p>
+              <KeyInput onKeySet={setApiKey} savedKey={apiKey} />
+            </div>
+          )}
 
           {/* Active Provider Configuration */}
           {llmProvider === 'gemini' ? (

@@ -19,7 +19,7 @@ python-multipart==0.0.32
 httpx==0.28.1
 Pillow==12.3.0
 beautifulsoup4==4.15.0
-SQLAlchemy>=2.0.0
+SQLAlchemy[asyncio]>=2.0.0
 aiofiles>=23.2.1
 prisma>=0.13.1
 nest_asyncio==1.6.0

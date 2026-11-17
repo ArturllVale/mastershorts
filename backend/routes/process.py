@@ -179,6 +179,7 @@ async def process_endpoint(
     max_minutes: Optional[str] = Form(None),
     force_rerun: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
+    hybrid_vision: Optional[str] = Form(None),
 ):
     req_llm_base = request.headers.get("X-LLM-Base-URL") or request.headers.get("x-llm-base-url")
     req_llm_model = request.headers.get("X-LLM-Model") or request.headers.get("x-llm-model")
@@ -203,6 +204,7 @@ async def process_endpoint(
         force_low = bool(body.get("force_low_quality"))
         output_format = body.get("output_format")
         layouts = body.get("layouts")
+        hybrid_vision = body.get("hybrid_vision")
         webhook_url = body.get("webhook_url")
         webhook_secret = body.get("webhook_secret")
         target_clips = body.get("target_clips")
@@ -389,6 +391,12 @@ async def process_endpoint(
         print(f"[language] job={job_id} target_language={env['TARGET_LANGUAGE']}")
 
 
+    # Per-job hybrid mode. Never rely on a global environment switch when the
+    # user controls this in Settings. Explicit off also overrides server env.
+    env["HYBRID_VISION"] = "1" if str(hybrid_vision).lower() in ("1", "true", "yes", "on") else "0"
+    if env["HYBRID_VISION"] == "1" and api_key:
+        env["GEMINI_API_KEY"] = api_key
+
     # Optional layouts are per job. The renderer reads these at import time in
     # the subprocess, so they must be set before Popen — same path WATERMARK
     # already takes.
@@ -557,6 +565,7 @@ async def process_endpoint(
         "captions": env.get("AUTO_CAPTIONS") != "0",
         "max_minutes": max_minutes,
         "llm_model": req_llm_model,
+        "hybrid_vision": env["HYBRID_VISION"],
     }
     config_hash = compute_config_hash(config_dict)
     

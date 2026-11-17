@@ -33,6 +33,7 @@ export function useAppController() {
     llmFallbackModels, setLlmFallbackModels,
     openrouterApiKey, setOpenrouterApiKey,
     mistralApiKey, setMistralApiKey,
+    hybridVision, setHybridVision,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey
   } = useApiKeys();
@@ -270,6 +271,7 @@ export function useAppController() {
         if (openrouterApiKey) headers['X-OpenRouter-Key'] = openrouterApiKey;
         if (mistralApiKey) headers['X-Mistral-Key'] = mistralApiKey;
       } else if (llmProvider === 'openai' && llmBaseUrl) {
+        if (hybridVision && apiKey) headers['X-Gemini-Key'] = apiKey;
         headers['X-LLM-Base-URL'] = llmBaseUrl;
         headers['X-LLM-Model'] = llmModel || 'llama3.1:8b';
         if (llmApiKey) {
@@ -287,10 +289,14 @@ export function useAppController() {
         clip_max_seconds: data.clipMaxSeconds || null,
         auto_hook: data.autoHook ? '1' : '0',
         auto_hook_style: data.autoHook ? (data.autoHookStyle || 'classic') : null,
-        layouts: data.layout && data.layout !== 'auto' ? data.layout : null,
+        // Auto uses stacked two-person framing whenever both faces are present.
+        // The geometry is still gated by scene detection; screencasts keep priority.
+        layouts: data.layout === 'auto' && (data.outputFormat || 'vertical') === 'vertical'
+          ? 'auto,split' : (data.layout && data.layout !== 'auto' ? data.layout : null),
         language: data.language || null,
         max_minutes: data.maxMinutes || null,
         llm_provider: llmProvider,
+        hybrid_vision: hybridVision ? 'true' : 'false',
         force_rerun: data.forceRerun ? 'true' : null,
         openrouter_key: (llmProvider === 'combo' && openrouterApiKey) ? openrouterApiKey : null,
         mistral_key: (llmProvider === 'combo' && mistralApiKey) ? mistralApiKey : null,
@@ -487,6 +493,7 @@ export function useAppController() {
     llmFallbackModels, setLlmFallbackModels,
     openrouterApiKey, setOpenrouterApiKey,
     mistralApiKey, setMistralApiKey,
+    hybridVision, setHybridVision,
     uploadPostKey, setUploadPostKey, saveUploadPostKey,
     falKey, setFalKey, saveFalKey,
     handleClipStateChange, handleClipRerendered, flushClipState,

@@ -133,3 +133,30 @@ class TestSplitFiltergraph:
     def test_both_halves_scale_to_the_same_size(self):
         graph = split_filtergraph(1920, 1080, 1080, 1920, (600, 400), (1400, 400))
         assert graph.count("scale=1080:960") == 2
+
+
+def test_detector_can_find_two_speakers_without_name_error(monkeypatch):
+    """Regression: detect_split_scenes once referenced 'detection' without importing it."""
+    import cv2
+    import detection
+    import numpy as np
+    from types import SimpleNamespace
+
+    class FakeCapture:
+        def isOpened(self): return True
+        def get(self, prop):
+            return {cv2.CAP_PROP_FPS: 30.0,
+                    cv2.CAP_PROP_FRAME_WIDTH: 1920,
+                    cv2.CAP_PROP_FRAME_COUNT: 600}.get(prop, 0)
+        def set(self, prop, value): return True
+        def read(self): return True, np.full((60, 100, 3), 128, dtype=np.uint8)
+        def release(self): pass
+
+    monkeypatch.setattr(cv2, "VideoCapture", lambda *_: FakeCapture())
+    monkeypatch.setattr(detection, "detect_face_candidates", lambda _: two_shot())
+    monkeypatch.setattr(split_layout, "ENABLED", True)
+    scenes = [(SimpleNamespace(frame_num=0), SimpleNamespace(frame_num=600))]
+    result = split_layout.detect_split_scenes("dummy.mp4", scenes, ["GENERAL"], samples=8)
+    assert 0 in result
+    left, right = result[0]
+    assert left[0] < right[0]

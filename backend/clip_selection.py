@@ -183,8 +183,8 @@ def trim_to_best(shorts, max_clips):
 
 def clip_duration_bounds():
     """The clip length band (seconds) the selection prompts and word-snapping
-    enforce. ``CLIP_MIN_SECONDS`` / ``CLIP_MAX_SECONDS`` override the classic
-    15-60 — set per job by /api/process when the user asks for a specific
+    enforce. ``CLIP_MIN_SECONDS`` / ``CLIP_MAX_SECONDS`` override the current
+    60-120 — set per job by /api/process when the user asks for a specific
     length, or by hand for A/B runs. Values are clamped to platform-sane
     limits and re-ordered so bad input degrades instead of breaking the job.
     """
